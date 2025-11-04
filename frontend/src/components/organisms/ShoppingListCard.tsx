@@ -1,24 +1,25 @@
-import { Card } from '@/components/atoms/Card'
-import { IconButton } from '@/components/atoms/IconButton'
-import type { ShoppingList } from '@/types/shoppingList'
-import { motion } from 'framer-motion'
+import { Card } from "@/components/atoms/Card";
+import { IconButton } from "@/components/atoms/IconButton";
+import type { ShoppingList } from "@/types/shoppingList";
+import { motion } from "framer-motion";
 
 interface ShoppingListCardProps {
-  list: ShoppingList
-  onClick: () => void
-  onDelete?: (listId: number) => void
+  list: ShoppingList;
+  onClick: () => void;
+  onDelete?: (listId: number) => void;
 }
 
-export function ShoppingListCard({ list, onClick, onDelete }: ShoppingListCardProps) {
-  const itemCount = list.items?.length || 0
-  const checkedCount = list.items?.filter((item) => item.checked).length || 0
-
+export function ShoppingListCard({
+  list,
+  onClick,
+  onDelete,
+}: ShoppingListCardProps) {
   const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation()
+    e.stopPropagation();
     if (onDelete && confirm(`Delete "${list.name}"?`)) {
-      onDelete(list.id)
+      onDelete(list.id);
     }
-  }
+  };
 
   return (
     <motion.div
@@ -45,48 +46,6 @@ export function ShoppingListCard({ list, onClick, onDelete }: ShoppingListCardPr
                 {list.description}
               </p>
             )}
-
-            <div className="flex items-center gap-4 text-sm text-gray-600">
-              <div className="flex items-center gap-1">
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                  />
-                </svg>
-                <span>
-                  {itemCount} {itemCount === 1 ? 'item' : 'items'}
-                </span>
-              </div>
-
-              {itemCount > 0 && (
-                <div className="flex items-center gap-1">
-                  <svg
-                    className="w-4 h-4 text-green-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                  <span>
-                    {checkedCount}/{itemCount} checked
-                  </span>
-                </div>
-              )}
-            </div>
           </div>
 
           {onDelete && (
@@ -97,7 +56,12 @@ export function ShoppingListCard({ list, onClick, onDelete }: ShoppingListCardPr
               aria-label={`Delete ${list.name}`}
               className="opacity-0 group-hover:opacity-100 transition-opacity"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -110,5 +74,5 @@ export function ShoppingListCard({ list, onClick, onDelete }: ShoppingListCardPr
         </div>
       </Card>
     </motion.div>
-  )
+  );
 }

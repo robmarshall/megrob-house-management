@@ -3,7 +3,13 @@ import { useNavigate } from "react-router";
 import { motion } from "framer-motion";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Dialog, Transition } from "@headlessui/react";
+import {
+  Dialog,
+  Transition,
+  DialogPanel,
+  TransitionChild,
+  DialogTitle,
+} from "@headlessui/react";
 import { ShoppingListCard } from "@/components/organisms/ShoppingListCard";
 import { EmptyState } from "@/components/molecules/EmptyState";
 import { Button } from "@/components/atoms/Button";
@@ -187,7 +193,7 @@ export function ShoppingListsPage() {
 
       <Transition appear show={isCreateModalOpen} as={Fragment}>
         <Dialog as="div" className="relative z-50" onClose={handleCloseModal}>
-          <Transition.Child
+          <TransitionChild
             as={Fragment}
             enter="ease-out duration-300"
             enterFrom="opacity-0"
@@ -197,11 +203,11 @@ export function ShoppingListsPage() {
             leaveTo="opacity-0"
           >
             <div className="fixed inset-0 bg-black/25" />
-          </Transition.Child>
+          </TransitionChild>
 
           <div className="fixed inset-0 overflow-y-auto">
             <div className="flex min-h-full items-center justify-center p-4">
-              <Transition.Child
+              <TransitionChild
                 as={Fragment}
                 enter="ease-out duration-300"
                 enterFrom="opacity-0 scale-95"
@@ -210,10 +216,10 @@ export function ShoppingListsPage() {
                 leaveFrom="opacity-100 scale-100"
                 leaveTo="opacity-0 scale-95"
               >
-                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 shadow-xl transition-all">
-                  <Dialog.Title className="text-lg font-medium text-gray-900 mb-4">
+                <DialogPanel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 shadow-xl transition-all">
+                  <DialogTitle className="text-lg font-medium text-gray-900 mb-4">
                     Create New Shopping List
-                  </Dialog.Title>
+                  </DialogTitle>
 
                   <FormProvider {...methods}>
                     <form
@@ -252,8 +258,8 @@ export function ShoppingListsPage() {
                       </div>
                     </form>
                   </FormProvider>
-                </Dialog.Panel>
-              </Transition.Child>
+                </DialogPanel>
+              </TransitionChild>
             </div>
           </div>
         </Dialog>

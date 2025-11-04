@@ -1,4 +1,10 @@
-import { Dialog, Transition } from "@headlessui/react";
+import {
+  Dialog,
+  Transition,
+  DialogPanel,
+  TransitionChild,
+  DialogTitle,
+} from "@headlessui/react";
 import { Fragment, type ReactNode } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { IconButton } from "./IconButton";
@@ -20,7 +26,7 @@ export default function BottomSheet({
     <Transition show={isOpen} as={Fragment}>
       <Dialog onClose={onClose} className="relative z-50">
         {/* Backdrop */}
-        <Transition.Child
+        <TransitionChild
           as={Fragment}
           enter="ease-out duration-300"
           enterFrom="opacity-0"
@@ -30,10 +36,10 @@ export default function BottomSheet({
           leaveTo="opacity-0"
         >
           <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-        </Transition.Child>
+        </TransitionChild>
 
         {/* Bottom Sheet Panel */}
-        <Transition.Child
+        <TransitionChild
           as={Fragment}
           enter="ease-out duration-300"
           enterFrom="translate-y-full"
@@ -43,13 +49,13 @@ export default function BottomSheet({
           leaveTo="translate-y-full"
         >
           <div className="fixed inset-x-0 bottom-0 flex items-end justify-center">
-            <Dialog.Panel className="w-full max-w-2xl bg-white rounded-t-2xl shadow-xl overflow-hidden max-h-[80vh] flex flex-col">
+            <DialogPanel className="w-full max-w-2xl bg-white rounded-t-2xl shadow-xl overflow-hidden max-h-[80vh] flex flex-col">
               {/* Header */}
               <div className="flex items-center justify-between p-4 border-b border-gray-200">
                 {title && (
-                  <Dialog.Title className="text-lg font-semibold text-gray-900">
+                  <DialogTitle className="text-lg font-semibold text-gray-900">
                     {title}
-                  </Dialog.Title>
+                  </DialogTitle>
                 )}
                 {!title && <div />}
                 <IconButton
@@ -63,9 +69,9 @@ export default function BottomSheet({
 
               {/* Content */}
               <div className="overflow-y-auto p-4">{children}</div>
-            </Dialog.Panel>
+            </DialogPanel>
           </div>
-        </Transition.Child>
+        </TransitionChild>
       </Dialog>
     </Transition>
   );
