@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { useForm } from 'react-hook-form'
+import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useAuth } from '@/hooks/useAuth'
 import { loginSchema, type LoginFormData } from '@/lib/schemas'
-import { FormField } from '@/components/molecules/FormField'
+import { Input } from '@/components/atoms/Input'
 import { Button } from '@/components/atoms/Button'
 import { ErrorMessage } from '@/components/atoms/ErrorMessage'
 
@@ -13,11 +13,7 @@ export function LoginForm() {
   const { signIn } = useAuth()
   const [formError, setFormError] = useState<string | null>(null)
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<LoginFormData>({
+  const methods = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: '',
@@ -37,41 +33,41 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <FormField
-        label="Email"
-        type="email"
-        error={errors.email?.message}
-        required
-        autoComplete="email"
-        disabled={isSubmitting}
-        {...register('email')}
-      />
+    <FormProvider {...methods}>
+      <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-6">
+        <Input
+          name="email"
+          label="Email"
+          type="email"
+          required
+          autoComplete="email"
+          disabled={methods.formState.isSubmitting}
+        />
 
-      <FormField
-        label="Password"
-        type="password"
-        error={errors.password?.message}
-        required
-        autoComplete="current-password"
-        disabled={isSubmitting}
-        {...register('password')}
-      />
+        <Input
+          name="password"
+          label="Password"
+          type="password"
+          required
+          autoComplete="current-password"
+          disabled={methods.formState.isSubmitting}
+        />
 
-      {formError && <ErrorMessage message={formError} />}
+        {formError && <ErrorMessage message={formError} />}
 
-      <div className="flex flex-col gap-4">
-        <Button type="submit" isLoading={isSubmitting} className="w-full">
-          Sign In
-        </Button>
+        <div className="flex flex-col gap-4">
+          <Button type="submit" isLoading={methods.formState.isSubmitting} className="w-full">
+            Sign In
+          </Button>
 
-        <Link
-          to="/reset-password"
-          className="text-sm text-primary-600 hover:text-primary-700 text-center"
-        >
-          Forgot your password?
-        </Link>
-      </div>
-    </form>
+          <Link
+            to="/reset-password"
+            className="text-sm text-primary-600 hover:text-primary-700 text-center"
+          >
+            Forgot your password?
+          </Link>
+        </div>
+      </form>
+    </FormProvider>
   )
 }

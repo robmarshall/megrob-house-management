@@ -8,6 +8,7 @@ import {
   useShoppingListItems,
   useShoppingListItemData,
 } from "@/hooks/shoppingList/useShoppingListItems";
+import type { BadgeVariant } from "@/components/atoms/Badge";
 
 export function ShoppingListDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -16,13 +17,16 @@ export function ShoppingListDetailPage() {
 
   const { data: list, isLoading: listLoading } = useShoppingList(listId);
   const { data: items, isLoading: itemsLoading } = useShoppingListItems(listId);
-  const { create: createItem, edit: editItem, delete: deleteItem } =
-    useShoppingListItemData(listId);
+  const {
+    create: createItem,
+    edit: editItem,
+    delete: deleteItem,
+  } = useShoppingListItemData(listId);
   const { delete: deleteList } = useShoppingListData();
 
   const isLoading = listLoading || itemsLoading;
 
-  const handleAddItem = async (name: string, category?: string) => {
+  const handleAddItem = async (name: string, category?: BadgeVariant) => {
     await createItem({
       name,
       category,

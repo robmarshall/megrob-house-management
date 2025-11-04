@@ -5,8 +5,8 @@
  * const { create, edit, delete: deleteItem, isLoading } = useData<MyType>("my-collection");
  */
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiPost, apiPatch, apiDelete } from '@/lib/api/client';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api/client';
 import { collectionKey } from '@/lib/api/queryKeys';
 
 interface UseDataReturn<T> {
@@ -16,14 +16,33 @@ interface UseDataReturn<T> {
   isLoading: boolean;
 }
 
+interface UseDataWithGetReturn<T> extends UseDataReturn<T> {
+  data: T | undefined;
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => void;
+}
+
 /**
- * Hook for managing single-item CRUD operations
+ * Hook for managing single-item CRUD operations and optionally fetching a single item
  *
  * @param collection - The API collection name (e.g., "shopping-lists")
- * @returns Object with create, edit, delete mutation functions
+ * @param id - Optional ID for fetching a single item
+ * @returns Object with create, edit, delete mutation functions, and query data if id provided
  */
-export function useData<T>(collection: string): UseDataReturn<T> {
+export function useData<T>(collection: string): UseDataReturn<T>;
+export function useData<T>(collection: string, id: string | number): UseDataWithGetReturn<T>;
+export function useData<T>(collection: string, id?: string | number): UseDataReturn<T> | UseDataWithGetReturn<T> {
   const queryClient = useQueryClient();
+
+  // Get single item query (only if id is provided)
+  const query = useQuery({
+    queryKey: [collection, 'detail', id],
+    queryFn: async () => {
+      return apiGet<T>(`/api/${collection}/${id}`);
+    },
+    enabled: id !== undefined,
+  });
 
   // Create mutation
   const createMutation = useMutation({
@@ -31,8 +50,12 @@ export function useData<T>(collection: string): UseDataReturn<T> {
       return apiPost<T>(`/api/${collection}`, data);
     },
     onSuccess: () => {
-      // Invalidate all queries for this collection
-      queryClient.invalidateQueries({ queryKey: collectionKey(collection) });
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && key[0] === collection;
+        },
+      });
     },
   });
 
@@ -48,8 +71,12 @@ export function useData<T>(collection: string): UseDataReturn<T> {
       return apiPatch<T>(`/api/${collection}/${id}`, data);
     },
     onSuccess: () => {
-      // Invalidate all queries for this collection
-      queryClient.invalidateQueries({ queryKey: collectionKey(collection) });
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && key[0] === collection;
+        },
+      });
     },
   });
 
@@ -59,13 +86,17 @@ export function useData<T>(collection: string): UseDataReturn<T> {
       return apiDelete<void>(`/api/${collection}/${id}`);
     },
     onSuccess: () => {
-      // Invalidate all queries for this collection
-      queryClient.invalidateQueries({ queryKey: collectionKey(collection) });
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && key[0] === collection;
+        },
+      });
     },
   });
 
-  // Return mutation functions with simplified API
-  return {
+  // Base return object with mutation functions
+  const baseReturn = {
     create: (data: Partial<T>) => createMutation.mutateAsync(data),
     edit: (id: string | number, data: Partial<T>) =>
       editMutation.mutateAsync({ id, data }),
@@ -75,4 +106,17 @@ export function useData<T>(collection: string): UseDataReturn<T> {
       editMutation.isPending ||
       deleteMutation.isPending,
   };
+
+  // If id is provided, include query data
+  if (id !== undefined) {
+    return {
+      ...baseReturn,
+      data: query.data,
+      isLoading: query.isLoading,
+      error: query.error,
+      refetch: query.refetch,
+    };
+  }
+
+  return baseReturn;
 }

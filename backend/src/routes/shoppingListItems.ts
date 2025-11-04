@@ -129,10 +129,10 @@ app.post('/:listId/items', async (c) => {
 });
 
 /**
- * PUT /api/shopping-lists/:listId/items/:itemId
+ * PATCH /api/shopping-lists/:listId/items/:itemId
  * Update a shopping list item
  */
-app.put('/:listId/items/:itemId', async (c) => {
+app.patch('/:listId/items/:itemId', async (c) => {
   const userId = getUserId(c);
   const listId = parseInt(c.req.param('listId'));
   const itemId = parseInt(c.req.param('itemId'));

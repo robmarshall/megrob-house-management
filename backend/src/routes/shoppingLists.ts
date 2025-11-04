@@ -118,10 +118,10 @@ app.get('/:id', async (c) => {
 });
 
 /**
- * PUT /api/shopping-lists/:id
+ * PATCH /api/shopping-lists/:id
  * Update a shopping list
  */
-app.put('/:id', async (c) => {
+app.patch('/:id', async (c) => {
   const userId = getUserId(c);
   const id = parseInt(c.req.param('id'));
 

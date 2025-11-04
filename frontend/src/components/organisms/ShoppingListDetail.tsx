@@ -1,22 +1,22 @@
-import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { ListHeader } from '@/components/molecules/ListHeader'
-import { AddItemInput } from '@/components/molecules/AddItemInput'
-import { ShoppingListItem } from '@/components/molecules/ShoppingListItem'
-import { EmptyState } from '@/components/molecules/EmptyState'
-import { IconButton } from '@/components/atoms/IconButton'
-import type { ShoppingList, ShoppingListItem as ShoppingListItemType } from '@/types/shoppingList'
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ListHeader } from "@/components/molecules/ListHeader";
+import { AddItemInput } from "@/components/molecules/AddItemInput";
+import { ShoppingListItem } from "@/components/molecules/ShoppingListItem";
+import { EmptyState } from "@/components/molecules/EmptyState";
+import { IconButton } from "@/components/atoms/IconButton";
+import type { ShoppingList } from "@/types/shoppingList";
 
 interface ShoppingListDetailProps {
-  list: ShoppingList
-  onBack?: () => void
-  onAddItem: (name: string, category?: string) => Promise<void>
-  onToggleItem: (itemId: number) => Promise<void>
-  onDeleteItem: (itemId: number) => Promise<void>
-  onDeleteList?: () => Promise<void>
+  list: ShoppingList;
+  onBack?: () => void;
+  onAddItem: (name: string, category?: string) => Promise<void>;
+  onToggleItem: (itemId: number) => Promise<void>;
+  onDeleteItem: (itemId: number) => Promise<void>;
+  onDeleteList?: () => Promise<void>;
 }
 
-type FilterType = 'all' | 'active' | 'completed'
+type FilterType = "all" | "active" | "completed";
 
 export function ShoppingListDetail({
   list,
@@ -26,24 +26,31 @@ export function ShoppingListDetail({
   onDeleteItem,
   onDeleteList,
 }: ShoppingListDetailProps) {
-  const [filter, setFilter] = useState<FilterType>('all')
-  const [categoryFilter, setCategoryFilter] = useState<string>('')
+  const [filter, setFilter] = useState<FilterType>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("");
 
-  const items = list.items || []
+  const items = list.items || [];
 
   // Apply filters
   const filteredItems = items.filter((item) => {
-    if (filter === 'active' && item.checked) return false
-    if (filter === 'completed' && !item.checked) return false
-    if (categoryFilter && item.category !== categoryFilter) return false
-    return true
-  })
+    if (filter === "active" && item.checked) return false;
+    if (filter === "completed" && !item.checked) return false;
+    if (categoryFilter && item.category?.toLowerCase() !== categoryFilter.toLowerCase()) return false;
+    return true;
+  });
 
-  // Get unique categories
-  const categories = Array.from(new Set(items.map((item) => item.category).filter(Boolean)))
+  // Get unique categories with normalized capitalization
+  const categories = Array.from(
+    new Set(
+      items
+        .map((item) => item.category)
+        .filter(Boolean)
+        .map((cat) => cat!.charAt(0).toUpperCase() + cat!.slice(1).toLowerCase())
+    )
+  ) as string[];
 
-  const checkedCount = items.filter((item) => item.checked).length
-  const totalCount = items.length
+  const checkedCount = items.filter((item) => item.checked).length;
+  const totalCount = items.length;
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -53,12 +60,12 @@ export function ShoppingListDetail({
         staggerChildren: 0.05,
       },
     },
-  }
+  };
 
   const itemVariants = {
     hidden: { opacity: 0, x: -20 },
     show: { opacity: 1, x: 0 },
-  }
+  };
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -75,7 +82,12 @@ export function ShoppingListDetail({
                 onClick={onDeleteList}
                 aria-label="Delete list"
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -97,31 +109,31 @@ export function ShoppingListDetail({
         <div className="mb-4 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setFilter('all')}
+              onClick={() => setFilter("all")}
               className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                filter === 'all'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                filter === "all"
+                  ? "bg-primary-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
               All ({totalCount})
             </button>
             <button
-              onClick={() => setFilter('active')}
+              onClick={() => setFilter("active")}
               className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                filter === 'active'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                filter === "active"
+                  ? "bg-primary-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
               Active ({totalCount - checkedCount})
             </button>
             <button
-              onClick={() => setFilter('completed')}
+              onClick={() => setFilter("completed")}
               className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                filter === 'completed'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                filter === "completed"
+                  ? "bg-primary-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
               Completed ({checkedCount})
@@ -163,14 +175,12 @@ export function ShoppingListDetail({
             </svg>
           }
           title={
-            items.length === 0
-              ? 'No items yet'
-              : 'No items match your filters'
+            items.length === 0 ? "No items yet" : "No items match your filters"
           }
           description={
             items.length === 0
-              ? 'Add your first item to get started'
-              : 'Try adjusting your filters to see more items'
+              ? "Add your first item to get started"
+              : "Try adjusting your filters to see more items"
           }
         />
       ) : (
@@ -180,17 +190,26 @@ export function ShoppingListDetail({
           animate="show"
           className="space-y-2"
         >
-          {filteredItems.map((item) => (
-            <motion.div key={item.id} variants={itemVariants}>
-              <ShoppingListItem
-                item={item}
-                onToggle={onToggleItem}
-                onDelete={onDeleteItem}
-              />
-            </motion.div>
-          ))}
+          <AnimatePresence>
+            {filteredItems.map((item) => (
+              <motion.div
+                key={item.id}
+                variants={itemVariants}
+                initial="hidden"
+                animate="show"
+                exit="hidden"
+                layout
+              >
+                <ShoppingListItem
+                  item={item}
+                  onToggle={onToggleItem}
+                  onDelete={onDeleteItem}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </motion.div>
       )}
     </div>
-  )
+  );
 }

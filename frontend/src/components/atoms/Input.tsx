@@ -1,25 +1,32 @@
-import { forwardRef, type Ref } from 'react'
-import { useFormContext, type RegisterOptions } from 'react-hook-form'
-import { InputWrapper } from '@/components/molecules/InputWrapper'
-import { cn } from '@/lib/utils'
+import { forwardRef, type Ref } from "react";
+import { useFormContext, type RegisterOptions } from "react-hook-form";
+import { InputWrapper } from "@/components/molecules/InputWrapper";
+import { cn } from "@/lib/utils";
 
 export interface InputProps {
-  endAdornment?: React.ReactNode
-  description?: string
-  disabled?: boolean
-  hideLabel?: boolean
-  id?: string
-  inputProps?: React.InputHTMLAttributes<HTMLInputElement>
-  label?: string
-  name: string
-  placeholder?: string
-  required?: boolean | string
-  startAdornment?: React.ReactNode
-  type?: string
+  autoComplete?: string;
+  endAdornment?: React.ReactNode;
+  description?: string;
+  disabled?: boolean;
+  hideLabel?: boolean;
+  id?: string;
+  inputProps?: React.InputHTMLAttributes<HTMLInputElement>;
+  label?: string;
+  name: string;
+  placeholder?: string;
+  required?: boolean | string;
+  startAdornment?: React.ReactNode;
+  type?: string;
   rules?: Pick<
     RegisterOptions,
-    'maxLength' | 'minLength' | 'validate' | 'required' | 'pattern' | 'min' | 'max'
-  >
+    | "maxLength"
+    | "minLength"
+    | "validate"
+    | "required"
+    | "pattern"
+    | "min"
+    | "max"
+  >;
 }
 
 /**
@@ -30,17 +37,17 @@ export interface InputProps {
 export const Input = forwardRef(function Input(
   {
     endAdornment = null,
-    description = '',
+    description = "",
     disabled = false,
     hideLabel = false,
-    id = '',
+    id = "",
     inputProps = {},
-    label = '',
+    label = "",
     name,
-    placeholder = '',
+    placeholder = "",
     required = false,
     startAdornment = null,
-    type = 'text',
+    type = "text",
     rules = {},
     ...rest
   }: InputProps,
@@ -49,33 +56,37 @@ export const Input = forwardRef(function Input(
   const {
     register,
     formState: { errors },
-  } = useFormContext()
+  } = useFormContext();
 
-  const error = errors[name]
-  const errorMessage = error?.message as string | undefined
+  const error = errors[name];
+  const errorMessage = error?.message as string | undefined;
 
   const requiredMessage =
-    typeof required === 'string' ? required : required ? 'This field is required' : false
+    typeof required === "string"
+      ? required
+      : required
+      ? "This field is required"
+      : false;
 
   const { ref: rhfRef, ...rhfRest } = register(name, {
     required: requiredMessage,
     ...rules,
-  })
+  });
 
   const baseClasses = cn(
-    'block w-full rounded-md border-0 py-1.5 mt-2',
-    'text-gray-900 shadow-sm ring-1 ring-inset',
-    'placeholder:text-gray-400',
-    'focus:ring-2 focus:ring-inset focus:ring-primary-600',
-    'sm:text-sm sm:leading-6',
+    "block w-full rounded-md border-0 py-1.5 mt-2",
+    "text-gray-900 shadow-sm ring-1 ring-inset",
+    "placeholder:text-gray-400",
+    "focus:ring-2 focus:ring-inset focus:ring-primary-600",
+    "sm:text-sm sm:leading-6",
     errorMessage
-      ? 'text-red-900 ring-red-300 focus:ring-red-500'
-      : 'ring-gray-300',
-    startAdornment && 'pl-10',
-    endAdornment && 'pr-10'
-  )
+      ? "text-red-900 ring-red-300 focus:ring-red-500"
+      : "ring-gray-300",
+    startAdornment && "pl-10",
+    endAdornment && "pr-10"
+  );
 
-  const inputId = id || name
+  const inputId = id || name;
 
   return (
     <InputWrapper
@@ -95,7 +106,7 @@ export const Input = forwardRef(function Input(
         )}
         <input
           {...(description && {
-            'aria-describedby': `${inputId}-description`,
+            "aria-describedby": `${inputId}-description`,
           })}
           aria-invalid={Boolean(errorMessage)}
           aria-required={Boolean(required)}
@@ -108,9 +119,9 @@ export const Input = forwardRef(function Input(
           {...rhfRest}
           {...rest}
           ref={(e) => {
-            rhfRef(e)
+            rhfRef(e);
             if (ref && e) {
-              ;(ref as React.MutableRefObject<HTMLInputElement>).current = e
+              (ref as React.MutableRefObject<HTMLInputElement>).current = e;
             }
           }}
         />
@@ -121,5 +132,5 @@ export const Input = forwardRef(function Input(
         )}
       </div>
     </InputWrapper>
-  )
-})
+  );
+});

@@ -57,7 +57,8 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
     try {
       const errorData = await response.json();
-      errorMessage = errorData.message || errorMessage;
+      // Backend returns { error: '...' } but also check for { message: '...' }
+      errorMessage = errorData.error || errorData.message || errorMessage;
       errorDetails = errorData.details;
     } catch {
       // If response is not JSON, use status text

@@ -1,3 +1,5 @@
+import type { BadgeVariant } from "@/components/atoms/Badge";
+
 /**
  * Shopping List TypeScript Interfaces
  * These types match the backend database schema
@@ -26,7 +28,7 @@ export interface ShoppingListItem {
   id: number;
   listId: number;
   name: string;
-  category?: string | null;
+  category?: BadgeVariant | null;
   quantity: string | number; // Stored as numeric in DB, returned as string
   unit?: string | null;
   notes?: string | null;

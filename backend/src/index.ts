@@ -8,10 +8,34 @@ import shoppingListItemsRoutes from './routes/shoppingListItems.js';
 
 dotenv.config();
 
+// Validate required environment variables
+const requiredEnvVars = [
+  'DATABASE_URL',
+  'SUPABASE_URL',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'FRONTEND_URL',
+];
+
+const missingEnvVars = requiredEnvVars.filter((varName) => !process.env[varName]);
+
+if (missingEnvVars.length > 0) {
+  console.error('❌ Missing required environment variables:');
+  missingEnvVars.forEach((varName) => {
+    console.error(`   - ${varName}`);
+  });
+  console.error('\nPlease check your .env file and ensure all required variables are set.');
+  process.exit(1);
+}
+
 const app = new Hono();
 
-// Middleware
-app.use('/*', cors());
+// Middleware - Configure CORS with specific origin
+app.use('/*', cors({
+  origin: process.env.FRONTEND_URL!,
+  credentials: true,
+  allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+}));
 
 // Health check routes (public, no auth required)
 app.get('/', (c) => {

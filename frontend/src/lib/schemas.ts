@@ -63,3 +63,11 @@ export const updateShoppingListItemSchema = z.object({
 })
 
 export type UpdateShoppingListItemFormData = z.infer<typeof updateShoppingListItemSchema>
+
+// Quick Add Item Schema (for AddItemInput component)
+export const quickAddItemSchema = z.object({
+  name: z.string().min(1, 'Item name is required').max(100, 'Name must be less than 100 characters'),
+  category: z.string().max(50, 'Category must be less than 50 characters').optional(),
+})
+
+export type QuickAddItemFormData = z.infer<typeof quickAddItemSchema>

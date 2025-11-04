@@ -1,5 +1,5 @@
 import { useFormContext, type RegisterOptions } from 'react-hook-form'
-import { ErrorMessage } from '@/components/atoms/ErrorMessage'
+import { InputWrapper } from '@/components/molecules/InputWrapper'
 import { cn } from '@/lib/utils'
 
 interface CheckboxProps {
@@ -18,10 +18,11 @@ interface CheckboxProps {
 }
 
 /**
- * This component is a React Hook Form wrapper for the checkbox element.
- * It uses useFormContext to automatically register with the form.
+ * React Hook Form integrated checkbox component.
+ * Uses useFormContext for automatic registration with forms.
+ * Must be used within a FormProvider context.
  *
- * Note: If links are needed in the label, they must be passed in as HTML using anchor tags.
+ * Note: Supports HTML in labels for links.
  * e.g. label="I agree to the <a href='https://example.com'>terms and conditions</a>."
  */
 export function Checkbox({
@@ -46,30 +47,27 @@ export function Checkbox({
   const error = errors[name]
   const errorMessage = error?.message as string | undefined
 
-  let baseClasses = 'sm:col-span-4'
-  if (disabled && !inGroup) baseClasses += ' opacity-50'
-
-  let inputClasses = cn(
+  const inputClasses = cn(
     'h-4 w-4 rounded border text-primary-600 focus:ring-primary-600',
     errorMessage ? 'border-red-300' : 'border-gray-300'
   )
 
-  let labelClasses = cn(
+  const labelContainerClasses = cn(
     'block text-sm leading-6',
-    small ? 'ml-2 text-xs' : 'ml-3 text-sm',
-    errorMessage ? 'text-gray-900' : 'text-gray-900'
+    small ? 'ml-2 text-xs' : 'ml-3 text-sm'
   )
-
-  if (large) {
-    baseClasses += ' mb-2'
-  }
 
   const requiredMessage =
     typeof required === 'string' ? required : required ? 'This field is required' : false
 
   return (
-    <div className={baseClasses}>
-      <div className="relative flex items-start">
+    <InputWrapper
+      id={id}
+      error={inGroup ? undefined : errorMessage}
+      disabled={disabled}
+      required={Boolean(required)}
+    >
+      <div className={cn('relative flex items-start', large && 'mb-2')}>
         <div className="flex h-6 items-center">
           <input
             {...(description && {
@@ -89,7 +87,7 @@ export function Checkbox({
             })}
           />
         </div>
-        <div className={labelClasses}>
+        <div className={labelContainerClasses}>
           <label
             htmlFor={id}
             dangerouslySetInnerHTML={{ __html: label }}
@@ -102,7 +100,6 @@ export function Checkbox({
           )}
         </div>
       </div>
-      {errorMessage && !inGroup && <ErrorMessage message={errorMessage} />}
-    </div>
+    </InputWrapper>
   )
 }

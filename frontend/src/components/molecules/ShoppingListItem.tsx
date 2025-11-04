@@ -1,79 +1,96 @@
-import { useState } from 'react'
-import { Checkbox } from '@/components/atoms/Checkbox'
-import { Badge } from '@/components/atoms/Badge'
-import { IconButton } from '@/components/atoms/IconButton'
-import { cn } from '@/lib/utils'
-import type { ShoppingListItem as ShoppingListItemType } from '@/types/shoppingList'
+import { useState } from "react";
+import { ControlledCheckbox } from "@/components/atoms/ControlledCheckbox";
+import { Badge } from "@/components/atoms/Badge";
+import { IconButton } from "@/components/atoms/IconButton";
+import { cn } from "@/lib/utils";
+import type { ShoppingListItem as ShoppingListItemType } from "@/types/shoppingList";
 
 interface ShoppingListItemProps {
-  item: ShoppingListItemType
-  onToggle: (itemId: number) => Promise<void> | void
-  onDelete: (itemId: number) => Promise<void> | void
+  item: ShoppingListItemType;
+  onToggle: (itemId: number) => Promise<void> | void;
+  onDelete: (itemId: number) => Promise<void> | void;
 }
 
-export function ShoppingListItem({ item, onToggle, onDelete }: ShoppingListItemProps) {
-  const [isToggling, setIsToggling] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
+export function ShoppingListItem({
+  item,
+  onToggle,
+  onDelete,
+}: ShoppingListItemProps) {
+  const [isToggling, setIsToggling] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleToggle = async () => {
-    setIsToggling(true)
+    setIsToggling(true);
     try {
-      await onToggle(item.id)
+      await onToggle(item.id);
     } finally {
-      setIsToggling(false)
+      setIsToggling(false);
     }
-  }
+  };
 
   const handleDelete = async () => {
-    setIsDeleting(true)
+    setIsDeleting(true);
     try {
-      await onDelete(item.id)
+      await onDelete(item.id);
     } catch {
-      setIsDeleting(false)
+      setIsDeleting(false);
     }
-  }
+  };
+
+  const itemQuantity =
+    typeof item.quantity === "string"
+      ? parseFloat(item.quantity)
+      : item.quantity;
 
   return (
     <div
       className={cn(
-        'flex items-center gap-3 p-3 rounded-lg border border-gray-200',
-        'hover:bg-gray-50 transition-colors',
-        item.checked && 'bg-gray-50',
-        isDeleting && 'opacity-50 pointer-events-none'
+        "flex items-center gap-4 p-4 rounded-lg border border-gray-200",
+        "hover:bg-gray-50 transition-colors",
+        item.checked && "bg-gray-50",
+        isDeleting && "opacity-50 pointer-events-none"
       )}
     >
-      <Checkbox
+      <ControlledCheckbox
         checked={item.checked}
         onChange={handleToggle}
         disabled={isToggling}
-        aria-label={`Mark ${item.name} as ${item.checked ? 'unchecked' : 'checked'}`}
+        className="h-[30px] w-[30px] shrink-0 cursor-pointer"
+        aria-label={`Mark ${item.name} as ${
+          item.checked ? "unchecked" : "checked"
+        }`}
       />
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
+          {itemQuantity > 0 && (
+            <span
+              className={cn(
+                "text-lg font-medium text-gray-500",
+                item.checked && "line-through"
+              )}
+            >
+              {item.quantity}x
+            </span>
+          )}
           <span
             className={cn(
-              'text-sm font-medium text-gray-900',
-              item.checked && 'line-through text-gray-500'
+              "text-lg font-medium text-gray-900",
+              item.checked && "line-through text-gray-500"
             )}
           >
             {item.name}
           </span>
           {item.category && (
-            <Badge variant={item.category as any} className="text-xs">
+            <Badge variant={item.category} className="text-xs">
               {item.category}
             </Badge>
           )}
         </div>
 
-        {(item.quantity || item.unit || item.notes) && (
-          <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-            {item.quantity && item.quantity !== 1 && (
-              <span>
-                {item.quantity} {item.unit || 'items'}
-              </span>
-            )}
-            {item.notes && <span className="truncate">{item.notes}</span>}
+        {item.notes && (
+          <div className="mt-1 text-xs text-gray-500">
+            <span className="truncate">{item.notes}</span>
           </div>
         )}
       </div>
@@ -85,7 +102,12 @@ export function ShoppingListItem({ item, onToggle, onDelete }: ShoppingListItemP
         disabled={isDeleting}
         aria-label={`Delete ${item.name}`}
       >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -95,5 +117,5 @@ export function ShoppingListItem({ item, onToggle, onDelete }: ShoppingListItemP
         </svg>
       </IconButton>
     </div>
-  )
+  );
 }

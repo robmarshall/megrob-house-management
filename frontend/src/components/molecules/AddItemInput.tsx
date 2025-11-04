@@ -1,6 +1,8 @@
-import { useState, type FormEvent } from 'react'
+import { useForm, FormProvider, Controller } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Input } from '@/components/atoms/Input'
 import { Button } from '@/components/atoms/Button'
+import { quickAddItemSchema, type QuickAddItemFormData } from '@/lib/schemas'
 
 interface AddItemInputProps {
   onAdd: (name: string, category?: string) => Promise<void> | void
@@ -23,54 +25,58 @@ export function AddItemInput({
     'Other',
   ],
 }: AddItemInputProps) {
-  const [itemName, setItemName] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState<string>('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const methods = useForm<QuickAddItemFormData>({
+    resolver: zodResolver(quickAddItemSchema),
+    defaultValues: {
+      name: '',
+      category: '',
+    },
+  })
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-
-    if (!itemName.trim()) return
-
-    setIsSubmitting(true)
-    try {
-      await onAdd(itemName.trim(), selectedCategory || undefined)
-      setItemName('')
-      setSelectedCategory('')
-    } finally {
-      setIsSubmitting(false)
-    }
+  const onSubmit = async (data: QuickAddItemFormData) => {
+    await onAdd(data.name.trim(), data.category || undefined)
+    methods.reset()
   }
 
+  const isSubmitting = methods.formState.isSubmitting
+  const nameValue = methods.watch('name')
+
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2 items-start">
-      <div className="flex-1">
-        <Input
-          value={itemName}
-          onChange={(e) => setItemName(e.target.value)}
-          placeholder={placeholder}
-          disabled={isSubmitting}
-          className="w-full"
+    <FormProvider {...methods}>
+      <form onSubmit={methods.handleSubmit(onSubmit)} className="flex gap-2 items-start">
+        <div className="flex-1">
+          <Input
+            name="name"
+            placeholder={placeholder}
+            disabled={isSubmitting}
+            className="w-full"
+            hideLabel
+          />
+        </div>
+
+        <Controller
+          name="category"
+          control={methods.control}
+          render={({ field }) => (
+            <select
+              {...field}
+              disabled={isSubmitting}
+              className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
+            >
+              <option value="">Category</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          )}
         />
-      </div>
 
-      <select
-        value={selectedCategory}
-        onChange={(e) => setSelectedCategory(e.target.value)}
-        disabled={isSubmitting}
-        className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
-      >
-        <option value="">Category</option>
-        {categories.map((cat) => (
-          <option key={cat} value={cat.toLowerCase()}>
-            {cat}
-          </option>
-        ))}
-      </select>
-
-      <Button type="submit" disabled={!itemName.trim() || isSubmitting} isLoading={isSubmitting}>
-        Add
-      </Button>
-    </form>
+        <Button type="submit" disabled={!nameValue?.trim() || isSubmitting} isLoading={isSubmitting}>
+          Add
+        </Button>
+      </form>
+    </FormProvider>
   )
 }

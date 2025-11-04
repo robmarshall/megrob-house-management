@@ -1,16 +1,16 @@
-import { forwardRef, type ReactNode } from 'react'
-import { ErrorMessage } from '@/components/atoms/ErrorMessage'
+import { forwardRef, type ReactNode } from "react";
+import { ErrorMessage } from "@/components/atoms/ErrorMessage";
 
 interface InputWrapperProps {
-  actionLabel?: ReactNode
-  children: ReactNode
-  description?: string | ReactNode
-  disabled?: boolean
-  error?: string
-  hideLabel?: boolean
-  label: string
-  id: string
-  required?: boolean
+  actionLabel?: ReactNode;
+  children: ReactNode;
+  description?: string | ReactNode;
+  disabled?: boolean;
+  error?: string;
+  hideLabel?: boolean;
+  label?: string;
+  id: string;
+  required?: boolean;
 }
 
 /**
@@ -42,27 +42,29 @@ export const InputWrapper = forwardRef<HTMLDivElement, InputWrapperProps>(
     },
     ref
   ) {
-    let baseClasses = 'w-full relative'
+    let baseClasses = "w-full relative";
 
-    if (disabled) baseClasses += ' opacity-50'
+    if (disabled) baseClasses += " opacity-50";
 
     return (
       <div className={baseClasses} ref={ref}>
-        <div className={`flex justify-between${hideLabel ? ' sr-only' : ''}`}>
-          <label
-            htmlFor={id}
-            className="block text-sm font-medium leading-6 text-gray-900"
-          >
-            {label}
-            {required && (
-              <>
-                <span className="text-red-500 ml-1">*</span>
-                <span className="sr-only">(Required)</span>
-              </>
-            )}
-          </label>
-          {actionLabel && actionLabel}
-        </div>
+        {label && (
+          <div className={`flex justify-between${hideLabel ? " sr-only" : ""}`}>
+            <label
+              htmlFor={id}
+              className="block text-sm font-medium leading-6 text-gray-900"
+            >
+              {label}
+              {required && (
+                <>
+                  <span className="text-red-500 ml-1">*</span>
+                  <span className="sr-only">(Required)</span>
+                </>
+              )}
+            </label>
+            {actionLabel && actionLabel}
+          </div>
+        )}
         {description && (
           <p
             id={`${id}-description`}
@@ -74,6 +76,6 @@ export const InputWrapper = forwardRef<HTMLDivElement, InputWrapperProps>(
         {children}
         {error && <ErrorMessage message={error} />}
       </div>
-    )
+    );
   }
-)
+);
