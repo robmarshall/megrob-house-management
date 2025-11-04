@@ -1,0 +1,114 @@
+import { Card } from '@/components/atoms/Card'
+import { IconButton } from '@/components/atoms/IconButton'
+import type { ShoppingList } from '@/types/shoppingList'
+import { motion } from 'framer-motion'
+
+interface ShoppingListCardProps {
+  list: ShoppingList
+  onClick: () => void
+  onDelete?: (listId: number) => void
+}
+
+export function ShoppingListCard({ list, onClick, onDelete }: ShoppingListCardProps) {
+  const itemCount = list.items?.length || 0
+  const checkedCount = list.items?.filter((item) => item.checked).length || 0
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (onDelete && confirm(`Delete "${list.name}"?`)) {
+      onDelete(list.id)
+    }
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+    >
+      <Card
+        variant="elevated"
+        padding="lg"
+        className="cursor-pointer hover:shadow-xl transition-shadow"
+        onClick={onClick}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-semibold text-gray-900 truncate mb-1">
+              {list.name}
+            </h3>
+
+            {list.description && (
+              <p className="text-sm text-gray-500 line-clamp-2 mb-3">
+                {list.description}
+              </p>
+            )}
+
+            <div className="flex items-center gap-4 text-sm text-gray-600">
+              <div className="flex items-center gap-1">
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                  />
+                </svg>
+                <span>
+                  {itemCount} {itemCount === 1 ? 'item' : 'items'}
+                </span>
+              </div>
+
+              {itemCount > 0 && (
+                <div className="flex items-center gap-1">
+                  <svg
+                    className="w-4 h-4 text-green-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  <span>
+                    {checkedCount}/{itemCount} checked
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {onDelete && (
+            <IconButton
+              variant="ghost"
+              size="sm"
+              onClick={handleDelete}
+              aria-label={`Delete ${list.name}`}
+              className="opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+            </IconButton>
+          )}
+        </div>
+      </Card>
+    </motion.div>
+  )
+}

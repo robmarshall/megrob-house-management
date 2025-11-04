@@ -6,6 +6,8 @@ import { ProtectedRoute } from '@/guards/ProtectedRoute'
 import { LoginPage } from '@/pages/LoginPage'
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { HomePage } from '@/pages/HomePage'
+import { ShoppingListsPage } from '@/pages/ShoppingListsPage'
+import { ShoppingListDetailPage } from '@/pages/ShoppingListDetailPage'
 import { queryClient } from '@/lib/queryClient'
 
 function App() {
@@ -21,6 +23,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <HomePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/shopping-lists"
+              element={
+                <ProtectedRoute>
+                  <ShoppingListsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/shopping-lists/:id"
+              element={
+                <ProtectedRoute>
+                  <ShoppingListDetailPage />
                 </ProtectedRoute>
               }
             />

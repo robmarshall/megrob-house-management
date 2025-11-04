@@ -6,28 +6,7 @@
 import { useData } from '../useData';
 import { usePaginatedData } from '../usePaginatedData';
 import type { PaginationOptions } from '@/types/api';
-
-/**
- * Shopping list item interface
- * TODO: Move to proper types file when backend schema is finalized
- */
-export interface ShoppingListItem {
-  id: number;
-  listId: number;
-  name: string;
-  category?: string;
-  quantity: number;
-  unit?: string;
-  notes?: string;
-  checked: boolean;
-  checkedAt?: string;
-  checkedBy?: string;
-  position: number;
-  createdAt: string;
-  createdBy: string;
-  updatedAt: string;
-  updatedBy: string;
-}
+import type { ShoppingListItem } from '@/types/shoppingList';
 
 /**
  * Hook for fetching paginated items for a specific shopping list

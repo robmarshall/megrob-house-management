@@ -14,12 +14,14 @@ A full-stack monorepo project with separate frontend and backend applications.
 ## Tech Stack
 
 ### Backend
+
 - **Hono** - Fast, lightweight web framework
 - **Drizzle ORM** - TypeScript ORM for PostgreSQL
 - **Supabase** - PostgreSQL database
 - **TypeScript** - Type-safe development
 
 ### Frontend
+
 - **Vite** - Fast build tool
 - **React** - UI library
 - **TypeScript** - Type-safe development
@@ -27,6 +29,7 @@ A full-stack monorepo project with separate frontend and backend applications.
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js (v18 or higher)
 - npm
 - Supabase account (for database)
@@ -34,32 +37,38 @@ A full-stack monorepo project with separate frontend and backend applications.
 ### Backend Setup
 
 1. Navigate to the backend directory:
+
 ```bash
 cd backend
 ```
 
 2. Install dependencies:
+
 ```bash
 npm install
 ```
 
 3. Create a `.env` file based on `.env.example`:
+
 ```bash
 cp .env.example .env
 ```
 
 4. Update `.env` with your Supabase credentials:
+
 ```env
-DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
+SUPABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
 PORT=3000
 ```
 
 5. Generate and push the database schema:
+
 ```bash
 npm run db:push
 ```
 
 6. Start the development server:
+
 ```bash
 npm run dev
 ```
@@ -67,6 +76,7 @@ npm run dev
 The API will be running at `http://localhost:3000`
 
 #### Backend Scripts
+
 - `npm run dev` - Start development server with hot reload
 - `npm run build` - Build for production
 - `npm start` - Run production build
@@ -78,26 +88,31 @@ The API will be running at `http://localhost:3000`
 ### Frontend Setup
 
 1. Navigate to the frontend directory:
+
 ```bash
 cd frontend
 ```
 
 2. Install dependencies:
+
 ```bash
 npm install
 ```
 
 3. Create a `.env` file based on `.env.example`:
+
 ```bash
 cp .env.example .env
 ```
 
 4. Update `.env` with your backend API URL (default is fine for local dev):
+
 ```env
 VITE_API_URL=http://localhost:3000
 ```
 
 5. Start the development server:
+
 ```bash
 npm run dev
 ```
@@ -105,6 +120,7 @@ npm run dev
 The frontend will be running at `http://localhost:5173`
 
 #### Frontend Scripts
+
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
@@ -137,6 +153,7 @@ The backend uses Drizzle ORM with Supabase PostgreSQL:
 ### API Endpoints
 
 Example endpoints available in the backend:
+
 - `GET /` - Hello world
 - `GET /health` - Health check
 - `GET /users` - Get all users (example endpoint)

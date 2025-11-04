@@ -41,7 +41,10 @@
       "Bash(git init:*)",
       "mcp__serena__initial_instructions",
       "Bash(tree:*)",
-      "Bash(npx tailwindcss:*)"
+      "Bash(npx tailwindcss:*)",
+      "Bash(npm run db:push:*)",
+      "mcp__serena__check_onboarding_performed",
+      "mcp__serena__insert_before_symbol"
     ],
     "deny": []
   }
