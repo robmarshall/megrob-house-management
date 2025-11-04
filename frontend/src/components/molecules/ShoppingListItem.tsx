@@ -45,7 +45,7 @@ export function ShoppingListItem({
   return (
     <div
       className={cn(
-        "flex items-center gap-4 p-4 rounded-lg border border-gray-200",
+        "flex items-center gap-4 p-2 rounded-lg border border-gray-200",
         "hover:bg-gray-50 transition-colors",
         item.checked && "bg-gray-50",
         isDeleting && "opacity-50 pointer-events-none"
