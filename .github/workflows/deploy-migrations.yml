@@ -33,7 +33,7 @@ jobs:
       - name: Run database migrations
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npm run db:migrate
+        run: npm run db:push
 
       - name: Migration completed
         if: success()

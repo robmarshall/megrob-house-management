@@ -49,7 +49,8 @@
       "mcp__serena__write_memory",
       "mcp__serena__get_current_config",
       "Bash(git checkout:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": []
   }

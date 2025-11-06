@@ -5,9 +5,8 @@
  * const { create, edit, delete: deleteItem, isLoading } = useData<MyType>("my-collection");
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api/client';
-import { collectionKey } from '@/lib/api/queryKeys';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api/client";
 
 interface UseDataReturn<T> {
   create: (data: Partial<T>) => Promise<T>;
@@ -31,13 +30,19 @@ interface UseDataWithGetReturn<T> extends UseDataReturn<T> {
  * @returns Object with create, edit, delete mutation functions, and query data if id provided
  */
 export function useData<T>(collection: string): UseDataReturn<T>;
-export function useData<T>(collection: string, id: string | number): UseDataWithGetReturn<T>;
-export function useData<T>(collection: string, id?: string | number): UseDataReturn<T> | UseDataWithGetReturn<T> {
+export function useData<T>(
+  collection: string,
+  id: string | number
+): UseDataWithGetReturn<T>;
+export function useData<T>(
+  collection: string,
+  id?: string | number
+): UseDataReturn<T> | UseDataWithGetReturn<T> {
   const queryClient = useQueryClient();
 
   // Get single item query (only if id is provided)
   const query = useQuery({
-    queryKey: [collection, 'detail', id],
+    queryKey: [collection, "detail", id],
     queryFn: async () => {
       return apiGet<T>(`/api/${collection}/${id}`);
     },

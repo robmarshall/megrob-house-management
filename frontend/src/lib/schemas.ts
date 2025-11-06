@@ -1,5 +1,19 @@
 import { z } from 'zod'
 
+// Category enum for shopping list items
+const categoryEnum = [
+  'produce',
+  'dairy',
+  'meat',
+  'bakery',
+  'pantry',
+  'frozen',
+  'beverages',
+  'household',
+  'other',
+  'default'
+] as const
+
 export const loginSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Please enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
@@ -43,7 +57,7 @@ export type UpdateShoppingListFormData = z.infer<typeof updateShoppingListSchema
 
 export const createShoppingListItemSchema = z.object({
   name: z.string().min(1, 'Item name is required').max(100, 'Name must be less than 100 characters'),
-  category: z.string().max(50, 'Category must be less than 50 characters').optional(),
+  category: z.enum(categoryEnum).optional(),
   quantity: z.number().positive('Quantity must be positive').default(1),
   unit: z.string().max(20, 'Unit must be less than 20 characters').optional(),
   notes: z.string().max(500, 'Notes must be less than 500 characters').optional(),
@@ -54,7 +68,7 @@ export type CreateShoppingListItemFormData = z.infer<typeof createShoppingListIt
 
 export const updateShoppingListItemSchema = z.object({
   name: z.string().min(1, 'Item name is required').max(100, 'Name must be less than 100 characters').optional(),
-  category: z.string().max(50, 'Category must be less than 50 characters').optional(),
+  category: z.enum(categoryEnum).optional(),
   quantity: z.number().positive('Quantity must be positive').optional(),
   unit: z.string().max(20, 'Unit must be less than 20 characters').optional(),
   notes: z.string().max(500, 'Notes must be less than 500 characters').optional(),
@@ -67,7 +81,7 @@ export type UpdateShoppingListItemFormData = z.infer<typeof updateShoppingListIt
 // Quick Add Item Schema (for AddItemInput component)
 export const quickAddItemSchema = z.object({
   name: z.string().min(1, 'Item name is required').max(100, 'Name must be less than 100 characters'),
-  category: z.string().max(50, 'Category must be less than 50 characters').optional(),
+  category: z.enum(categoryEnum).or(z.literal('')).optional(),
 })
 
 export type QuickAddItemFormData = z.infer<typeof quickAddItemSchema>

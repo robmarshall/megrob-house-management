@@ -4,12 +4,18 @@ import { quickAddItemSchema, type QuickAddItemFormData } from "@/lib/schemas";
 import BottomSheet from "@/components/atoms/BottomSheet";
 import { Input } from "@/components/atoms/Input";
 import { Button } from "@/components/atoms/Button";
+import type { BadgeVariant } from "@/components/atoms/Badge";
+
+export interface Category {
+  slug: BadgeVariant;
+  name: string;
+}
 
 interface AddItemBottomSheetProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (name: string, category?: string) => Promise<void>;
-  categories?: string[];
+  onAdd: (name: string, category?: BadgeVariant) => Promise<void>;
+  categories?: Category[];
 }
 
 export default function AddItemBottomSheet({
@@ -17,15 +23,16 @@ export default function AddItemBottomSheet({
   onClose,
   onAdd,
   categories = [
-    "Produce",
-    "Dairy",
-    "Meat",
-    "Bakery",
-    "Pantry",
-    "Frozen",
-    "Beverages",
-    "Household",
-    "Other",
+    { slug: "produce", name: "Produce" },
+    { slug: "dairy", name: "Dairy" },
+    { slug: "meat", name: "Meat" },
+    { slug: "bakery", name: "Bakery" },
+    { slug: "pantry", name: "Pantry" },
+    { slug: "frozen", name: "Frozen" },
+    { slug: "beverages", name: "Beverages" },
+    { slug: "household", name: "Household" },
+    { slug: "other", name: "Other" },
+    { slug: "default", name: "Uncategorized" },
   ],
 }: AddItemBottomSheetProps) {
   const methods = useForm<QuickAddItemFormData>({
@@ -37,7 +44,8 @@ export default function AddItemBottomSheet({
   });
 
   const onSubmit = async (data: QuickAddItemFormData) => {
-    await onAdd(data.name.trim(), data.category || undefined);
+    const category = data.category ? data.category : undefined;
+    await onAdd(data.name.trim(), category as BadgeVariant | undefined);
     methods.reset();
   };
 
@@ -87,8 +95,8 @@ export default function AddItemBottomSheet({
                 >
                   <option value="">Select a category</option>
                   {categories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
+                    <option key={cat.slug} value={cat.slug}>
+                      {cat.name}
                     </option>
                   ))}
                 </select>

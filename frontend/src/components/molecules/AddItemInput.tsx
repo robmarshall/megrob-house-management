@@ -1,55 +1,58 @@
-import { useForm, FormProvider, Controller } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { Input } from '@/components/atoms/Input'
-import { Button } from '@/components/atoms/Button'
-import { quickAddItemSchema, type QuickAddItemFormData } from '@/lib/schemas'
+import { useForm, FormProvider, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Input } from "@/components/atoms/Input";
+import { Button } from "@/components/atoms/Button";
+import { quickAddItemSchema, type QuickAddItemFormData } from "@/lib/schemas";
 
 interface AddItemInputProps {
-  onAdd: (name: string, category?: string) => Promise<void> | void
-  placeholder?: string
-  categories?: string[]
+  onAdd: (name: string, category?: string) => Promise<void> | void;
+  placeholder?: string;
+  categories?: string[];
 }
 
 export function AddItemInput({
   onAdd,
-  placeholder = 'Add item...',
+  placeholder = "Add item...",
   categories = [
-    'Produce',
-    'Dairy',
-    'Meat',
-    'Bakery',
-    'Pantry',
-    'Frozen',
-    'Beverages',
-    'Household',
-    'Other',
+    "Produce",
+    "Dairy",
+    "Meat",
+    "Bakery",
+    "Pantry",
+    "Frozen",
+    "Beverages",
+    "Household",
+    "Other",
+    "Uncategorized",
   ],
 }: AddItemInputProps) {
   const methods = useForm<QuickAddItemFormData>({
     resolver: zodResolver(quickAddItemSchema),
     defaultValues: {
-      name: '',
-      category: '',
+      name: "",
+      category: "",
     },
-  })
+  });
 
   const onSubmit = async (data: QuickAddItemFormData) => {
-    await onAdd(data.name.trim(), data.category || undefined)
-    methods.reset()
-  }
+    await onAdd(data.name.trim(), data.category || undefined);
+    methods.reset();
+  };
 
-  const isSubmitting = methods.formState.isSubmitting
-  const nameValue = methods.watch('name')
+  const isSubmitting = methods.formState.isSubmitting;
+  const nameValue = methods.watch("name");
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={methods.handleSubmit(onSubmit)} className="flex gap-2 items-start">
+      <form
+        onSubmit={methods.handleSubmit(onSubmit)}
+        className="flex gap-2 items-start"
+      >
         <div className="flex-1">
           <Input
             name="name"
             placeholder={placeholder}
             disabled={isSubmitting}
-            className="w-full"
             hideLabel
           />
         </div>
@@ -73,10 +76,14 @@ export function AddItemInput({
           )}
         />
 
-        <Button type="submit" disabled={!nameValue?.trim() || isSubmitting} isLoading={isSubmitting}>
+        <Button
+          type="submit"
+          disabled={!nameValue?.trim() || isSubmitting}
+          isLoading={isSubmitting}
+        >
           Add
         </Button>
       </form>
     </FormProvider>
-  )
+  );
 }

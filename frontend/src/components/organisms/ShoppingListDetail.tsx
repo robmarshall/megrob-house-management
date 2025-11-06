@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/molecules/EmptyState";
 import { IconButton } from "@/components/atoms/IconButton";
 import { Button } from "@/components/atoms/Button";
 import type { ShoppingList } from "@/types/shoppingList";
+import type { BadgeVariant } from "@/components/atoms/Badge";
 
 import EditListBottomSheet from "@/components/molecules/EditListBottomSheet";
 import type { UpdateShoppingListFormData } from "@/lib/schemas";
@@ -16,7 +17,7 @@ import type { UpdateShoppingListFormData } from "@/lib/schemas";
 interface ShoppingListDetailProps {
   list: ShoppingList;
   onBack?: () => void;
-  onAddItem: (name: string, category?: string) => Promise<void>;
+  onAddItem: (name: string, category?: BadgeVariant) => Promise<void>;
   onToggleItem: (itemId: number) => Promise<void>;
   onDeleteItem: (itemId: number) => Promise<void>;
   onEditList?: (data: UpdateShoppingListFormData) => Promise<void>;
