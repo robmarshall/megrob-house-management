@@ -1,20 +1,15 @@
-import { useState, Fragment } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
-import { motion } from "framer-motion";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  Dialog,
-  Transition,
-  DialogPanel,
-  TransitionChild,
-  DialogTitle,
-} from "@headlessui/react";
+import { PlusIcon } from "@heroicons/react/24/outline";
+import { MainLayout } from "@/components/templates/MainLayout";
 import { ShoppingListCard } from "@/components/organisms/ShoppingListCard";
 import { EmptyState } from "@/components/molecules/EmptyState";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { Textarea } from "@/components/atoms/Textarea";
+import BottomSheet from "@/components/atoms/BottomSheet";
 import {
   useShoppingLists,
   useShoppingListData,
@@ -41,9 +36,10 @@ export function ShoppingListsPage() {
 
   const handleCreateList = async (data: CreateShoppingListFormData) => {
     try {
-      await create(data);
+      const newList = await create(data);
       methods.reset();
       setIsCreateModalOpen(false);
+      navigate(`/shopping-lists/${newList.id}`);
     } catch (error) {
       console.error("Failed to create list:", error);
     }
@@ -64,89 +60,73 @@ export function ShoppingListsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center gap-3">
-          <svg
-            className="animate-spin h-8 w-8 text-primary-600"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            />
-          </svg>
-          <p className="text-sm text-gray-600">Loading lists...</p>
+      <MainLayout>
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-3">
+            <svg
+              className="animate-spin h-8 w-8 text-primary-600"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
+            <p className="text-sm text-gray-600">Loading lists...</p>
+          </div>
         </div>
-      </div>
+      </MainLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="text-red-600 mb-4">
-            <svg
-              className="w-12 h-12 mx-auto"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
+      <MainLayout>
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <div className="text-red-600 mb-4">
+              <svg
+                className="w-12 h-12 mx-auto"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Failed to load shopping lists
+            </h3>
+            <p className="text-sm text-gray-500">{error.message}</p>
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Failed to load shopping lists
-          </h3>
-          <p className="text-sm text-gray-500">{error.message}</p>
         </div>
-      </div>
+      </MainLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Shopping Lists</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Organize your shopping with multiple lists
-            </p>
-          </div>
-
-          <Button onClick={() => setIsCreateModalOpen(true)} variant="primary">
-            <svg
-              className="w-5 h-5 mr-2"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            New List
-          </Button>
+    <MainLayout>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Shopping Lists</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Organize your shopping with multiple lists
+          </p>
         </div>
 
         {lists.length === 0 ? (
@@ -174,11 +154,7 @@ export function ShoppingListsPage() {
             }}
           />
         ) : (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          >
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {lists.map((list) => (
               <ShoppingListCard
                 key={list.id}
@@ -187,83 +163,56 @@ export function ShoppingListsPage() {
                 onDelete={handleDeleteList}
               />
             ))}
-          </motion.div>
-        )}
-      </div>
-
-      <Transition appear show={isCreateModalOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={handleCloseModal}>
-          <TransitionChild
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="fixed inset-0 bg-black/25" />
-          </TransitionChild>
-
-          <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4">
-              <TransitionChild
-                as={Fragment}
-                enter="ease-out duration-300"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
-              >
-                <DialogPanel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 shadow-xl transition-all">
-                  <DialogTitle className="text-lg font-medium text-gray-900 mb-4">
-                    Create New Shopping List
-                  </DialogTitle>
-
-                  <FormProvider {...methods}>
-                    <form
-                      onSubmit={methods.handleSubmit(handleCreateList)}
-                      className="space-y-4"
-                    >
-                      <Input
-                        name="name"
-                        label="List Name"
-                        placeholder="e.g., Weekly Groceries"
-                        required
-                      />
-
-                      <Textarea
-                        name="description"
-                        label="Description"
-                        placeholder="Add notes about this list..."
-                        rows={3}
-                      />
-
-                      <div className="flex gap-3 justify-end pt-2">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          onClick={handleCloseModal}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="submit"
-                          variant="primary"
-                          isLoading={methods.formState.isSubmitting}
-                        >
-                          Create List
-                        </Button>
-                      </div>
-                    </form>
-                  </FormProvider>
-                </DialogPanel>
-              </TransitionChild>
-            </div>
           </div>
-        </Dialog>
-      </Transition>
-    </div>
+        )}
+
+        {/* Floating Action Button */}
+        <div className="fixed bottom-6 right-6 z-40">
+          <Button
+            onClick={() => setIsCreateModalOpen(true)}
+            variant="primary"
+            className="rounded-full w-14 h-14 flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow"
+            aria-label="Create new shopping list"
+          >
+            <PlusIcon className="h-6 w-6" />
+          </Button>
+        </div>
+
+        <BottomSheet
+          isOpen={isCreateModalOpen}
+          onClose={handleCloseModal}
+          title="Create New Shopping List"
+        >
+          <FormProvider {...methods}>
+            <form
+              onSubmit={methods.handleSubmit(handleCreateList)}
+              className="flex flex-col gap-4"
+            >
+              <Input
+                name="name"
+                label="List Name"
+                placeholder="e.g., Weekly Groceries"
+                required
+              />
+
+              <Textarea
+                name="description"
+                label="Description"
+                placeholder="Add notes about this list..."
+                rows={3}
+              />
+
+              <Button
+                type="submit"
+                variant="primary"
+                isLoading={methods.formState.isSubmitting}
+                className="w-full"
+              >
+                Create List
+              </Button>
+            </form>
+          </FormProvider>
+        </BottomSheet>
+    </MainLayout>
   );
 }

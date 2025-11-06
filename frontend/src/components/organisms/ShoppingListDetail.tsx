@@ -1,13 +1,17 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
-import { PlusIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, PencilIcon } from "@heroicons/react/24/outline";
 import { ListHeader } from "@/components/molecules/ListHeader";
 import AddItemBottomSheet from "@/components/molecules/AddItemBottomSheet";
+import { ConfirmDeleteBottomSheet } from "@/components/molecules/ConfirmDeleteBottomSheet";
 import { ShoppingListItem } from "@/components/molecules/ShoppingListItem";
 import { EmptyState } from "@/components/molecules/EmptyState";
 import { IconButton } from "@/components/atoms/IconButton";
 import { Button } from "@/components/atoms/Button";
 import type { ShoppingList } from "@/types/shoppingList";
+
+import EditListBottomSheet from "@/components/molecules/EditListBottomSheet";
+import type { UpdateShoppingListFormData } from "@/lib/schemas";
 
 interface ShoppingListDetailProps {
   list: ShoppingList;
@@ -15,6 +19,7 @@ interface ShoppingListDetailProps {
   onAddItem: (name: string, category?: string) => Promise<void>;
   onToggleItem: (itemId: number) => Promise<void>;
   onDeleteItem: (itemId: number) => Promise<void>;
+  onEditList?: (data: UpdateShoppingListFormData) => Promise<void>;
   onDeleteList?: () => Promise<void>;
 }
 
@@ -24,10 +29,34 @@ export function ShoppingListDetail({
   onAddItem,
   onToggleItem,
   onDeleteItem,
+  onEditList,
   onDeleteList,
 }: ShoppingListDetailProps) {
   const items = list.items || [];
   const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
+  const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleConfirmDelete = async () => {
+    if (!onDeleteList) return;
+
+    setIsDeleting(true);
+    try {
+      await onDeleteList();
+      setIsDeleteConfirmOpen(false);
+    } catch (error) {
+      console.error("Failed to delete list:", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleEditList = async (data: UpdateShoppingListFormData) => {
+    if (!onEditList) return;
+    await onEditList(data);
+    setIsEditSheetOpen(false);
+  };
 
   // Group items by category and sort alphabetically
   const groupedItems = items.reduce((acc, item) => {
@@ -46,16 +75,6 @@ export function ShoppingListDetail({
   // Sort categories alphabetically
   const sortedCategories = Object.keys(groupedItems).sort();
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.05,
-      },
-    },
-  };
-
   const itemVariants = {
     hidden: { opacity: 0, x: -20 },
     show: { opacity: 1, x: 0 },
@@ -70,11 +89,20 @@ export function ShoppingListDetail({
           onBack={onBack}
           actions={
             <>
+              {onEditList && (
+                <IconButton
+                  size="md"
+                  onClick={() => setIsEditSheetOpen(true)}
+                  aria-label="Edit list"
+                >
+                  <PencilIcon className="w-5 h-5" />
+                </IconButton>
+              )}
               {onDeleteList && (
                 <IconButton
                   variant="danger"
                   size="md"
-                  onClick={onDeleteList}
+                  onClick={() => setIsDeleteConfirmOpen(true)}
                   aria-label="Delete list"
                 >
                   <svg
@@ -123,13 +151,8 @@ export function ShoppingListDetail({
                 <h2 className="text-lg font-semibold text-gray-900 mb-3 px-1">
                   {category}
                 </h2>
-                <motion.div
-                  variants={containerVariants}
-                  initial="hidden"
-                  animate="show"
-                  className="space-y-2"
-                >
-                  <AnimatePresence>
+                <div className="space-y-2">
+                  <AnimatePresence initial={false}>
                     {groupedItems[category].map((item) => (
                       <motion.div
                         key={item.id}
@@ -147,7 +170,7 @@ export function ShoppingListDetail({
                       </motion.div>
                     ))}
                   </AnimatePresence>
-                </motion.div>
+                </div>
               </div>
             ))}
           </div>
@@ -171,6 +194,28 @@ export function ShoppingListDetail({
         isOpen={isAddSheetOpen}
         onClose={() => setIsAddSheetOpen(false)}
         onAdd={onAddItem}
+      />
+
+      {/* Bottom Sheet for Editing List */}
+      {onEditList && (
+        <EditListBottomSheet
+          isOpen={isEditSheetOpen}
+          onClose={() => setIsEditSheetOpen(false)}
+          onEdit={handleEditList}
+          currentName={list.name}
+          currentDescription={list.description}
+        />
+      )}
+
+      {/* Confirmation for Deleting List */}
+      <ConfirmDeleteBottomSheet
+        isOpen={isDeleteConfirmOpen}
+        onClose={() => setIsDeleteConfirmOpen(false)}
+        onConfirm={handleConfirmDelete}
+        itemName={list.name}
+        itemType="shopping list"
+        isDeleting={isDeleting}
+        warningMessage="Deleting this list will also permanently remove all items in it. This action cannot be undone."
       />
     </>
   );

@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Card } from "@/components/atoms/Card";
 import { IconButton } from "@/components/atoms/IconButton";
+import { ConfirmDeleteBottomSheet } from "@/components/molecules/ConfirmDeleteBottomSheet";
 import type { ShoppingList } from "@/types/shoppingList";
 import { motion } from "framer-motion";
 
@@ -14,18 +16,30 @@ export function ShoppingListCard({
   onClick,
   onDelete,
 }: ShoppingListCardProps) {
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (onDelete && confirm(`Delete "${list.name}"?`)) {
-      onDelete(list.id);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!onDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await onDelete(list.id);
+      setIsDeleteConfirmOpen(false);
+    } catch (error) {
+      console.error("Failed to delete list:", error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
     >
@@ -73,6 +87,15 @@ export function ShoppingListCard({
           )}
         </div>
       </Card>
+
+      <ConfirmDeleteBottomSheet
+        isOpen={isDeleteConfirmOpen}
+        onClose={() => setIsDeleteConfirmOpen(false)}
+        onConfirm={handleConfirmDelete}
+        itemName={list.name}
+        itemType="shopping list"
+        isDeleting={isDeleting}
+      />
     </motion.div>
   );
 }

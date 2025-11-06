@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { ControlledCheckbox } from "@/components/atoms/ControlledCheckbox";
-import { Badge } from "@/components/atoms/Badge";
 import { IconButton } from "@/components/atoms/IconButton";
 import { cn } from "@/lib/utils";
 import type { ShoppingListItem as ShoppingListItemType } from "@/types/shoppingList";
@@ -81,11 +80,6 @@ export function ShoppingListItem({
           >
             {item.name}
           </span>
-          {item.category && (
-            <Badge variant={item.category} className="text-xs">
-              {item.category}
-            </Badge>
-          )}
         </div>
 
         {item.notes && (
