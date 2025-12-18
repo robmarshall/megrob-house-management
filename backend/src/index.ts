@@ -66,9 +66,34 @@ app.get("/health", (c) => {
   return c.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// Handle OPTIONS preflight for auth routes explicitly
+app.options("/api/auth/*", (c) => {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": process.env.FRONTEND_URL!,
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Credentials": "true",
+      "Access-Control-Max-Age": "600",
+    },
+  });
+});
+
 // Better Auth routes - handles all /api/auth/* endpoints
-app.on(["GET", "POST"], "/api/auth/*", (c) => {
-  return auth.handler(c.req.raw);
+app.on(["GET", "POST"], "/api/auth/*", async (c) => {
+  const response = await auth.handler(c.req.raw);
+
+  // Clone the response and add CORS headers since auth.handler bypasses Hono middleware
+  const headers = new Headers(response.headers);
+  headers.set("Access-Control-Allow-Origin", process.env.FRONTEND_URL!);
+  headers.set("Access-Control-Allow-Credentials", "true");
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 });
 
 // API routes (protected with auth middleware)
