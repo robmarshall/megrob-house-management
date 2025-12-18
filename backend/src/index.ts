@@ -33,9 +33,22 @@ if (missingEnvVars.length > 0) {
 
 const app = new Hono();
 
-// Middleware - Configure CORS with specific origin for credentials
+// CORS for auth routes (must be registered before auth handler)
 app.use(
-  "/*",
+  "/api/auth/*",
+  cors({
+    origin: process.env.FRONTEND_URL!,
+    credentials: true,
+    allowMethods: ["POST", "GET", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Authorization"],
+    exposeHeaders: ["Content-Length", "Set-Cookie"],
+    maxAge: 600,
+  })
+);
+
+// CORS for other API routes
+app.use(
+  "/api/*",
   cors({
     origin: process.env.FRONTEND_URL!,
     credentials: true,
