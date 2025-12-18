@@ -1,33 +1,31 @@
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
-import { AuthLayout } from '@/components/templates/AuthLayout'
-import { ResetPasswordRequestForm } from '@/components/organisms/ResetPasswordRequestForm'
-import { ResetPasswordConfirmForm } from '@/components/organisms/ResetPasswordConfirmForm'
+import { useSearchParams } from "react-router";
+import { AuthLayout } from "@/components/templates/AuthLayout";
+import { ResetPasswordRequestForm } from "@/components/organisms/ResetPasswordRequestForm";
+import { ResetPasswordConfirmForm } from "@/components/organisms/ResetPasswordConfirmForm";
 
 export function ResetPasswordPage() {
-  const [hasToken, setHasToken] = useState(false)
+  const [searchParams] = useSearchParams();
 
-  useEffect(() => {
-    // Check if there's a recovery token in the URL
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      // If there's a session and it's a recovery session, show the confirm form
-      if (session) {
-        setHasToken(true)
-      }
-    })
-  }, [])
+  // Better Auth sends the token as a query parameter
+  const token = searchParams.get("token");
 
-  if (hasToken) {
+  if (token) {
     return (
-      <AuthLayout title="Set New Password" subtitle="Choose a strong password for your account.">
-        <ResetPasswordConfirmForm />
+      <AuthLayout
+        title="Set New Password"
+        subtitle="Choose a strong password for your account."
+      >
+        <ResetPasswordConfirmForm token={token} />
       </AuthLayout>
-    )
+    );
   }
 
   return (
-    <AuthLayout title="Reset Password" subtitle="Forgot your password? No problem!">
+    <AuthLayout
+      title="Reset Password"
+      subtitle="Forgot your password? No problem!"
+    >
       <ResetPasswordRequestForm />
     </AuthLayout>
-  )
+  );
 }

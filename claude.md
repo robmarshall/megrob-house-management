@@ -47,16 +47,17 @@ This is a comprehensive home management application designed to simplify and org
 - **Tailwind CSS** - Utility-first styling framework
 - **React Router** - Client-side routing
 - **React Hook Form** - Efficient form state management
+- **TanStack Query** - Server state management
 - **Headless UI** - Accessible component primitives
 - **Framer Motion** - Smooth animations and transitions
+- **Better Auth** - Authentication client
 
 ### Backend
-- **Supabase** - Backend-as-a-Service platform
-  - PostgreSQL database
-  - Real-time subscriptions
-  - Authentication and user management
-  - Row-level security
-  - File storage
+- **Hono** - Fast web framework
+- **PostgreSQL** - Database
+- **Drizzle ORM** - Type-safe database ORM
+- **Better Auth** - Session-based authentication
+- **Resend** - Email service for password reset
 
 ## Architecture
 
@@ -72,6 +73,7 @@ The frontend follows **Atomic Design** methodology:
 ### Prerequisites
 - Node.js 18+ and npm
 - Git
+- PostgreSQL database
 
 ### Getting Started
 
@@ -96,34 +98,44 @@ npm install
 4. Set up environment variables
 ```bash
 # In frontend/.env
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_API_URL=http://localhost:3000
+VITE_FRONTEND_URL=http://localhost:5173
 
 # In backend/.env
-SUPABASE_URL=your_supabase_url
-SUPABASE_SERVICE_KEY=your_supabase_service_key
+DATABASE_URL=postgresql://user:password@localhost:5432/homemanagement
+BETTER_AUTH_SECRET=<32+ char random string>
+BETTER_AUTH_URL=http://localhost:3000
+FRONTEND_URL=http://localhost:5173
+RESEND_API_KEY=re_your_api_key_here
 ```
 
-5. Run the development server
+5. Run database migrations
 ```bash
-# Frontend
-cd frontend
+cd backend
+npm run db:push
+```
+
+6. Run the development server
+```bash
+# Backend
+cd backend
 npm run dev
 
-# Backend (if needed)
-cd backend
+# Frontend (new terminal)
+cd frontend
 npm run dev
 ```
 
 ## Project Status
 
 ### ✅ Completed
-- Authentication system (login, password reset)
+- Authentication system (login, password reset) with Better Auth
 - Protected routing with auth guards
 - Basic atomic component library
-- Supabase integration
+- PostgreSQL + Drizzle ORM integration
 - TypeScript configuration
 - Tailwind CSS theming
+- Shopping list feature
 
 ### 🚧 In Progress
 - Code refactoring to align with best practices
@@ -131,7 +143,6 @@ npm run dev
 - Frontend style guide
 
 ### 📋 Planned
-- Shopping list feature
 - Recipe management
 - Meal planning
 - Household task tracking

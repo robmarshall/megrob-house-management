@@ -1,85 +1,92 @@
-import { createContext, useEffect, useState, type ReactNode } from 'react'
-import { supabase } from '@/lib/supabaseClient'
-import { getAuthErrorMessage } from '@/lib/errors'
-import type { AuthContextType, User, Session } from '@/types/auth'
+import { createContext, type ReactNode } from "react";
+import { authClient } from "@/lib/auth-client";
+import type { AuthContextType, User, Session } from "@/types/auth";
 
-export const AuthContext = createContext<AuthContextType | undefined>(undefined)
+export const AuthContext = createContext<AuthContextType | undefined>(
+  undefined
+);
 
 interface AuthProviderProps {
-  children: ReactNode
+  children: ReactNode;
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
-  const [loading, setLoading] = useState(true)
+  // Use Better Auth's useSession hook for session state
+  const {
+    data: sessionData,
+    isPending: loading,
+    error,
+  } = authClient.useSession();
 
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
+  // Extract user and session from Better Auth response
+  const user: User | null = sessionData?.user
+    ? {
+        id: sessionData.user.id,
+        name: sessionData.user.name,
+        email: sessionData.user.email,
+        emailVerified: sessionData.user.emailVerified,
+        image: sessionData.user.image,
+        createdAt: new Date(sessionData.user.createdAt),
+        updatedAt: new Date(sessionData.user.updatedAt),
+      }
+    : null;
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
+  const session: Session | null = sessionData
+    ? {
+        session: {
+          id: sessionData.session.id,
+          userId: sessionData.session.userId,
+          token: sessionData.session.token,
+          expiresAt: new Date(sessionData.session.expiresAt),
+          createdAt: new Date(sessionData.session.createdAt),
+          updatedAt: new Date(sessionData.session.updatedAt),
+          ipAddress: sessionData.session.ipAddress ?? undefined,
+          userAgent: sessionData.session.userAgent ?? undefined,
+        },
+        user: user!,
+      }
+    : null;
 
   const signIn = async (email: string, password: string) => {
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+    const result = await authClient.signIn.email({
+      email,
+      password,
+    });
 
-      if (error) throw error
-    } catch (error) {
-      throw new Error(getAuthErrorMessage(error))
+    if (result.error) {
+      throw new Error(result.error.message || "Sign in failed");
     }
-  }
+  };
 
   const signOut = async () => {
-    try {
-      const { error } = await supabase.auth.signOut()
-      if (error) throw error
-    } catch (error) {
-      throw new Error(getAuthErrorMessage(error))
+    const result = await authClient.signOut();
+
+    if (result.error) {
+      throw new Error(result.error.message || "Sign out failed");
     }
-  }
+  };
 
   const resetPassword = async (email: string) => {
-    try {
-      const frontendUrl = import.meta.env.VITE_FRONTEND_URL
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${frontendUrl}/reset-password`,
-      })
+    const result = await authClient.forgetPassword({
+      email,
+      redirectTo: `${import.meta.env.VITE_FRONTEND_URL}/reset-password`,
+    });
 
-      if (error) throw error
-    } catch (error) {
-      throw new Error(getAuthErrorMessage(error))
+    if (result.error) {
+      throw new Error(result.error.message || "Password reset request failed");
     }
-  }
+  };
 
-  const updatePassword = async (newPassword: string) => {
-    try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
-      })
+  const confirmResetPassword = async (token: string, newPassword: string) => {
+    const result = await authClient.resetPassword({
+      token,
+      newPassword,
+    });
 
-      if (error) throw error
-    } catch (error) {
-      throw new Error(getAuthErrorMessage(error))
+    if (result.error) {
+      throw new Error(result.error.message || "Password reset failed");
     }
-  }
+  };
 
   const value: AuthContextType = {
     user,
@@ -88,8 +95,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signIn,
     signOut,
     resetPassword,
-    updatePassword,
-  }
+    confirmResetPassword,
+  };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

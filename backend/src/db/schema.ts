@@ -1,8 +1,10 @@
-import { pgTable, serial, text, timestamp, integer, numeric, boolean, uuid } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
+import { pgTable, serial, text, timestamp, integer, numeric, boolean } from 'drizzle-orm/pg-core';
+import { user } from './auth-schema';
+
+// Re-export auth schema tables
+export * from './auth-schema';
 
 // Database schema definitions
-// Note: User authentication is handled by Supabase's auth.users table
 
 /**
  * Shopping Lists Table
@@ -14,8 +16,13 @@ export const shoppingLists = pgTable('shopping_lists', {
   description: text('description'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-  createdBy: uuid('created_by').notNull(), // references auth.users(id)
-  updatedBy: uuid('updated_by').notNull(), // references auth.users(id)
+  // Changed from uuid to text to match Better Auth user IDs
+  createdBy: text('created_by')
+    .notNull()
+    .references(() => user.id),
+  updatedBy: text('updated_by')
+    .notNull()
+    .references(() => user.id),
 });
 
 /**
@@ -34,10 +41,15 @@ export const shoppingListItems = pgTable('shopping_list_items', {
   notes: text('notes'),
   checked: boolean('checked').default(false).notNull(),
   checkedAt: timestamp('checked_at'),
-  checkedBy: uuid('checked_by'), // references auth.users(id)
+  // Changed from uuid to text to match Better Auth user IDs
+  checkedBy: text('checked_by').references(() => user.id),
   position: integer('position').default(0).notNull(), // for custom ordering
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-  createdBy: uuid('created_by').notNull(), // references auth.users(id)
-  updatedBy: uuid('updated_by').notNull(), // references auth.users(id)
+  createdBy: text('created_by')
+    .notNull()
+    .references(() => user.id),
+  updatedBy: text('updated_by')
+    .notNull()
+    .references(() => user.id),
 });

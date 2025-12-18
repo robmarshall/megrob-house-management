@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: megrob
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: homemanagement
+    ports:
+      - "5432:5432"
+    volumes:
+      - megrob_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  megrob_postgres_data:

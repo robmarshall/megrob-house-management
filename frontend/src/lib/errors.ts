@@ -1,24 +1,36 @@
-import { AuthError } from '@supabase/supabase-js';
-
+/**
+ * Get a user-friendly error message from various error types
+ */
 export const getAuthErrorMessage = (error: unknown): string => {
-  if (error instanceof AuthError) {
-    switch (error.message) {
-      case 'Invalid login credentials':
-        return 'Invalid email or password. Please try again.';
-      case 'Email not confirmed':
-        return 'Please confirm your email before logging in.';
-      case 'User not found':
-        return 'No account found with this email address.';
-      case 'Email rate limit exceeded':
-        return 'Too many requests. Please try again later.';
-      default:
-        return error.message || 'An authentication error occurred';
-    }
-  }
-
   if (error instanceof Error) {
-    return error.message;
+    // Better Auth error messages
+    const message = error.message.toLowerCase();
+
+    if (
+      message.includes("invalid") &&
+      (message.includes("email") || message.includes("password"))
+    ) {
+      return "Invalid email or password. Please try again.";
+    }
+
+    if (message.includes("not found") || message.includes("user not found")) {
+      return "No account found with this email address.";
+    }
+
+    if (message.includes("rate limit") || message.includes("too many")) {
+      return "Too many requests. Please try again later.";
+    }
+
+    if (message.includes("expired")) {
+      return "Your session has expired. Please log in again.";
+    }
+
+    if (message.includes("token") && message.includes("invalid")) {
+      return "Invalid or expired reset token. Please request a new password reset.";
+    }
+
+    return error.message || "An authentication error occurred";
   }
 
-  return 'An unexpected error occurred. Please try again.';
+  return "An unexpected error occurred. Please try again.";
 };

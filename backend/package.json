@@ -10,7 +10,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "tsx src/db/seed.ts"
   },
   "keywords": [],
   "author": "",
@@ -18,14 +19,17 @@
   "type": "module",
   "dependencies": {
     "@hono/node-server": "^1.19.6",
-    "@supabase/supabase-js": "^2.78.0",
+    "@noble/hashes": "^2.0.1",
+    "better-auth": "^1.4.7",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.44.7",
     "hono": "^4.10.4",
+    "nodemailer": "^7.0.11",
     "postgres": "^3.4.7"
   },
   "devDependencies": {
     "@types/node": "^24.9.2",
+    "@types/nodemailer": "^7.0.4",
     "drizzle-kit": "^0.31.6",
     "tsup": "^8.5.0",
     "tsx": "^4.20.6",

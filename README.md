@@ -17,7 +17,8 @@ A full-stack monorepo project with separate frontend and backend applications.
 
 - **Hono** - Fast, lightweight web framework
 - **Drizzle ORM** - TypeScript ORM for PostgreSQL
-- **Supabase** - PostgreSQL database
+- **PostgreSQL** - Database (hosted on Coolify)
+- **Better Auth** - Session-based authentication
 - **TypeScript** - Type-safe development
 
 ### Frontend
@@ -32,7 +33,7 @@ A full-stack monorepo project with separate frontend and backend applications.
 
 - Node.js (v18 or higher)
 - npm
-- Supabase account (for database)
+- PostgreSQL database (local or hosted on Coolify)
 
 ### Backend Setup
 
@@ -54,11 +55,14 @@ npm install
 cp .env.example .env
 ```
 
-4. Update `.env` with your Supabase credentials:
+4. Update `.env` with your database credentials (see `.env.example` for all options):
 
 ```env
-SUPABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
+DATABASE_URL=postgresql://user:password@localhost:5432/homemanagement
 PORT=3000
+BETTER_AUTH_SECRET=your-secret-key-here-minimum-32-characters
+BETTER_AUTH_URL=http://localhost:3000
+FRONTEND_URL=http://localhost:5173
 ```
 
 5. Generate and push the database schema:
@@ -144,11 +148,54 @@ npm run dev
 
 ### Database Management
 
-The backend uses Drizzle ORM with Supabase PostgreSQL:
+The backend uses Drizzle ORM with PostgreSQL:
 
 1. Define your schema in `backend/src/db/schema.ts`
 2. Push changes to the database: `npm run db:push`
 3. Use Drizzle Studio to view your data: `npm run db:studio`
+
+### Connecting to the Database
+
+#### Local Development
+
+For local development, you can use a local PostgreSQL instance:
+
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/homemanagement
+```
+
+#### Production (Coolify)
+
+The production database is hosted on Coolify. To connect:
+
+1. **Via Coolify Dashboard**: Go to your PostgreSQL resource and find the connection details
+2. **Connection String Format**:
+   ```
+   postgresql://<user>:<password>@<host>:<port>/<database>?sslmode=require
+   ```
+3. **With SSL enabled** (recommended for production):
+   ```env
+   DATABASE_URL=postgresql://postgres:yourpassword@your-coolify-host:5432/postgres?sslmode=require
+   ```
+
+#### Using psql CLI
+
+```bash
+# Local
+psql -h localhost -U postgres -d homemanagement
+
+# Production (with SSL)
+psql "postgresql://<user>:<password>@<host>:<port>/<database>?sslmode=require"
+```
+
+#### Using Drizzle Studio
+
+```bash
+cd backend
+npm run db:studio
+```
+
+This opens a web UI at `https://local.drizzle.studio` to browse and edit your data.
 
 ### API Endpoints
 
@@ -163,7 +210,6 @@ Example endpoints available in the backend:
 - Add more database tables in `backend/src/db/schema.ts`
 - Create API routes in `backend/src/index.ts`
 - Build UI components in `frontend/src`
-- Set up authentication (consider Supabase Auth)
 - Add environment-specific configurations
 - Set up CI/CD pipeline
 
@@ -171,6 +217,7 @@ Example endpoints available in the backend:
 
 - [Hono Documentation](https://hono.dev/)
 - [Drizzle ORM Documentation](https://orm.drizzle.team/)
-- [Supabase Documentation](https://supabase.com/docs)
+- [Better Auth Documentation](https://www.better-auth.com/)
+- [Coolify Documentation](https://coolify.io/docs/)
 - [Vite Documentation](https://vitejs.dev/)
 - [React Documentation](https://react.dev/)

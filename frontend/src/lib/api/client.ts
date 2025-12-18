@@ -1,33 +1,14 @@
 /**
  * API Client - Functional helpers for making HTTP requests
+ * Uses session cookies for authentication (Better Auth)
  */
 
-import { supabase } from '../supabaseClient';
-import type { ApiError, QueryParams } from '@/types/api';
+import type { ApiError, QueryParams } from "@/types/api";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 if (!API_BASE_URL) {
-  throw new Error('Missing VITE_API_URL environment variable');
-}
-
-/**
- * Get authentication headers with Supabase JWT token
- */
-async function getAuthHeaders(): Promise<HeadersInit> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-
-  if (session?.access_token) {
-    headers['Authorization'] = `Bearer ${session.access_token}`;
-  }
-
-  return headers;
+  throw new Error("Missing VITE_API_URL environment variable");
 }
 
 /**
@@ -52,7 +33,7 @@ function buildUrl(endpoint: string, params?: QueryParams): string {
  */
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    let errorMessage = 'An error occurred';
+    let errorMessage = "An error occurred";
     let errorDetails: unknown;
 
     try {
@@ -84,17 +65,20 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 /**
  * Perform a GET request
+ * Authentication is handled automatically via session cookies
  */
 export async function apiGet<T>(
   endpoint: string,
   params?: QueryParams
 ): Promise<T> {
-  const headers = await getAuthHeaders();
   const url = buildUrl(endpoint, params);
 
   const response = await fetch(url, {
-    method: 'GET',
-    headers,
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include", // Send session cookies
   });
 
   return handleResponse<T>(response);
@@ -102,17 +86,17 @@ export async function apiGet<T>(
 
 /**
  * Perform a POST request
+ * Authentication is handled automatically via session cookies
  */
-export async function apiPost<T>(
-  endpoint: string,
-  data: unknown
-): Promise<T> {
-  const headers = await getAuthHeaders();
+export async function apiPost<T>(endpoint: string, data: unknown): Promise<T> {
   const url = buildUrl(endpoint);
 
   const response = await fetch(url, {
-    method: 'POST',
-    headers,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include", // Send session cookies
     body: JSON.stringify(data),
   });
 
@@ -121,17 +105,17 @@ export async function apiPost<T>(
 
 /**
  * Perform a PATCH request
+ * Authentication is handled automatically via session cookies
  */
-export async function apiPatch<T>(
-  endpoint: string,
-  data: unknown
-): Promise<T> {
-  const headers = await getAuthHeaders();
+export async function apiPatch<T>(endpoint: string, data: unknown): Promise<T> {
   const url = buildUrl(endpoint);
 
   const response = await fetch(url, {
-    method: 'PATCH',
-    headers,
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include", // Send session cookies
     body: JSON.stringify(data),
   });
 
@@ -140,14 +124,17 @@ export async function apiPatch<T>(
 
 /**
  * Perform a DELETE request
+ * Authentication is handled automatically via session cookies
  */
 export async function apiDelete<T>(endpoint: string): Promise<T> {
-  const headers = await getAuthHeaders();
   const url = buildUrl(endpoint);
 
   const response = await fetch(url, {
-    method: 'DELETE',
-    headers,
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include", // Send session cookies
   });
 
   return handleResponse<T>(response);

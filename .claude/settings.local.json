@@ -50,7 +50,10 @@
       "mcp__serena__get_current_config",
       "Bash(git checkout:*)",
       "Bash(npx tsc:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "WebSearch",
+      "WebFetch(domain:lucia-auth.com)",
+      "Bash(npm show:*)"
     ],
     "deny": []
   }

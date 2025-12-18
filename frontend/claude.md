@@ -9,7 +9,7 @@ This is a React-based frontend application built with modern tooling and best pr
 - **TypeScript** - Strict mode enabled for type safety
 - **Vite 7.1.7** - Fast build tool and dev server
 - **React Router 7.9.5** - Client-side routing
-- **Supabase** - Backend as a Service (authentication, database)
+- **Better Auth** - Session-based authentication
 
 ### Required UI Libraries
 - **Tailwind CSS 4.1.16** - Utility-first CSS framework (MANDATORY for all styling)
@@ -622,7 +622,7 @@ export function DeleteListButton({ listId }: Props) {
 
 The API client is located at `src/lib/api/client.ts` and provides:
 
-- **Automatic authentication**: Injects Supabase JWT tokens from session
+- **Automatic authentication**: Uses session cookies (credentials: 'include')
 - **Base URL handling**: Uses `VITE_API_URL` environment variable
 - **Error handling**: Converts API errors to user-friendly messages
 - **Type safety**: Generic functions with TypeScript support
@@ -965,7 +965,7 @@ frontend/src/
 ├── lib/                 # Utilities and helpers
 │   ├── utils.ts         # cn() utility, formatters
 │   ├── validators.ts    # Zod schemas
-│   └── supabaseClient.ts
+│   └── auth-client.ts       # Better Auth client
 ├── pages/               # Route components
 │   ├── LoginPage.tsx
 │   └── HomePage.tsx
