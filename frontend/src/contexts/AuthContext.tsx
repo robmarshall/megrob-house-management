@@ -12,11 +12,7 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   // Use Better Auth's useSession hook for session state
-  const {
-    data: sessionData,
-    isPending: loading,
-    error,
-  } = authClient.useSession();
+  const { data: sessionData, isPending: loading } = authClient.useSession();
 
   // Extract user and session from Better Auth response
   const user: User | null = sessionData?.user
@@ -67,7 +63,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const resetPassword = async (email: string) => {
-    const result = await authClient.forgetPassword({
+    const result = await authClient.requestPasswordReset({
       email,
       redirectTo: `${import.meta.env.VITE_FRONTEND_URL}/reset-password`,
     });
