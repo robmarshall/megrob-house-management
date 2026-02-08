@@ -16,7 +16,7 @@
 ### Specs Index
 | # | Title | Status |
 |---|-------|--------|
-| 001 | Toast Notification System | NOT STARTED |
+| 001 | Toast Notification System | COMPLETE (v0.0.23) |
 | 002 | Meal Planning | NOT STARTED |
 | 003 | Household Tasks | NOT STARTED |
 | 004 | Inventory Tracking | NOT STARTED |
@@ -74,15 +74,13 @@ Bugs and security issues affecting correctness of the current production system.
 
 ## Tier 1: Foundation (Enables Better UX for Everything After)
 
-### 1.1 Toast Notification System (Spec 001)
-- **Status**: NOT STARTED
-- **Why first**: Every subsequent feature benefits from user feedback on actions
-- **Tasks**:
-  - Implement ToastProvider context, useToast hook, Toast molecule component with Framer Motion animations
-  - Success toasts (4s auto-dismiss) and error toasts (8s auto-dismiss) with stacking and swipe-to-dismiss
-  - Integrate toasts into useData/usePaginatedData hooks for automatic mutation feedback
-  - Replace all frontend console.error catch blocks with toast.error calls
-- **Files**: New: `ToastContext.tsx`, `Toast.tsx`, `useToast.ts`. Modify: `main.tsx`, `useData.ts`, `usePaginatedData.ts`, all catch blocks in pages/organisms
+### 1.1 Toast Notification System (Spec 001) [COMPLETE]
+- **Status**: COMPLETE (v0.0.23) — committed fdb89ac
+- **Completed**: 2026-02-08
+- **Summary**: Implemented toast notification system using react-toastify v11. Created thin toast wrapper (`frontend/src/lib/toast.ts`) with project defaults (4s success, 8s error). Added ToastContainer to App.tsx (bottom-right desktop, bottom-center mobile via CSS media query). Integrated success+error toasts into all useData mutations and recipe-specific hooks. Replaced 9 console.error calls with toast.error or hook-level delegation. CSS variable overrides for design system colors. 17 files modified.
+- **Learnings**:
+  - react-toastify renders string messages as React text nodes (not innerHTML), so displaying `error.message` from API is XSS-safe
+  - Toggle-style actions (favorite) benefit more from visual icon state change than toast notifications — avoid toast spam on rapid toggles
 
 ### 1.2 Structured Logging & Error Handling (Spec 010)
 - **Status**: NOT STARTED
@@ -304,3 +302,5 @@ These were considered but deferred as premature for current stage:
 - `parseInt()` accepts leading numeric characters in mixed strings (e.g. `parseInt("3abc")` → `3`). For stricter validation, use `Number()` + `Number.isInteger()`. Current usage is safe since parsed values flow through parameterized queries.
 - IPv4-mapped IPv6 addresses (e.g. `::ffff:192.168.1.1`) can give a client two rate-limit buckets on dual-stack servers — low severity but worth noting for future hardening
 - Drizzle migrations are tracked by journal and run exactly once — `IF NOT EXISTS` safety is unnecessary and non-standard for Drizzle migration files
+- react-toastify renders string arguments as React text nodes (not innerHTML) — no XSS risk from passing `error.message` strings. No `dangerouslySetInnerHTML` in the library source.
+- react-toastify `position` prop is static — for responsive positioning (e.g., bottom-center on mobile, bottom-right on desktop), override `.Toastify__toast-container` with CSS media queries
