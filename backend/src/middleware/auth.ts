@@ -1,5 +1,6 @@
 import { Context, Next } from "hono";
 import { auth } from "../lib/auth.js";
+import { logger } from "../lib/logger.js";
 
 /**
  * Authentication middleware that validates Better Auth sessions
@@ -22,7 +23,7 @@ export async function authMiddleware(c: Context, next: Next) {
 
     await next();
   } catch (error) {
-    console.error("Auth middleware error:", error);
+    logger.error({ err: error }, "Auth middleware error");
     return c.json({ error: "Authentication failed" }, 401);
   }
 }

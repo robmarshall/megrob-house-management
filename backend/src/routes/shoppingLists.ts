@@ -4,6 +4,7 @@ import { db } from '../db/index.js';
 import { shoppingLists } from '../db/schema.js';
 import { authMiddleware, getUserId } from '../middleware/auth.js';
 import { validateBody, getValidatedBody } from '../middleware/validation.js';
+import { logger } from '../lib/logger.js';
 import {
   createShoppingListSchema,
   updateShoppingListSchema,
@@ -61,7 +62,7 @@ app.get('/', async (c) => {
       totalPages,
     });
   } catch (error) {
-    console.error('Error fetching shopping lists:', error);
+    logger.error({ err: error }, "Error fetching shopping lists");
     return c.json({ error: 'Failed to fetch shopping lists' }, 500);
   }
 });
@@ -87,7 +88,7 @@ app.post('/', validateBody(createShoppingListSchema), async (c) => {
 
     return c.json(newList, 201);
   } catch (error) {
-    console.error('Error creating shopping list:', error);
+    logger.error({ err: error }, "Error creating shopping list");
     return c.json({ error: 'Failed to create shopping list' }, 500);
   }
 });
@@ -121,7 +122,7 @@ app.get('/:id', async (c) => {
 
     return c.json(list);
   } catch (error) {
-    console.error('Error fetching shopping list:', error);
+    logger.error({ err: error }, "Error fetching shopping list");
     return c.json({ error: 'Failed to fetch shopping list' }, 500);
   }
 });
@@ -170,7 +171,7 @@ app.patch('/:id', validateBody(updateShoppingListSchema), async (c) => {
 
     return c.json(updatedList);
   } catch (error) {
-    console.error('Error updating shopping list:', error);
+    logger.error({ err: error }, "Error updating shopping list");
     return c.json({ error: 'Failed to update shopping list' }, 500);
   }
 });
@@ -210,7 +211,7 @@ app.delete('/:id', async (c) => {
 
     return c.json({ message: 'Shopping list deleted successfully' });
   } catch (error) {
-    console.error('Error deleting shopping list:', error);
+    logger.error({ err: error }, "Error deleting shopping list");
     return c.json({ error: 'Failed to delete shopping list' }, 500);
   }
 });

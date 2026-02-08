@@ -5,6 +5,7 @@ import { shoppingLists, shoppingListItems } from "../db/schema.js";
 import { authMiddleware, getUserId } from "../middleware/auth.js";
 import { addOrMergeItem } from "../services/shoppingListItemService.js";
 import { validateBody, getValidatedBody } from "../middleware/validation.js";
+import { logger } from "../lib/logger.js";
 import {
   createShoppingListItemSchema,
   updateShoppingListItemSchema,
@@ -101,7 +102,7 @@ app.get("/:listId/items", async (c) => {
       totalPages,
     });
   } catch (error) {
-    console.error("Error fetching shopping list items:", error);
+    logger.error({ err: error }, "Error fetching shopping list items");
     return c.json({ error: "Failed to fetch shopping list items" }, 500);
   }
 });
@@ -148,7 +149,7 @@ app.post("/:listId/items", validateBody(createShoppingListItemSchema), async (c)
       result.merged ? 200 : 201
     );
   } catch (error) {
-    console.error("Error creating shopping list item:", error);
+    logger.error({ err: error }, "Error creating shopping list item");
     return c.json({ error: "Failed to create shopping list item" }, 500);
   }
 });
@@ -222,7 +223,7 @@ app.patch("/:listId/items/:itemId", validateBody(updateShoppingListItemSchema), 
 
     return c.json(normalizeItem(updatedItem));
   } catch (error) {
-    console.error("Error updating shopping list item:", error);
+    logger.error({ err: error }, "Error updating shopping list item");
     return c.json({ error: "Failed to update shopping list item" }, 500);
   }
 });
@@ -279,7 +280,7 @@ app.patch("/:listId/items/:itemId/toggle", async (c) => {
 
     return c.json(normalizeItem(updatedItem));
   } catch (error) {
-    console.error("Error toggling shopping list item:", error);
+    logger.error({ err: error }, "Error toggling shopping list item");
     return c.json({ error: "Failed to toggle shopping list item" }, 500);
   }
 });
@@ -324,7 +325,7 @@ app.delete("/:listId/items/:itemId", async (c) => {
 
     return c.json({ message: "Shopping list item deleted successfully" });
   } catch (error) {
-    console.error("Error deleting shopping list item:", error);
+    logger.error({ err: error }, "Error deleting shopping list item");
     return c.json({ error: "Failed to delete shopping list item" }, 500);
   }
 });

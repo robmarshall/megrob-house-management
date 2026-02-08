@@ -3,7 +3,10 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import dotenv from "dotenv";
 import { auth } from "./lib/auth.js";
+import { logger } from "./lib/logger.js";
 import { rateLimiter } from "./middleware/rateLimiter.js";
+import { requestLogger } from "./middleware/requestLogger.js";
+import { onError } from "./middleware/errorHandler.js";
 import shoppingListsRoutes from "./routes/shoppingLists.js";
 import shoppingListItemsRoutes from "./routes/shoppingListItems.js";
 import recipesRoutes from "./routes/recipes.js";
@@ -27,17 +30,17 @@ const missingEnvVars = requiredEnvVars.filter(
 );
 
 if (missingEnvVars.length > 0) {
-  console.error("❌ Missing required environment variables:");
-  missingEnvVars.forEach((varName) => {
-    console.error(`   - ${varName}`);
-  });
-  console.error(
-    "\nPlease check your .env file and ensure all required variables are set."
-  );
+  logger.fatal({ missing: missingEnvVars }, "Missing required environment variables");
   process.exit(1);
 }
 
 const app = new Hono();
+
+// Global error handler
+app.onError(onError);
+
+// Request logging middleware (applied to all routes)
+app.use('*', requestLogger);
 
 // CORS for auth routes (must be registered before auth handler)
 app.use(
@@ -118,7 +121,7 @@ app.route("/api/webhooks", webhooksRoutes);
 
 const port = parseInt(process.env.PORT || "3000");
 
-console.log(`Server is running on port ${port}`);
+logger.info({ port }, "Server started");
 
 serve({
   fetch: app.fetch,

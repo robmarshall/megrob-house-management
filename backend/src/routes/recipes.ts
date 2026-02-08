@@ -3,6 +3,7 @@ import { eq, desc, asc, like, or, inArray, and, sql, ilike, exists, notExists, S
 import { db } from '../db/index.js';
 import { recipes, recipeIngredients, recipeCategories, recipeFeedback, shoppingLists, shoppingListItems, user, userFavorites } from '../db/schema.js';
 import { authMiddleware, getUserId } from '../middleware/auth.js';
+import { logger } from '../lib/logger.js';
 import { validateBody, getValidatedBody } from '../middleware/validation.js';
 import {
   createRecipeSchema,
@@ -253,7 +254,7 @@ app.get('/', async (c) => {
       totalPages,
     });
   } catch (error) {
-    console.error('Error fetching recipes:', error);
+    logger.error({ err: error }, "Error fetching recipes");
     return c.json({ error: 'Failed to fetch recipes' }, 500);
   }
 });
@@ -304,10 +305,10 @@ app.post('/import', validateBody(importRecipeSchema), async (c) => {
         }
       );
 
-      console.log(`Triggered recipe import workflow for recipe ${newRecipe.id}, runId: ${workflowRunId}`);
+      logger.info({ recipeId: newRecipe.id, workflowRunId }, "Triggered recipe import workflow");
     } catch (queueError) {
       // If queueing fails, update recipe to failed status
-      console.error('Failed to queue import job:', queueError);
+      logger.error({ err: queueError, recipeId: newRecipe.id }, "Failed to queue import job");
 
       await db
         .update(recipes)
@@ -335,7 +336,7 @@ app.post('/import', validateBody(importRecipeSchema), async (c) => {
     }, 202);
 
   } catch (error) {
-    console.error('Error creating import job:', error);
+    logger.error({ err: error }, "Error creating import job");
     return c.json({ error: 'Failed to start recipe import. Please try again.' }, 500);
   }
 });
@@ -383,7 +384,7 @@ app.get('/:id/status', async (c) => {
       name: recipe.status === 'ready' ? recipe.name : null,
     });
   } catch (error) {
-    console.error('Error fetching recipe status:', error);
+    logger.error({ err: error }, "Error fetching recipe status");
     return c.json({ error: 'Failed to fetch recipe status' }, 500);
   }
 });
@@ -436,7 +437,7 @@ app.get('/:id', async (c) => {
       categories,
     });
   } catch (error) {
-    console.error('Error fetching recipe:', error);
+    logger.error({ err: error }, "Error fetching recipe");
     return c.json({ error: 'Failed to fetch recipe' }, 500);
   }
 });
@@ -510,7 +511,7 @@ app.post('/', validateBody(createRecipeSchema), async (c) => {
 
     return c.json(newRecipe, 201);
   } catch (error) {
-    console.error('Error creating recipe:', error);
+    logger.error({ err: error }, "Error creating recipe");
     return c.json({ error: 'Failed to create recipe' }, 500);
   }
 });
@@ -618,7 +619,7 @@ app.patch('/:id', validateBody(updateRecipeSchema), async (c) => {
 
     return c.json(updatedRecipe);
   } catch (error) {
-    console.error('Error updating recipe:', error);
+    logger.error({ err: error }, "Error updating recipe");
     return c.json({ error: 'Failed to update recipe' }, 500);
   }
 });
@@ -648,7 +649,7 @@ app.delete('/:id', async (c) => {
 
     return c.json({ message: 'Recipe deleted successfully' });
   } catch (error) {
-    console.error('Error deleting recipe:', error);
+    logger.error({ err: error }, "Error deleting recipe");
     return c.json({ error: 'Failed to delete recipe' }, 500);
   }
 });
@@ -707,7 +708,7 @@ app.post('/:id/favorite', async (c) => {
       isFavorite,
     });
   } catch (error) {
-    console.error('Error toggling favorite:', error);
+    logger.error({ err: error }, "Error toggling favorite");
     return c.json({ error: 'Failed to toggle favorite' }, 500);
   }
 });
@@ -837,7 +838,7 @@ app.post('/:id/to-shopping-list', validateBody(addToShoppingListSchema), async (
     });
 
   } catch (error) {
-    console.error('Error adding to shopping list:', error);
+    logger.error({ err: error }, "Error adding to shopping list");
     return c.json({ error: 'Failed to add ingredients to shopping list' }, 500);
   }
 });
@@ -890,7 +891,7 @@ app.get('/:id/feedback', async (c) => {
       entries: feedbackEntries,
     });
   } catch (error) {
-    console.error('Error fetching feedback:', error);
+    logger.error({ err: error }, "Error fetching feedback");
     return c.json({ error: 'Failed to fetch feedback' }, 500);
   }
 });
@@ -949,7 +950,7 @@ app.post('/:id/feedback', validateBody(createFeedbackSchema), async (c) => {
       userName: userData?.name || 'Unknown',
     }, 201);
   } catch (error) {
-    console.error('Error adding feedback:', error);
+    logger.error({ err: error }, "Error adding feedback");
     return c.json({ error: 'Failed to add feedback' }, 500);
   }
 });
@@ -992,7 +993,7 @@ app.delete('/:id/feedback/:feedbackId', async (c) => {
 
     return c.json({ message: 'Feedback deleted successfully' });
   } catch (error) {
-    console.error('Error deleting feedback:', error);
+    logger.error({ err: error }, "Error deleting feedback");
     return c.json({ error: 'Failed to delete feedback' }, 500);
   }
 });

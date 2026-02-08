@@ -2,6 +2,7 @@ import { db } from "./index.js";
 import { user, account } from "./auth-schema.js";
 import { eq } from "drizzle-orm";
 import { scryptAsync } from "@noble/hashes/scrypt.js";
+import { logger } from "../lib/logger.js";
 
 // Match Better Auth's exact implementation from their source code
 const config = {
@@ -35,7 +36,7 @@ async function hashPassword(password: string): Promise<string> {
 }
 
 async function seed() {
-  console.log("Seeding database...");
+  logger.info("Seeding database...");
 
   const email = "hello@robertmarshall.dev";
   const password = "Password1*";
@@ -49,7 +50,7 @@ async function seed() {
       .where(eq(user.email, email));
 
     if (existingUser.length > 0) {
-      console.log("User already exists. Deleting and recreating...");
+      logger.info("User already exists. Deleting and recreating...");
       // Delete existing account and user
       await db.delete(account).where(eq(account.userId, existingUser[0].id));
       await db.delete(user).where(eq(user.id, existingUser[0].id));
@@ -82,20 +83,17 @@ async function seed() {
       updatedAt: new Date(),
     });
 
-    console.log("User created successfully:");
-    console.log(`  Email: ${email}`);
-    console.log(`  Name: ${name}`);
-    console.log(`  ID: ${userId}`);
+    logger.info({ email, name, userId }, "User created successfully");
   } catch (error) {
-    console.error("Error creating user:", error);
+    logger.error({ err: error }, "Error creating user");
     throw error;
   }
 
-  console.log("Seeding complete!");
+  logger.info("Seeding complete!");
   process.exit(0);
 }
 
 seed().catch((error) => {
-  console.error("Seeding failed:", error);
+  logger.error({ err: error }, "Seeding failed");
   process.exit(1);
 });

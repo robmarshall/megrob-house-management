@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { logger } from "./logger.js";
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -39,12 +40,12 @@ export async function sendPasswordResetEmail(
         </div>
       `,
     });
-    console.log(`Password reset email sent to ${email}`);
+    logger.info({ email }, "Password reset email sent");
   } catch (error) {
-    console.error("Failed to send password reset email:", error);
+    logger.error({ err: error, email }, "Failed to send password reset email");
     // In development, log the reset URL as fallback
     if (process.env.NODE_ENV !== "production") {
-      console.log(`[DEV FALLBACK] Password reset URL for ${email}: ${resetUrl}`);
+      logger.info({ email, resetUrl }, "DEV FALLBACK: Password reset URL");
     }
     throw error;
   }
