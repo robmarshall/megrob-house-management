@@ -29,7 +29,7 @@
 | 011 | Mobile Responsive Polish | NOT STARTED |
 | 012 | Security Hardening & Backend Fixes | NOT STARTED |
 | 013 | Schema Cleanup & Dead Code Removal | NOT STARTED |
-| 014 | Frontend Bug Fixes & Component Polish | NOT STARTED |
+| 014 | Frontend Bug Fixes & Component Polish | COMPLETE (v0.0.20) |
 | 015 | User Profile & Settings Page | NOT STARTED |
 
 ### Verified Issues (Code-Level)
@@ -55,16 +55,10 @@ These are confirmed bugs found in the current codebase, not assumptions:
 
 Bugs and security issues affecting correctness of the current production system. No new features until these are resolved.
 
-### 0.1 Frontend Component Bugs (Spec 014)
-- **Status**: REVIEW PASSED — awaiting commit
-- **Priority**: HIGHEST — Badge variants cause broken rendering on recipe pages
-- **Tasks**:
-  - Extend Badge atom `BadgeVariant` union type and `variantStyles` with semantic variants: `info` (blue), `success` (green), `warning` (amber), `error` (red), `primary` (primary color), `gray` (gray)
-  - Fix Button atom: replace hardcoded `bg-blue-600/700` and `focus:ring-blue-500` with `bg-primary-600/700` and `focus:ring-primary-500`
-  - Fix RecipeDetailPage favorite toggle: add `toggleFavorite` mutation to `useRecipeData()` hook calling `POST /api/recipes/:id/favorite`; replace `editRecipe({isFavorite})` call on line 42
-  - Fix Checkbox XSS: sanitize `label` prop or replace `dangerouslySetInnerHTML` with safe rendering (only used for terms links — consider rendering with React elements instead)
-  - Fix RecipeForm type cast: properly type the instructions transformation to avoid double `as unknown as` cast
-- **Files**: `Badge.tsx`, `Button.tsx`, `RecipeDetailPage.tsx`, `useRecipes.ts`, `Checkbox.tsx`, `RecipeForm.tsx`
+### 0.1 Frontend Component Bugs (Spec 014) [COMPLETE]
+- **Status**: COMPLETE (v0.0.20) — committed f78b7b0
+- **Completed**: 2026-02-09
+- **Summary**: Added 6 semantic Badge variants, fixed Button theming to use primary colors with size prop, replaced Checkbox dangerouslySetInnerHTML with safe ReactNode rendering, fixed favorite toggle to use dedicated POST endpoint, fixed RecipeForm type cast with RecipeFormSubmitData type, fixed 11 additional TypeScript build errors
 
 ### 0.2 Backend Security Hardening (Spec 012)
 - **Status**: NOT STARTED
