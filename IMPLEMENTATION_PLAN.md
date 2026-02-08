@@ -24,7 +24,7 @@
 | 006 | Dark Mode | NOT STARTED |
 | 007 | PWA & Offline | NOT STARTED |
 | 008 | Testing Infrastructure | COMPLETE (v0.0.25) |
-| 009 | List Sharing & Household Collaboration | IN PROGRESS |
+| 009 | List Sharing & Household Collaboration | COMPLETE (v0.0.26) |
 | 010 | Structured Logging & Error Handling | COMPLETE (v0.0.24) |
 | 011 | Mobile Responsive Polish | NOT STARTED |
 | 012 | Security Hardening & Backend Fixes | COMPLETE (v0.0.21) |
@@ -100,17 +100,10 @@ Bugs and security issues affecting correctness of the current production system.
 
 ## Tier 2: Cross-Cutting Concerns (Before New Feature Modules)
 
-### 2.1 Household Sharing & Collaboration (Spec 009)
-- **Status**: IN PROGRESS
-- **Why**: Enables the core value proposition of a *home* management app — shared household data. This is a cross-cutting concern that touches every existing route and must be done before adding more features that need the same household filtering.
-- **Tasks**:
-  - Design and create household database schema (households, household_members, household_invitations tables)
-  - Implement household API endpoints (create, invite via email, join, leave, remove)
-  - Refactor ALL data queries to filter by household instead of individual user
-  - Build HouseholdSettingsPage with member management UI
-- **DB**: New migration for household tables; modify all existing queries
-- **Backend**: New `backend/src/routes/households.ts`; modify shopping list, recipe, and (future) meal plan routes
-- **Frontend**: New `HouseholdSettingsPage`, update AppHeader
+### 2.1 Household Sharing & Collaboration (Spec 009) [COMPLETE]
+- **Status**: COMPLETE (v0.0.26) — committed e82c11b
+- **Completed**: 2026-02-08
+- **Summary**: Implemented multi-user household system with DB migration (3 new tables + 2 column additions + 7 indexes), 9 household API endpoints (create, get, update, invite, join, decline, leave, remove member, cancel invitation), refactored all shopping list and recipe endpoints for household-scoped data access with backward-compatible personal data visibility. Added verifyRecipeAccess helper for consistent authorization. Frontend includes HouseholdPage with member management UI. All 154 backend + 55 frontend tests pass.
 - **Learnings**:
   - When adding household scoping to existing routes, list endpoints and individual-access endpoints must BOTH be scoped. It's easy to add the access filter to the list query but forget the GET /:id, PATCH /:id, etc. Use a `verifyAccess(entityId, userId)` helper (like `verifyListAccess` in shoppingListItems.ts) and apply it consistently to every endpoint that touches a single record.
   - Invitation flow was implemented as in-app notifications rather than email. The DB schema supports either approach; email delivery can be added later without schema changes.
