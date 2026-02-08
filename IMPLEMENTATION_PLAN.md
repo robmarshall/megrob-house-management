@@ -27,7 +27,7 @@
 | 009 | List Sharing & Household Collaboration | NOT STARTED |
 | 010 | Structured Logging & Error Handling | NOT STARTED |
 | 011 | Mobile Responsive Polish | NOT STARTED |
-| 012 | Security Hardening & Backend Fixes | IN REVIEW |
+| 012 | Security Hardening & Backend Fixes | COMPLETE (v0.0.21) |
 | 013 | Schema Cleanup & Dead Code Removal | NOT STARTED |
 | 014 | Frontend Bug Fixes & Component Polish | COMPLETE (v0.0.20) |
 | 015 | User Profile & Settings Page | NOT STARTED |
@@ -60,17 +60,10 @@ Bugs and security issues affecting correctness of the current production system.
 - **Completed**: 2026-02-09
 - **Summary**: Added 6 semantic Badge variants, fixed Button theming to use primary colors with size prop, replaced Checkbox dangerouslySetInnerHTML with safe ReactNode rendering, fixed favorite toggle to use dedicated POST endpoint, fixed RecipeForm type cast with RecipeFormSubmitData type, fixed 11 additional TypeScript build errors
 
-### 0.2 Backend Security Hardening (Spec 012)
-- **Status**: IN PROGRESS (review passed, pending commit)
-- **Priority**: HIGH — data integrity and security issues
-- **Tasks**:
-  - Add pagination parameter validation (page >= 1, pageSize 1-100) with 400 error responses to: `shoppingLists.ts`, `shoppingListItems.ts`, `recipes.ts`
-  - Change recipe feedback `POST /api/recipes/:id/feedback` to UPSERT using Drizzle's `onConflictDoUpdate` on `(recipe_id, user_id)` unique constraint
-  - Create migration 0004: add unique constraint on `recipeCategories(recipeId, categoryType, categoryValue)` to prevent duplicate category entries
-  - Validate QueueBear env vars (`QUEUEBEAR_REDIRECT_URL`, `QUEUEBEAR_API_KEY`, `QUEUEBEAR_PROJECT_ID`) at startup in `index.ts`; remove localhost fallback from `queuebear.ts`
-  - Add rate limiting middleware for auth endpoints (login: 5/min/IP, password reset: 3/min/IP) — in-memory store is acceptable for single-process deployment
-  - Document recipe edit authorization as intentional shared-edit policy (any authenticated user can edit; only creator can delete) with code comment
-- **Files**: `recipes.ts`, `shoppingLists.ts`, `shoppingListItems.ts`, `queuebear.ts`, `index.ts`, new `middleware/rateLimiter.ts`, new migration `0004_*.sql`
+### 0.2 Backend Security Hardening (Spec 012) [COMPLETE]
+- **Status**: COMPLETE (v0.0.21) — committed 7a51b3b
+- **Completed**: 2026-02-08
+- **Summary**: Added pagination validation (page >= 1, pageSize 1-100) to all list endpoints, created in-memory rate limiter using socket-level IP via getConnInfo() for auth endpoints (login 5/min, password reset 3/min), changed recipe feedback to UPSERT, added unique constraint migration on recipe_categories, validated QueueBear env vars at startup with localhost fallback removed, added auth check on recipe import status endpoint, documented shared-edit policy
 
 ### 0.3 Schema Cleanup & Dead Code (Spec 013)
 - **Status**: NOT STARTED
