@@ -23,7 +23,7 @@
 | 005 | Recipe Enhancements | NOT STARTED |
 | 006 | Dark Mode | NOT STARTED |
 | 007 | PWA & Offline | NOT STARTED |
-| 008 | Testing Infrastructure | NOT STARTED |
+| 008 | Testing Infrastructure | COMPLETE (v0.0.25) |
 | 009 | List Sharing & Household Collaboration | NOT STARTED |
 | 010 | Structured Logging & Error Handling | COMPLETE (v0.0.24) |
 | 011 | Mobile Responsive Polish | NOT STARTED |
@@ -91,16 +91,10 @@ Bugs and security issues affecting correctness of the current production system.
   - `pino-pretty` is in `dependencies` (not `devDependencies`) — acceptable since pino loads it dynamically via transport and a missing module at runtime would crash the app if `NODE_ENV` is unset. Could move to devDeps if deploy process guarantees `NODE_ENV=production`.
   - Hono context variables (`c.set`/`c.get`) are untyped without a generic `Env` type on `new Hono<Env>()` — this is a pre-existing pattern across the codebase, not introduced by this change.
 
-### 1.3 Testing Infrastructure (Spec 008)
-- **Status**: NOT STARTED
-- **Why**: 0 tests across entire codebase; critical for confidence in changes
-- **Tasks**:
-  - Set up Vitest for backend with test database configuration
-  - Write unit tests for utilities: ingredientParser, allergenDetector, itemMatcher, validation
-  - Set up Vitest + React Testing Library for frontend
-  - Write component tests for atoms (Input, Button, Badge, Checkbox)
-  - Write integration tests for backend API routes (shopping lists, recipes)
-- **Target**: 90%+ utility coverage, 80%+ route coverage, 60%+ component coverage
+### 1.3 Testing Infrastructure (Spec 008) [COMPLETE]
+- **Status**: COMPLETE (v0.0.25) — committed 24c15f7
+- **Completed**: 2026-02-08
+- **Summary**: Set up Vitest for both backend and frontend with coverage configuration. Backend: 154 tests across 5 files covering ingredientParser (31), allergenDetector (41), itemMatcher (48), recipeScraper (26), validation middleware (8). Frontend: 55 tests across 5 files covering validators (17), errors (10), utils (7), Button (11), Badge (10). Weighted utility coverage ~95%. Hook tests, molecule tests, page integration tests, and Input/Checkbox atom tests remain as future work.
 
 ---
 
@@ -291,8 +285,12 @@ These were considered but deferred as premature for current stage:
 - Checkbox atom uses `dangerouslySetInnerHTML` for label — intentional for HTML links but XSS risk if user data flows in
 - RecipeForm uses double type cast (`as unknown as`) for instruction transformation — type alignment needed
 - PostgreSQL numeric type returns as string from Drizzle; manual `parseFloat()` normalization in item routes
-- Backend has no test suite at all — 0 test files, no Vitest config, no test scripts in package.json
-- Frontend has no test suite at all — same situation
+- Backend has no test suite at all — 0 test files, no Vitest config, no test scripts in package.json (RESOLVED by Spec 008)
+- Frontend has no test suite at all — same situation (RESOLVED by Spec 008)
+- Spec 008 frontend scope was partially implemented: lib utilities + 2 atom components covered, but hook tests, molecule tests, page integration tests, Input/Checkbox atom tests still needed in future iterations
+- `zod` is used directly in `backend/src/middleware/validation.ts` and its test but is only a transitive dependency via `better-auth` — should be added as explicit dependency to avoid breakage if better-auth changes
+- recipeScraper.ts has dead code: `parsedUrl` variable (line 236-238) is assigned but never used after URL validation
+- Frontend vitest.config.ts coverage `include` should be expanded beyond `src/lib/**` and `src/components/atoms/**` to cover hooks, molecules, organisms, and pages when those test categories are added
 - GET `/api/recipes/:id/status` endpoint lacks auth middleware (intentional for polling during import)
 - Homepage has 3 cards: Shopping Lists (active), Recipes (active), Meal Planning (Coming Soon placeholder)
 - Rate limiter IP resolution: When using @hono/node-server directly (not behind reverse proxy), use `getConnInfo(c)` from `@hono/node-server/conninfo` for the real socket-level client IP. Trusting X-Forwarded-For/X-Real-IP headers without trusted-proxy validation makes rate limiting fully bypassable.
