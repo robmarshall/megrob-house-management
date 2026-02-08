@@ -2,17 +2,25 @@ import { z } from 'zod'
 
 // Category enum for shopping list items
 const categoryEnum = [
-  'produce',
+  'fruitveg',
   'dairy',
   'meat',
+  'fish',
   'bakery',
   'pantry',
   'frozen',
   'beverages',
   'household',
+  'toiletries',
+  'medicine',
   'other',
   'default'
 ] as const
+
+// Unit enum for shopping list items
+const unitEnum = ['g', 'kg', 'ml', 'L', 'oz', 'lb', 'pcs', 'pack', 'can', 'bottle', 'bunch', 'bag'] as const
+
+export type UnitType = typeof unitEnum[number]
 
 export const loginSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Please enter a valid email address'),
@@ -82,6 +90,67 @@ export type UpdateShoppingListItemFormData = z.infer<typeof updateShoppingListIt
 export const quickAddItemSchema = z.object({
   name: z.string().min(1, 'Item name is required').max(100, 'Name must be less than 100 characters'),
   category: z.enum(categoryEnum).or(z.literal('')).optional(),
+  quantity: z.number().positive('Quantity must be positive').optional(),
+  unit: z.enum(unitEnum).or(z.literal('')).optional(),
 })
 
 export type QuickAddItemFormData = z.infer<typeof quickAddItemSchema>
+
+// Recipe Schemas
+
+const difficultyEnum = ['easy', 'medium', 'hard'] as const
+const categoryTypeEnum = ['meal_type', 'dietary', 'allergen'] as const
+
+export const recipeIngredientSchema = z.object({
+  name: z.string().min(1, 'Ingredient name is required'),
+  quantity: z.number().positive().optional().or(z.literal('')),
+  unit: z.string().optional(),
+  notes: z.string().optional(),
+})
+
+export type RecipeIngredientFormData = z.infer<typeof recipeIngredientSchema>
+
+export const recipeCategorySchema = z.object({
+  type: z.enum(categoryTypeEnum),
+  value: z.string().min(1),
+})
+
+export type RecipeCategoryFormData = z.infer<typeof recipeCategorySchema>
+
+// Instruction step schema - using object for proper useFieldArray support
+export const recipeInstructionSchema = z.object({
+  step: z.string().min(1, 'Instruction step is required'),
+})
+
+export type RecipeInstructionFormData = z.infer<typeof recipeInstructionSchema>
+
+export const createRecipeSchema = z.object({
+  name: z.string().min(1, 'Recipe name is required').max(200, 'Name must be less than 200 characters'),
+  description: z.string().max(1000, 'Description must be less than 1000 characters').optional(),
+  servings: z.number().int().positive('Servings must be a positive number'),
+  prepTimeMinutes: z.number().int().nonnegative().optional().or(z.literal('')),
+  cookTimeMinutes: z.number().int().nonnegative().optional().or(z.literal('')),
+  difficulty: z.enum(difficultyEnum).optional(),
+  cuisine: z.string().max(50).optional(),
+  notes: z.string().max(2000, 'Notes must be less than 2000 characters').optional(),
+  ingredients: z.array(recipeIngredientSchema).min(1, 'At least one ingredient is required'),
+  instructions: z.array(recipeInstructionSchema).min(1, 'At least one instruction step is required'),
+  categories: z.array(recipeCategorySchema).optional(),
+})
+
+export type CreateRecipeFormData = z.infer<typeof createRecipeSchema>
+
+/** Data shape after RecipeForm transforms instructions from { step }[] to string[] */
+export type RecipeFormSubmitData = Omit<CreateRecipeFormData, 'instructions'> & {
+  instructions: string[]
+}
+
+export const updateRecipeSchema = createRecipeSchema.partial()
+
+export type UpdateRecipeFormData = z.infer<typeof updateRecipeSchema>
+
+export const importRecipeSchema = z.object({
+  url: z.string().url('Please enter a valid URL'),
+})
+
+export type ImportRecipeFormData = z.infer<typeof importRecipeSchema>

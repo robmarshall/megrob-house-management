@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { MainLayout } from "@/components/templates/MainLayout";
 import { ShoppingListDetail } from "@/components/organisms/ShoppingListDetail";
+import { ConfirmDeleteBottomSheet } from "@/components/molecules/ConfirmDeleteBottomSheet";
 import {
   useShoppingList,
   useShoppingListData,
@@ -10,7 +12,7 @@ import {
   useShoppingListItemData,
 } from "@/hooks/shoppingList/useShoppingListItems";
 import type { BadgeVariant } from "@/components/atoms/Badge";
-import type { UpdateShoppingListFormData } from "@/lib/schemas";
+import type { UpdateShoppingListFormData, UnitType } from "@/lib/schemas";
 
 export function ShoppingListDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -25,14 +27,19 @@ export function ShoppingListDetailPage() {
     delete: deleteItem,
   } = useShoppingListItemData(listId);
   const { edit: editList, delete: deleteList } = useShoppingListData();
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; isDeleting: boolean }>({
+    isOpen: false,
+    isDeleting: false,
+  });
 
   const isLoading = listLoading || itemsLoading;
 
-  const handleAddItem = async (name: string, category?: BadgeVariant) => {
+  const handleAddItem = async (name: string, category?: BadgeVariant, quantity?: number, unit?: UnitType) => {
     await createItem({
       name,
       category,
-      quantity: 1,
+      quantity: quantity ?? 1,
+      unit,
       checked: false,
     });
   };
@@ -53,9 +60,17 @@ export function ShoppingListDetailPage() {
   };
 
   const handleDeleteList = async () => {
-    if (confirm(`Delete "${list?.name}"? This cannot be undone.`)) {
+    setDeleteConfirm({ isOpen: true, isDeleting: false });
+  };
+
+  const handleConfirmDeleteList = async () => {
+    setDeleteConfirm((prev) => ({ ...prev, isDeleting: true }));
+    try {
       await deleteList(listId);
       navigate("/shopping-lists");
+    } catch (error) {
+      console.error('Failed to delete list:', error);
+      setDeleteConfirm((prev) => ({ ...prev, isDeleting: false }));
     }
   };
 
@@ -149,6 +164,17 @@ export function ShoppingListDetailPage() {
         onDeleteItem={handleDeleteItem}
         onEditList={handleEditList}
         onDeleteList={handleDeleteList}
+      />
+
+      {/* Delete List Confirmation Bottom Sheet */}
+      <ConfirmDeleteBottomSheet
+        isOpen={deleteConfirm.isOpen}
+        onClose={() => setDeleteConfirm({ isOpen: false, isDeleting: false })}
+        onConfirm={handleConfirmDeleteList}
+        itemName={list?.name || ''}
+        itemType="shopping list"
+        isDeleting={deleteConfirm.isDeleting}
+        warningMessage="This will permanently delete the shopping list and all its items."
       />
     </MainLayout>
   );

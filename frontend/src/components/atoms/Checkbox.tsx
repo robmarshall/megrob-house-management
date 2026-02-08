@@ -1,3 +1,4 @@
+import { type ReactNode } from 'react'
 import { useFormContext, type RegisterOptions } from 'react-hook-form'
 import { InputWrapper } from '@/components/molecules/InputWrapper'
 import { cn } from '@/lib/utils'
@@ -8,7 +9,7 @@ interface CheckboxProps {
   id: string
   inGroup?: boolean
   inputProps?: Record<string, any>
-  label: string
+  label: ReactNode
   large?: boolean
   small?: boolean
   name: string
@@ -22,8 +23,8 @@ interface CheckboxProps {
  * Uses useFormContext for automatic registration with forms.
  * Must be used within a FormProvider context.
  *
- * Note: Supports HTML in labels for links.
- * e.g. label="I agree to the <a href='https://example.com'>terms and conditions</a>."
+ * Label accepts ReactNode for safe rendering of links/formatting.
+ * e.g. label={<>I agree to the <a href="https://example.com">terms</a>.</>}
  */
 export function Checkbox({
   disabled = false,
@@ -90,9 +91,10 @@ export function Checkbox({
         <div className={labelContainerClasses}>
           <label
             htmlFor={id}
-            dangerouslySetInnerHTML={{ __html: label }}
             className="font-medium leading-6 text-gray-900"
-          />
+          >
+            {label}
+          </label>
           {description && (
             <p id={`${id}-description`} className="text-gray-500">
               {description}
