@@ -41,8 +41,8 @@ export function EditRecipePage() {
 
       await edit(recipeId, recipeData as Partial<Recipe>);
       navigate(`/recipes/${recipeId}`);
-    } catch (error) {
-      console.error("Failed to update recipe:", error);
+    } catch {
+      // Error toast handled by useData hook
     }
   };
 

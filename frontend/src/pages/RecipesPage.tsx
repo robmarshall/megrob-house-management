@@ -82,8 +82,8 @@ export function RecipesPage() {
     try {
       await deleteRecipe(deleteConfirm.recipe.id);
       setDeleteConfirm({ isOpen: false, recipe: null, isDeleting: false });
-    } catch (error) {
-      console.error('Failed to delete recipe:', error);
+    } catch {
+      // Error toast handled by useData hook
       setDeleteConfirm((prev) => ({ ...prev, isDeleting: false }));
     }
   };

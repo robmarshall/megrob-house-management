@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useData } from '../useData';
 import { usePaginatedData } from '../usePaginatedData';
 import { apiGet, apiPost } from '@/lib/api/client';
+import { toast } from '@/lib/toast';
 import type { PaginationOptions } from '@/types/api';
 import type { Recipe, ImportRecipeInput, RecipeStatus } from '@/types/recipe';
 
@@ -139,12 +140,16 @@ export function useRecipeData() {
       return completeRecipe;
     },
     onSuccess: () => {
+      toast.success('Recipe imported successfully');
       queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey;
           return Array.isArray(key) && key[0] === 'recipes';
         },
       });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to import recipe');
     },
   });
 
@@ -168,6 +173,7 @@ export function useRecipeData() {
       );
     },
     onSuccess: () => {
+      toast.success('Ingredients added to shopping list');
       // Invalidate shopping lists cache
       queryClient.invalidateQueries({
         predicate: (query) => {
@@ -175,6 +181,9 @@ export function useRecipeData() {
           return Array.isArray(key) && key[0] === 'shopping-lists';
         },
       });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to add ingredients to shopping list');
     },
   });
 
@@ -190,6 +199,9 @@ export function useRecipeData() {
           return Array.isArray(key) && key[0] === 'recipes';
         },
       });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to update favorite');
     },
   });
 

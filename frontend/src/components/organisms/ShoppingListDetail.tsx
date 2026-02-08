@@ -12,12 +12,12 @@ import type { ShoppingList } from "@/types/shoppingList";
 import type { BadgeVariant } from "@/components/atoms/Badge";
 
 import EditListBottomSheet from "@/components/molecules/EditListBottomSheet";
-import type { UpdateShoppingListFormData } from "@/lib/schemas";
+import type { UpdateShoppingListFormData, UnitType } from "@/lib/schemas";
 
 interface ShoppingListDetailProps {
   list: ShoppingList;
   onBack?: () => void;
-  onAddItem: (name: string, category?: BadgeVariant) => Promise<void>;
+  onAddItem: (name: string, category?: BadgeVariant, quantity?: number, unit?: UnitType) => Promise<void>;
   onToggleItem: (itemId: number) => Promise<void>;
   onDeleteItem: (itemId: number) => Promise<void>;
   onEditList?: (data: UpdateShoppingListFormData) => Promise<void>;
@@ -46,8 +46,8 @@ export function ShoppingListDetail({
     try {
       await onDeleteList();
       setIsDeleteConfirmOpen(false);
-    } catch (error) {
-      console.error("Failed to delete list:", error);
+    } catch {
+      // Error toast handled by useData hook
     } finally {
       setIsDeleting(false);
     }

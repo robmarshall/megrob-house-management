@@ -68,8 +68,8 @@ export function ShoppingListDetailPage() {
     try {
       await deleteList(listId);
       navigate("/shopping-lists");
-    } catch (error) {
-      console.error('Failed to delete list:', error);
+    } catch {
+      // Error toast handled by useData hook
       setDeleteConfirm((prev) => ({ ...prev, isDeleting: false }));
     }
   };

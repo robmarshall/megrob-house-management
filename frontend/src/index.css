@@ -5,3 +5,25 @@
     @apply bg-gray-50 text-gray-900;
   }
 }
+
+/* Toast notification style overrides */
+:root {
+  --toastify-color-success: #059669;
+  --toastify-color-error: #dc2626;
+  --toastify-color-warning: #d97706;
+  --toastify-color-info: #2563eb;
+  --toastify-font-family: inherit;
+  --toastify-toast-min-height: 48px;
+}
+
+/* Responsive toast positioning: bottom-center on mobile, bottom-right on desktop */
+@media (max-width: 640px) {
+  .Toastify__toast-container--bottom-right {
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    right: auto;
+    width: 100%;
+    padding: 0 1rem 1rem;
+  }
+}

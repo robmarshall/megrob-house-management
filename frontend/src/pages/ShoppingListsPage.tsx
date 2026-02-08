@@ -40,8 +40,8 @@ export function ShoppingListsPage() {
       methods.reset();
       setIsCreateModalOpen(false);
       navigate(`/shopping-lists/${newList.id}`);
-    } catch (error) {
-      console.error("Failed to create list:", error);
+    } catch {
+      // Error toast handled by useData hook
     }
   };
 

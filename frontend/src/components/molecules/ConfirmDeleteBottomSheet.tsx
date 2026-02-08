@@ -39,9 +39,8 @@ export function ConfirmDeleteBottomSheet({
       await onConfirm();
       setConfirmationStep(1);
       onClose();
-    } catch (error) {
-      // Error handling is done by parent component
-      console.error('Deletion failed:', error);
+    } catch {
+      // Error toast handled by useData hook
     }
   };
 

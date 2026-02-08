@@ -37,8 +37,8 @@ export function AddRecipePage() {
 
       const newRecipe = await create(recipeData as Partial<Recipe>);
       navigate(`/recipes/${newRecipe.id}`);
-    } catch (error) {
-      console.error("Failed to create recipe:", error);
+    } catch {
+      // Error toast handled by useData hook
     }
   };
 

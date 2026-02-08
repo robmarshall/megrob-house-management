@@ -3,7 +3,8 @@ import { Link } from "react-router";
 import { Dialog, Transition } from "@headlessui/react";
 import { Fragment } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Bars3Icon, HomeIcon, ArrowRightOnRectangleIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon, HomeIcon, ArrowRightOnRectangleIcon, XMarkIcon, BookOpenIcon, ShoppingCartIcon } from "@heroicons/react/24/outline";
+import { toast } from "@/lib/toast";
 
 export function AppHeader() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -13,8 +14,8 @@ export function AppHeader() {
     try {
       await signOut();
       setIsDrawerOpen(false);
-    } catch (error) {
-      console.error("Failed to sign out:", error);
+    } catch {
+      toast.error("Failed to sign out. Please try again.");
     }
   };
 
@@ -90,6 +91,24 @@ export function AppHeader() {
                     >
                       <HomeIcon className="w-5 h-5" />
                       <span className="text-sm font-medium">Home</span>
+                    </Link>
+
+                    <Link
+                      to="/shopping-lists"
+                      onClick={handleNavigation}
+                      className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-lg transition-colors"
+                    >
+                      <ShoppingCartIcon className="w-5 h-5" />
+                      <span className="text-sm font-medium">Shopping Lists</span>
+                    </Link>
+
+                    <Link
+                      to="/recipes"
+                      onClick={handleNavigation}
+                      className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-lg transition-colors"
+                    >
+                      <BookOpenIcon className="w-5 h-5" />
+                      <span className="text-sm font-medium">Recipes</span>
                     </Link>
 
                     <button

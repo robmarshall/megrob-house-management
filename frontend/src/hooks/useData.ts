@@ -7,6 +7,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api/client";
+import { toast } from "@/lib/toast";
 
 interface UseDataReturn<T> {
   create: (data: Partial<T>) => Promise<T>;
@@ -49,6 +50,9 @@ export function useData<T>(
     enabled: id !== undefined,
   });
 
+  // Human-readable collection name for toast messages
+  const label = collection.replace(/-/g, ' ').replace(/\/.+/, '');
+
   // Create mutation
   const createMutation = useMutation({
     mutationFn: async (data: Partial<T>) => {
@@ -61,6 +65,10 @@ export function useData<T>(
           return Array.isArray(key) && key[0] === collection;
         },
       });
+      toast.success(`${label} created`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || `Failed to create ${label}`);
     },
   });
 
@@ -82,6 +90,10 @@ export function useData<T>(
           return Array.isArray(key) && key[0] === collection;
         },
       });
+      toast.success(`${label} updated`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || `Failed to update ${label}`);
     },
   });
 
@@ -97,6 +109,10 @@ export function useData<T>(
           return Array.isArray(key) && key[0] === collection;
         },
       });
+      toast.success(`${label} deleted`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || `Failed to delete ${label}`);
     },
   });
 

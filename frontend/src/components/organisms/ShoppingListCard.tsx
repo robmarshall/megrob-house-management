@@ -31,8 +31,8 @@ export function ShoppingListCard({
     try {
       await onDelete(list.id);
       setIsDeleteConfirmOpen(false);
-    } catch (error) {
-      console.error("Failed to delete list:", error);
+    } catch {
+      // Error toast handled by useData hook
     } finally {
       setIsDeleting(false);
     }
