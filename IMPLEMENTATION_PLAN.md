@@ -28,7 +28,7 @@
 | 010 | Structured Logging & Error Handling | NOT STARTED |
 | 011 | Mobile Responsive Polish | NOT STARTED |
 | 012 | Security Hardening & Backend Fixes | COMPLETE (v0.0.21) |
-| 013 | Schema Cleanup & Dead Code Removal | NOT STARTED |
+| 013 | Schema Cleanup & Dead Code Removal | COMPLETE (v0.0.22) |
 | 014 | Frontend Bug Fixes & Component Polish | COMPLETE (v0.0.20) |
 | 015 | User Profile & Settings Page | NOT STARTED |
 
@@ -65,15 +65,10 @@ Bugs and security issues affecting correctness of the current production system.
 - **Completed**: 2026-02-08
 - **Summary**: Added pagination validation (page >= 1, pageSize 1-100) to all list endpoints, created in-memory rate limiter using socket-level IP via getConnInfo() for auth endpoints (login 5/min, password reset 3/min), changed recipe feedback to UPSERT, added unique constraint migration on recipe_categories, validated QueueBear env vars at startup with localhost fallback removed, added auth check on recipe import status endpoint, documented shared-edit policy
 
-### 0.3 Schema Cleanup & Dead Code (Spec 013)
-- **Status**: NOT STARTED
-- **Priority**: HIGH — dead code causes confusion and incorrect PATCH behavior
-- **Tasks**:
-  - Create migration to drop `is_favorite` column from `recipes` table (data migrated to `user_favorites` in migration 0002)
-  - Remove `isFavorite` from: Drizzle schema definition (`schema.ts:76`), PATCH handler (`recipes.ts:537,558`), `updateRecipeSchema` (`validation.ts:62`)
-  - Remove dead `sendWelcomeEmail()` function from `email.ts:53`
-  - Keep `rating` field — wire to StarRating component in Spec 005 for direct user input (1-5 stars)
-- **Files**: new migration, `schema.ts`, `recipes.ts`, `validation.ts`, `email.ts`
+### 0.3 Schema Cleanup & Dead Code (Spec 013) [COMPLETE]
+- **Status**: COMPLETE (v0.0.22) — committed 9f140d0
+- **Completed**: 2026-02-08
+- **Summary**: Created migration 0005 to drop `is_favorite` column from recipes table. Removed `isFavorite` from Drizzle schema, update validation, and PATCH handler. Removed dead `sendWelcomeEmail()` from email.ts. Updated frontend Recipe type to make `isFavorite` optional (now computed per-user from userFavorites table). Rating field kept for Spec 005 StarRating component.
 
 ---
 
