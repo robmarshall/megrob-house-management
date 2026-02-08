@@ -25,7 +25,7 @@
 | 007 | PWA & Offline | NOT STARTED |
 | 008 | Testing Infrastructure | NOT STARTED |
 | 009 | List Sharing & Household Collaboration | NOT STARTED |
-| 010 | Structured Logging & Error Handling | NOT STARTED |
+| 010 | Structured Logging & Error Handling | COMPLETE (v0.0.24) |
 | 011 | Mobile Responsive Polish | NOT STARTED |
 | 012 | Security Hardening & Backend Fixes | COMPLETE (v0.0.21) |
 | 013 | Schema Cleanup & Dead Code Removal | COMPLETE (v0.0.22) |
@@ -82,15 +82,14 @@ Bugs and security issues affecting correctness of the current production system.
   - react-toastify renders string messages as React text nodes (not innerHTML), so displaying `error.message` from API is XSS-safe
   - Toggle-style actions (favorite) benefit more from visual icon state change than toast notifications — avoid toast spam on rapid toggles
 
-### 1.2 Structured Logging & Error Handling (Spec 010)
-- **Status**: NOT STARTED
-- **Why**: Production debugging impossible with console.log; error handling is inconsistent
-- **Tasks**:
-  - Set up pino structured logger with environment-aware formatting (pretty dev, JSON prod)
-  - Create request logging middleware (method, path, status, duration, userId, correlation ID)
-  - Create centralized error handling middleware with safe error responses
-  - Replace all backend console.log/console.error with structured logger
-- **Files**: New: `logger.ts`, `requestLogger.ts`, `errorHandler.ts`. Modify: `index.ts`, all route files
+### 1.2 Structured Logging & Error Handling (Spec 010) [COMPLETE]
+- **Status**: COMPLETE (v0.0.24) — committed f7ded04
+- **Completed**: 2026-02-08
+- **Summary**: Replaced all 43 console.log/console.error calls with structured pino logger. Created environment-aware logger (pretty dev, JSON prod), request logging middleware with correlation IDs and duration tracking, centralized error handler with safe error responses. 13 files modified (3 new, 10 modified). TypeScript typecheck, build all pass.
+- **Learnings**:
+  - Correlation IDs: requestLogger generates IDs and logs them on entry/exit; errorHandler also includes them. For full tracing, a future enhancement could use `logger.child({ requestId })` stored in Hono context so all downstream logs include it automatically.
+  - `pino-pretty` is in `dependencies` (not `devDependencies`) — acceptable since pino loads it dynamically via transport and a missing module at runtime would crash the app if `NODE_ENV` is unset. Could move to devDeps if deploy process guarantees `NODE_ENV=production`.
+  - Hono context variables (`c.set`/`c.get`) are untyped without a generic `Env` type on `new Hono<Env>()` — this is a pre-existing pattern across the codebase, not introduced by this change.
 
 ### 1.3 Testing Infrastructure (Spec 008)
 - **Status**: NOT STARTED
