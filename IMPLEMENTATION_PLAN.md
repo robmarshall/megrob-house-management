@@ -27,7 +27,7 @@
 | 009 | List Sharing & Household Collaboration | NOT STARTED |
 | 010 | Structured Logging & Error Handling | NOT STARTED |
 | 011 | Mobile Responsive Polish | NOT STARTED |
-| 012 | Security Hardening & Backend Fixes | NOT STARTED |
+| 012 | Security Hardening & Backend Fixes | IN REVIEW |
 | 013 | Schema Cleanup & Dead Code Removal | NOT STARTED |
 | 014 | Frontend Bug Fixes & Component Polish | COMPLETE (v0.0.20) |
 | 015 | User Profile & Settings Page | NOT STARTED |
@@ -61,7 +61,7 @@ Bugs and security issues affecting correctness of the current production system.
 - **Summary**: Added 6 semantic Badge variants, fixed Button theming to use primary colors with size prop, replaced Checkbox dangerouslySetInnerHTML with safe ReactNode rendering, fixed favorite toggle to use dedicated POST endpoint, fixed RecipeForm type cast with RecipeFormSubmitData type, fixed 11 additional TypeScript build errors
 
 ### 0.2 Backend Security Hardening (Spec 012)
-- **Status**: NOT STARTED
+- **Status**: IN PROGRESS (review passed, pending commit)
 - **Priority**: HIGH — data integrity and security issues
 - **Tasks**:
   - Add pagination parameter validation (page >= 1, pageSize 1-100) with 400 error responses to: `shoppingLists.ts`, `shoppingListItems.ts`, `recipes.ts`
@@ -310,3 +310,9 @@ These were considered but deferred as premature for current stage:
 - Frontend has no test suite at all — same situation
 - GET `/api/recipes/:id/status` endpoint lacks auth middleware (intentional for polling during import)
 - Homepage has 3 cards: Shopping Lists (active), Recipes (active), Meal Planning (Coming Soon placeholder)
+- Rate limiter IP resolution: When using @hono/node-server directly (not behind reverse proxy), use `getConnInfo(c)` from `@hono/node-server/conninfo` for the real socket-level client IP. Trusting X-Forwarded-For/X-Real-IP headers without trusted-proxy validation makes rate limiting fully bypassable.
+- In-memory rate limiters with Map stores need cleanup intervals to prevent memory exhaustion from IP rotation attacks
+- Drizzle schema should declare unique constraints inline (not just via raw SQL migrations) to ensure onConflictDoUpdate targets are formally backed by schema definitions
+- `parseInt()` accepts leading numeric characters in mixed strings (e.g. `parseInt("3abc")` → `3`). For stricter validation, use `Number()` + `Number.isInteger()`. Current usage is safe since parsed values flow through parameterized queries.
+- IPv4-mapped IPv6 addresses (e.g. `::ffff:192.168.1.1`) can give a client two rate-limit buckets on dual-stack servers — low severity but worth noting for future hardening
+- Drizzle migrations are tracked by journal and run exactly once — `IF NOT EXISTS` safety is unnecessary and non-standard for Drizzle migration files

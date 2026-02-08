@@ -3,8 +3,11 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import dotenv from "dotenv";
 import { auth } from "./lib/auth.js";
+import { rateLimiter } from "./middleware/rateLimiter.js";
 import shoppingListsRoutes from "./routes/shoppingLists.js";
 import shoppingListItemsRoutes from "./routes/shoppingListItems.js";
+import recipesRoutes from "./routes/recipes.js";
+import webhooksRoutes from "./routes/webhooks.js";
 
 dotenv.config();
 
@@ -14,6 +17,9 @@ const requiredEnvVars = [
   "BETTER_AUTH_SECRET",
   "BETTER_AUTH_URL",
   "FRONTEND_URL",
+  "QUEUEBEAR_API_KEY",
+  "QUEUEBEAR_PROJECT_ID",
+  "QUEUEBEAR_REDIRECT_URL",
 ];
 
 const missingEnvVars = requiredEnvVars.filter(
@@ -80,6 +86,12 @@ app.options("/api/auth/*", (c) => {
   });
 });
 
+// Rate limiting for auth endpoints (applied before auth handler)
+// Login: 5 attempts per minute per IP
+app.use("/api/auth/sign-in/*", rateLimiter(5, 60_000));
+// Password reset: 3 attempts per minute per IP
+app.use("/api/auth/forgot-password", rateLimiter(3, 60_000));
+
 // Better Auth routes - handles all /api/auth/* endpoints
 app.on(["GET", "POST"], "/api/auth/*", async (c) => {
   const response = await auth.handler(c.req.raw);
@@ -99,6 +111,10 @@ app.on(["GET", "POST"], "/api/auth/*", async (c) => {
 // API routes (protected with auth middleware)
 app.route("/api/shopping-lists", shoppingListsRoutes);
 app.route("/api/shopping-lists", shoppingListItemsRoutes);
+app.route("/api/recipes", recipesRoutes);
+
+// Webhook routes (no auth - verified by QueueBear signature)
+app.route("/api/webhooks", webhooksRoutes);
 
 const port = parseInt(process.env.PORT || "3000");
 

@@ -3,11 +3,30 @@ import { eq, and, asc } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { shoppingLists, shoppingListItems } from "../db/schema.js";
 import { authMiddleware, getUserId } from "../middleware/auth.js";
+import { addOrMergeItem } from "../services/shoppingListItemService.js";
+import { validateBody, getValidatedBody } from "../middleware/validation.js";
+import {
+  createShoppingListItemSchema,
+  updateShoppingListItemSchema,
+  type CreateShoppingListItemInput,
+  type UpdateShoppingListItemInput,
+} from "../lib/validation.js";
 
 const app = new Hono();
 
 // Apply auth middleware to all routes
 app.use("*", authMiddleware);
+
+/**
+ * Helper to normalize shopping list item for API response
+ * Converts quantity from PostgreSQL numeric (string) to number
+ */
+function normalizeItem<T extends { quantity: string | null }>(item: T): T & { quantity: number } {
+  return {
+    ...item,
+    quantity: item.quantity ? parseFloat(item.quantity) : 1,
+  };
+}
 
 /**
  * Helper function to verify list ownership
@@ -32,6 +51,14 @@ app.get("/:listId/items", async (c) => {
   const listId = parseInt(c.req.param("listId"));
   const page = parseInt(c.req.query("page") || "1");
   const pageSize = parseInt(c.req.query("pageSize") || "50");
+
+  if (isNaN(page) || page < 1) {
+    return c.json({ error: "Invalid page parameter: must be a positive integer" }, 400);
+  }
+  if (isNaN(pageSize) || pageSize < 1 || pageSize > 100) {
+    return c.json({ error: "Invalid pageSize parameter: must be between 1 and 100" }, 400);
+  }
+
   const offset = (page - 1) * pageSize;
 
   if (isNaN(listId)) {
@@ -67,7 +94,7 @@ app.get("/:listId/items", async (c) => {
       .offset(offset);
 
     return c.json({
-      data,
+      data: data.map(normalizeItem),
       total,
       page,
       pageSize,
@@ -83,7 +110,7 @@ app.get("/:listId/items", async (c) => {
  * POST /api/shopping-lists/:listId/items
  * Add a new item to a shopping list
  */
-app.post("/:listId/items", async (c) => {
+app.post("/:listId/items", validateBody(createShoppingListItemSchema), async (c) => {
   const userId = getUserId(c);
   const listId = parseInt(c.req.param("listId"));
 
@@ -98,30 +125,28 @@ app.post("/:listId/items", async (c) => {
       return c.json({ error: "Shopping list not found" }, 404);
     }
 
-    const body = await c.req.json();
-    const { name, category, quantity, unit, notes, position } = body;
+    const { name, category, quantity, unit, notes, position } = getValidatedBody<CreateShoppingListItemInput>(c);
 
-    if (!name || typeof name !== "string") {
-      return c.json({ error: "Name is required and must be a string" }, 400);
-    }
+    const result = await addOrMergeItem({
+      listId,
+      name,
+      category,
+      quantity,
+      unit,
+      notes,
+      position,
+      createdBy: userId,
+      updatedBy: userId,
+    });
 
-    const [newItem] = await db
-      .insert(shoppingListItems)
-      .values({
-        listId,
-        name,
-        category: category || null,
-        quantity: quantity?.toString() || "1",
-        unit: unit || null,
-        notes: notes || null,
-        position: position || 0,
-        checked: false,
-        createdBy: userId,
-        updatedBy: userId,
-      })
-      .returning();
-
-    return c.json(newItem, 201);
+    return c.json(
+      {
+        ...normalizeItem(result.item),
+        merged: result.merged,
+        ...(result.previousQuantity && { previousQuantity: parseFloat(result.previousQuantity) }),
+      },
+      result.merged ? 200 : 201
+    );
   } catch (error) {
     console.error("Error creating shopping list item:", error);
     return c.json({ error: "Failed to create shopping list item" }, 500);
@@ -132,7 +157,7 @@ app.post("/:listId/items", async (c) => {
  * PATCH /api/shopping-lists/:listId/items/:itemId
  * Update a shopping list item
  */
-app.patch("/:listId/items/:itemId", async (c) => {
+app.patch("/:listId/items/:itemId", validateBody(updateShoppingListItemSchema), async (c) => {
   const userId = getUserId(c);
   const listId = parseInt(c.req.param("listId"));
   const itemId = parseInt(c.req.param("itemId"));
@@ -163,8 +188,7 @@ app.patch("/:listId/items/:itemId", async (c) => {
       return c.json({ error: "Shopping list item not found" }, 404);
     }
 
-    const body = await c.req.json();
-    const { name, category, quantity, unit, notes, checked, position } = body;
+    const { name, category, quantity, unit, notes, checked, position } = getValidatedBody<UpdateShoppingListItemInput>(c);
 
     // Update the item
     const [updatedItem] = await db
@@ -196,7 +220,7 @@ app.patch("/:listId/items/:itemId", async (c) => {
       .where(eq(shoppingListItems.id, itemId))
       .returning();
 
-    return c.json(updatedItem);
+    return c.json(normalizeItem(updatedItem));
   } catch (error) {
     console.error("Error updating shopping list item:", error);
     return c.json({ error: "Failed to update shopping list item" }, 500);
@@ -253,7 +277,7 @@ app.patch("/:listId/items/:itemId/toggle", async (c) => {
       .where(eq(shoppingListItems.id, itemId))
       .returning();
 
-    return c.json(updatedItem);
+    return c.json(normalizeItem(updatedItem));
   } catch (error) {
     console.error("Error toggling shopping list item:", error);
     return c.json({ error: "Failed to toggle shopping list item" }, 500);

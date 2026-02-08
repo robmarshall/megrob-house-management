@@ -8,6 +8,34 @@
       "when": 1762200012363,
       "tag": "0000_ordinary_luke_cage",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1766952432738,
+      "tag": "0001_numerous_joshua_kane",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1735430400000,
+      "tag": "0002_user_favorites",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1735516800000,
+      "tag": "0003_add_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1738972800000,
+      "tag": "0004_recipe_categories_unique",
+      "breakpoints": true
     }
   ]
 }

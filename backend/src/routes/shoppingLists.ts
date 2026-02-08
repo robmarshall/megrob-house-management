@@ -3,6 +3,13 @@ import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { shoppingLists } from '../db/schema.js';
 import { authMiddleware, getUserId } from '../middleware/auth.js';
+import { validateBody, getValidatedBody } from '../middleware/validation.js';
+import {
+  createShoppingListSchema,
+  updateShoppingListSchema,
+  type CreateShoppingListInput,
+  type UpdateShoppingListInput,
+} from '../lib/validation.js';
 
 const app = new Hono();
 
@@ -17,6 +24,14 @@ app.get('/', async (c) => {
   const userId = getUserId(c);
   const page = parseInt(c.req.query('page') || '1');
   const pageSize = parseInt(c.req.query('pageSize') || '20');
+
+  if (isNaN(page) || page < 1) {
+    return c.json({ error: 'Invalid page parameter: must be a positive integer' }, 400);
+  }
+  if (isNaN(pageSize) || pageSize < 1 || pageSize > 100) {
+    return c.json({ error: 'Invalid pageSize parameter: must be between 1 and 100' }, 400);
+  }
+
   const offset = (page - 1) * pageSize;
 
   try {
@@ -55,17 +70,11 @@ app.get('/', async (c) => {
  * POST /api/shopping-lists
  * Create a new shopping list
  */
-app.post('/', async (c) => {
+app.post('/', validateBody(createShoppingListSchema), async (c) => {
   const userId = getUserId(c);
+  const { name, description } = getValidatedBody<CreateShoppingListInput>(c);
 
   try {
-    const body = await c.req.json();
-    const { name, description } = body;
-
-    if (!name || typeof name !== 'string') {
-      return c.json({ error: 'Name is required and must be a string' }, 400);
-    }
-
     const [newList] = await db
       .insert(shoppingLists)
       .values({
@@ -121,7 +130,7 @@ app.get('/:id', async (c) => {
  * PATCH /api/shopping-lists/:id
  * Update a shopping list
  */
-app.patch('/:id', async (c) => {
+app.patch('/:id', validateBody(updateShoppingListSchema), async (c) => {
   const userId = getUserId(c);
   const id = parseInt(c.req.param('id'));
 
@@ -130,8 +139,7 @@ app.patch('/:id', async (c) => {
   }
 
   try {
-    const body = await c.req.json();
-    const { name, description } = body;
+    const { name, description } = getValidatedBody<UpdateShoppingListInput>(c);
 
     // Verify ownership
     const [existingList] = await db
