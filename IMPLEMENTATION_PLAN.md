@@ -24,7 +24,7 @@
 | 006 | Dark Mode | NOT STARTED |
 | 007 | PWA & Offline | NOT STARTED |
 | 008 | Testing Infrastructure | COMPLETE (v0.0.25) |
-| 009 | List Sharing & Household Collaboration | NOT STARTED |
+| 009 | List Sharing & Household Collaboration | IN PROGRESS |
 | 010 | Structured Logging & Error Handling | COMPLETE (v0.0.24) |
 | 011 | Mobile Responsive Polish | NOT STARTED |
 | 012 | Security Hardening & Backend Fixes | COMPLETE (v0.0.21) |
@@ -47,7 +47,7 @@ These are confirmed bugs found in the current codebase, not assumptions:
 10. **Checkbox XSS risk**: `Checkbox.tsx:93` uses `dangerouslySetInnerHTML={{ __html: label }}` — documented as intentional for HTML links in labels, but should sanitize input
 11. **RecipeForm double type cast**: `RecipeForm.tsx:137` uses `as unknown as CreateRecipeFormData` — instructions transform from `{ step: string }[]` to `string[]` bypasses TypeScript
 12. **No rate limiting on auth endpoints**: Login and password reset have no brute-force protection
-13. **Recipe authorization inconsistency**: PATCH allows any authenticated user to edit any recipe; DELETE checks ownership
+13. ~~**Recipe authorization inconsistency**: PATCH allows any authenticated user to edit any recipe; DELETE checks ownership~~ (RESOLVED by Spec 009 — all recipe endpoints now use household-scoped `verifyRecipeAccess`; DELETE uses stricter `verifyRecipeOwnership` requiring creator)
 
 ---
 
@@ -101,7 +101,7 @@ Bugs and security issues affecting correctness of the current production system.
 ## Tier 2: Cross-Cutting Concerns (Before New Feature Modules)
 
 ### 2.1 Household Sharing & Collaboration (Spec 009)
-- **Status**: NOT STARTED
+- **Status**: IN PROGRESS
 - **Why**: Enables the core value proposition of a *home* management app — shared household data. This is a cross-cutting concern that touches every existing route and must be done before adding more features that need the same household filtering.
 - **Tasks**:
   - Design and create household database schema (households, household_members, household_invitations tables)
@@ -111,6 +111,10 @@ Bugs and security issues affecting correctness of the current production system.
 - **DB**: New migration for household tables; modify all existing queries
 - **Backend**: New `backend/src/routes/households.ts`; modify shopping list, recipe, and (future) meal plan routes
 - **Frontend**: New `HouseholdSettingsPage`, update AppHeader
+- **Learnings**:
+  - When adding household scoping to existing routes, list endpoints and individual-access endpoints must BOTH be scoped. It's easy to add the access filter to the list query but forget the GET /:id, PATCH /:id, etc. Use a `verifyAccess(entityId, userId)` helper (like `verifyListAccess` in shoppingListItems.ts) and apply it consistently to every endpoint that touches a single record.
+  - Invitation flow was implemented as in-app notifications rather than email. The DB schema supports either approach; email delivery can be added later without schema changes.
+  - The `or(eq(table.householdId, id), and(eq(table.createdBy, userId), isNull(table.householdId)))` pattern lets users keep their personal (pre-household) data visible after joining a household. New data gets assigned to the household automatically.
 
 ### 2.2 User Profile & Settings (Spec 015)
 - **Status**: NOT STARTED
@@ -301,3 +305,6 @@ These were considered but deferred as premature for current stage:
 - Drizzle migrations are tracked by journal and run exactly once — `IF NOT EXISTS` safety is unnecessary and non-standard for Drizzle migration files
 - react-toastify renders string arguments as React text nodes (not innerHTML) — no XSS risk from passing `error.message` strings. No `dangerouslySetInnerHTML` in the library source.
 - react-toastify `position` prop is static — for responsive positioning (e.g., bottom-center on mobile, bottom-right on desktop), override `.Toastify__toast-container` with CSS media queries
+- Household access control pattern: `verifyRecipeAccess` / `verifyListAccess` check household membership OR personal ownership, with `isNull()` for null-safe comparison on nullable householdId columns. DELETE operations should use a stricter `verifyOwnership` wrapper that additionally checks `createdBy`.
+- When adding household scoping to existing endpoints, the list endpoint (GET /) and ALL individual-access endpoints must be updated — easy to miss individual endpoints that accept an ID parameter
+- Unique constraint on `household_members.user_id` enforces the "one household per user" business rule at the database level, making application-level race conditions non-critical

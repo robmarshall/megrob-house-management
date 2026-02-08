@@ -83,6 +83,15 @@ export const addToShoppingListSchema = z.object({
   { message: 'Either shoppingListId or newListName is required' }
 );
 
+// Household schemas
+export const createHouseholdSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100, 'Name must be 100 characters or less'),
+});
+
+export const inviteMemberSchema = z.object({
+  email: z.string().email('Invalid email format'),
+});
+
 // Type exports for use in route handlers
 export type CreateShoppingListInput = z.infer<typeof createShoppingListSchema>;
 export type UpdateShoppingListInput = z.infer<typeof updateShoppingListSchema>;
@@ -93,3 +102,5 @@ export type UpdateRecipeInput = z.infer<typeof updateRecipeSchema>;
 export type ImportRecipeInput = z.infer<typeof importRecipeSchema>;
 export type CreateFeedbackInput = z.infer<typeof createFeedbackSchema>;
 export type AddToShoppingListInput = z.infer<typeof addToShoppingListSchema>;
+export type CreateHouseholdInput = z.infer<typeof createHouseholdSchema>;
+export type InviteMemberInput = z.infer<typeof inviteMemberSchema>;

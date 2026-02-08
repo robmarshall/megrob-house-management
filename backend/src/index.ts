@@ -11,6 +11,7 @@ import shoppingListsRoutes from "./routes/shoppingLists.js";
 import shoppingListItemsRoutes from "./routes/shoppingListItems.js";
 import recipesRoutes from "./routes/recipes.js";
 import webhooksRoutes from "./routes/webhooks.js";
+import householdsRoutes from "./routes/households.js";
 
 dotenv.config();
 
@@ -112,6 +113,7 @@ app.on(["GET", "POST"], "/api/auth/*", async (c) => {
 });
 
 // API routes (protected with auth middleware)
+app.route("/api/households", householdsRoutes);
 app.route("/api/shopping-lists", shoppingListsRoutes);
 app.route("/api/shopping-lists", shoppingListItemsRoutes);
 app.route("/api/recipes", recipesRoutes);

@@ -1,9 +1,10 @@
 import { Hono } from 'hono';
-import { eq, desc, asc, like, or, inArray, and, sql, ilike, exists, notExists, SQL } from 'drizzle-orm';
+import { eq, desc, asc, like, or, inArray, and, sql, ilike, exists, notExists, SQL, isNull } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { recipes, recipeIngredients, recipeCategories, recipeFeedback, shoppingLists, shoppingListItems, user, userFavorites } from '../db/schema.js';
 import { authMiddleware, getUserId } from '../middleware/auth.js';
 import { logger } from '../lib/logger.js';
+import { getUserHouseholdId } from '../lib/household.js';
 import { validateBody, getValidatedBody } from '../middleware/validation.js';
 import {
   createRecipeSchema,
@@ -26,14 +27,39 @@ const app = new Hono();
 app.use('*', authMiddleware);
 
 /**
- * Helper to verify recipe ownership
- * Returns the recipe if owned by the user, null otherwise
+ * Helper to verify recipe access (household or personal ownership)
+ * Returns the recipe if the user has access, null otherwise.
+ * A user has access if:
+ *   - The recipe belongs to their household, OR
+ *   - The recipe is a personal recipe (no household) created by them
  */
-async function verifyRecipeOwnership(recipeId: number, userId: string) {
+async function verifyRecipeAccess(recipeId: number, userId: string) {
+  const householdId = await getUserHouseholdId(userId);
+
+  let accessFilter: SQL;
+  if (householdId) {
+    accessFilter = or(
+      eq(recipes.householdId, householdId),
+      and(eq(recipes.createdBy, userId), isNull(recipes.householdId))
+    )!;
+  } else {
+    accessFilter = eq(recipes.createdBy, userId);
+  }
+
   const [recipe] = await db
     .select()
     .from(recipes)
-    .where(eq(recipes.id, recipeId));
+    .where(and(eq(recipes.id, recipeId), accessFilter));
+
+  return recipe ?? null;
+}
+
+/**
+ * Helper to verify recipe ownership (creator only)
+ * Used for destructive operations like DELETE
+ */
+async function verifyRecipeOwnership(recipeId: number, userId: string) {
+  const recipe = await verifyRecipeAccess(recipeId, userId);
 
   if (!recipe) {
     return { recipe: null, error: 'Recipe not found', status: 404 as const };
@@ -88,8 +114,22 @@ app.get('/', async (c) => {
   const difficulty = c.req.query('difficulty');
 
   try {
+    const householdId = await getUserHouseholdId(userId);
+
     // Build WHERE conditions dynamically
     const conditions: SQL[] = [];
+
+    // Scope to household (or personal recipes if no household)
+    if (householdId) {
+      conditions.push(
+        or(
+          eq(recipes.householdId, householdId),
+          and(eq(recipes.createdBy, userId), isNull(recipes.householdId))
+        )!
+      );
+    } else {
+      conditions.push(eq(recipes.createdBy, userId));
+    }
 
     // Status filter (default to 'ready' if not specified)
     if (!status) {
@@ -275,6 +315,8 @@ app.post('/import', validateBody(importRecipeSchema), async (c) => {
 
   try {
 
+    const householdId = await getUserHouseholdId(userId);
+
     // Create a pending recipe
     const [newRecipe] = await db
       .insert(recipes)
@@ -283,6 +325,7 @@ app.post('/import', validateBody(importRecipeSchema), async (c) => {
         instructions: '[]',
         sourceUrl: url,
         status: 'pending',
+        householdId,
         createdBy: userId,
         updatedBy: userId,
       })
@@ -357,24 +400,11 @@ app.get('/:id/status', async (c) => {
   }
 
   try {
-    const [recipe] = await db
-      .select({
-        id: recipes.id,
-        status: recipes.status,
-        errorMessage: recipes.errorMessage,
-        name: recipes.name,
-        createdBy: recipes.createdBy,
-      })
-      .from(recipes)
-      .where(eq(recipes.id, id));
+    // Use household-scoped access so any household member can poll import status
+    const recipe = await verifyRecipeAccess(id, userId);
 
     if (!recipe) {
       return c.json({ error: 'Recipe not found' }, 404);
-    }
-
-    // Only the user who initiated the import can poll its status
-    if (recipe.createdBy !== userId) {
-      return c.json({ error: 'You do not have permission to view this import status' }, 403);
     }
 
     return c.json({
@@ -402,10 +432,7 @@ app.get('/:id', async (c) => {
   }
 
   try {
-    const [recipe] = await db
-      .select()
-      .from(recipes)
-      .where(eq(recipes.id, id));
+    const recipe = await verifyRecipeAccess(id, userId);
 
     if (!recipe) {
       return c.json({ error: 'Recipe not found' }, 404);
@@ -465,12 +492,15 @@ app.post('/', validateBody(createRecipeSchema), async (c) => {
       categories,
     } = body;
 
+    const householdId = await getUserHouseholdId(userId);
+
     // Create the recipe
     const [newRecipe] = await db
       .insert(recipes)
       .values({
         name,
         description: description || null,
+        householdId,
         servings: servings || 4,
         prepTimeMinutes: prepTimeMinutes || null,
         cookTimeMinutes: cookTimeMinutes || null,
@@ -533,11 +563,8 @@ app.patch('/:id', validateBody(updateRecipeSchema), async (c) => {
   }
 
   try {
-    // Shared-edit: any authenticated user can edit any recipe (intentional policy)
-    const [existingRecipe] = await db
-      .select()
-      .from(recipes)
-      .where(eq(recipes.id, id));
+    // Shared-edit: any household member can edit any household recipe (intentional policy)
+    const existingRecipe = await verifyRecipeAccess(id, userId);
 
     if (!existingRecipe) {
       return c.json({ error: 'Recipe not found' }, 404);
@@ -668,11 +695,8 @@ app.post('/:id/favorite', async (c) => {
   }
 
   try {
-    // Verify recipe exists
-    const [existingRecipe] = await db
-      .select()
-      .from(recipes)
-      .where(eq(recipes.id, id));
+    // Verify recipe exists and user has access
+    const existingRecipe = await verifyRecipeAccess(id, userId);
 
     if (!existingRecipe) {
       return c.json({ error: 'Recipe not found' }, 404);
@@ -736,11 +760,8 @@ app.post('/:id/to-shopping-list', validateBody(addToShoppingListSchema), async (
   try {
     const { shoppingListId, newListName, ingredientIds, servingMultiplier } = getValidatedBody<AddToShoppingListInput>(c);
 
-    // Verify recipe exists
-    const [recipe] = await db
-      .select()
-      .from(recipes)
-      .where(eq(recipes.id, recipeId));
+    // Verify recipe exists and user has access
+    const recipe = await verifyRecipeAccess(recipeId, userId);
 
     if (!recipe) {
       return c.json({ error: 'Recipe not found' }, 404);
@@ -760,6 +781,7 @@ app.post('/:id/to-shopping-list', validateBody(addToShoppingListSchema), async (
       return c.json({ error: 'No valid ingredients selected' }, 400);
     }
 
+    const householdId = await getUserHouseholdId(userId);
     let targetListId: number;
 
     // Create new list or use existing
@@ -769,6 +791,7 @@ app.post('/:id/to-shopping-list', validateBody(addToShoppingListSchema), async (
         .values({
           name: newListName,
           description: `Ingredients from ${recipe.name}`,
+          householdId,
           createdBy: userId,
           updatedBy: userId,
         })
@@ -848,6 +871,7 @@ app.post('/:id/to-shopping-list', validateBody(addToShoppingListSchema), async (
  * Get all feedback for a recipe with summary counts
  */
 app.get('/:id/feedback', async (c) => {
+  const userId = getUserId(c);
   const recipeId = parseInt(c.req.param('id'));
 
   if (isNaN(recipeId)) {
@@ -855,11 +879,8 @@ app.get('/:id/feedback', async (c) => {
   }
 
   try {
-    // Verify recipe exists
-    const [recipe] = await db
-      .select()
-      .from(recipes)
-      .where(eq(recipes.id, recipeId));
+    // Verify recipe exists and user has access
+    const recipe = await verifyRecipeAccess(recipeId, userId);
 
     if (!recipe) {
       return c.json({ error: 'Recipe not found' }, 404);
@@ -911,11 +932,8 @@ app.post('/:id/feedback', validateBody(createFeedbackSchema), async (c) => {
   try {
     const { isLike, note } = getValidatedBody<CreateFeedbackInput>(c);
 
-    // Verify recipe exists
-    const [recipe] = await db
-      .select()
-      .from(recipes)
-      .where(eq(recipes.id, recipeId));
+    // Verify recipe exists and user has access
+    const recipe = await verifyRecipeAccess(recipeId, userId);
 
     if (!recipe) {
       return c.json({ error: 'Recipe not found' }, 404);
@@ -969,6 +987,12 @@ app.delete('/:id/feedback/:feedbackId', async (c) => {
   }
 
   try {
+    // Verify recipe exists and user has access
+    const recipe = await verifyRecipeAccess(recipeId, userId);
+    if (!recipe) {
+      return c.json({ error: 'Recipe not found' }, 404);
+    }
+
     // Get the feedback entry
     const [feedback] = await db
       .select()

@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, numeric, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, timestamp, integer, numeric, boolean, unique } from 'drizzle-orm/pg-core';
 import { user } from './auth-schema';
 
 // Re-export auth schema tables
@@ -7,16 +7,66 @@ export * from './auth-schema';
 // Database schema definitions
 
 /**
+ * Households Table
+ * Groups users into a shared household for collaborative data access
+ */
+export const households = pgTable('households', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  createdBy: text('created_by')
+    .notNull()
+    .references(() => user.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+/**
+ * Household Members Table
+ * Tracks which users belong to which household (one household per user)
+ */
+export const householdMembers = pgTable('household_members', {
+  id: serial('id').primaryKey(),
+  householdId: integer('household_id')
+    .notNull()
+    .references(() => households.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  role: text('role').notNull().default('member'), // 'owner' | 'member'
+  joinedAt: timestamp('joined_at').defaultNow().notNull(),
+}, (table) => [
+  unique('household_members_user_unique').on(table.userId),
+]);
+
+/**
+ * Household Invitations Table
+ * Pending invitations for users to join a household
+ */
+export const householdInvitations = pgTable('household_invitations', {
+  id: serial('id').primaryKey(),
+  householdId: integer('household_id')
+    .notNull()
+    .references(() => households.id, { onDelete: 'cascade' }),
+  email: text('email').notNull(),
+  invitedBy: text('invited_by')
+    .notNull()
+    .references(() => user.id),
+  status: text('status').notNull().default('pending'), // 'pending' | 'accepted' | 'declined'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+});
+
+/**
  * Shopping Lists Table
- * Stores user's shopping lists with metadata
+ * Stores household shopping lists with metadata
  */
 export const shoppingLists = pgTable('shopping_lists', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
   description: text('description'),
+  householdId: integer('household_id')
+    .references(() => households.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-  // Changed from uuid to text to match Better Auth user IDs
   createdBy: text('created_by')
     .notNull()
     .references(() => user.id),
@@ -62,6 +112,8 @@ export const recipes = pgTable('recipes', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
   description: text('description'),
+  householdId: integer('household_id')
+    .references(() => households.id),
   servings: integer('servings').default(4),
   prepTimeMinutes: integer('prep_time_minutes'),
   cookTimeMinutes: integer('cook_time_minutes'),
