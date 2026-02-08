@@ -49,25 +49,3 @@ export async function sendPasswordResetEmail(
     throw error;
   }
 }
-
-export async function sendWelcomeEmail(
-  email: string,
-  name: string
-): Promise<void> {
-  try {
-    await transporter.sendMail({
-      from: FROM_EMAIL,
-      to: email,
-      subject: `Welcome to ${APP_NAME}!`,
-      html: `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Welcome to ${APP_NAME}, ${name}!</h2>
-          <p>Your account has been created. You can now log in and start managing your home.</p>
-        </div>
-      `,
-    });
-  } catch (error) {
-    console.error("Failed to send welcome email:", error);
-    // Don't throw - welcome emails are not critical
-  }
-}

@@ -553,7 +553,6 @@ app.patch('/:id', validateBody(updateRecipeSchema), async (c) => {
       cuisine,
       notes,
       rating,
-      isFavorite,
       ingredients,
       categories,
     } = getValidatedBody<UpdateRecipeInput>(c);
@@ -574,7 +573,6 @@ app.patch('/:id', validateBody(updateRecipeSchema), async (c) => {
         cuisine: cuisine !== undefined ? cuisine : existingRecipe.cuisine,
         notes: notes !== undefined ? notes : existingRecipe.notes,
         rating: rating !== undefined ? rating : existingRecipe.rating,
-        isFavorite: isFavorite !== undefined ? isFavorite : existingRecipe.isFavorite,
         updatedBy: userId,
         updatedAt: new Date(),
       })
