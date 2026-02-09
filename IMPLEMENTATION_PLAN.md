@@ -30,7 +30,7 @@
 | 012 | Security Hardening & Backend Fixes | COMPLETE (v0.0.21) |
 | 013 | Schema Cleanup & Dead Code Removal | COMPLETE (v0.0.22) |
 | 014 | Frontend Bug Fixes & Component Polish | COMPLETE (v0.0.20) |
-| 015 | User Profile & Settings Page | NOT STARTED |
+| 015 | User Profile & Settings Page | IN PROGRESS |
 
 ### Verified Issues (Code-Level)
 These are confirmed bugs found in the current codebase, not assumptions:
@@ -295,9 +295,14 @@ These were considered but deferred as premature for current stage:
 - Drizzle schema should declare unique constraints inline (not just via raw SQL migrations) to ensure onConflictDoUpdate targets are formally backed by schema definitions
 - `parseInt()` accepts leading numeric characters in mixed strings (e.g. `parseInt("3abc")` → `3`). For stricter validation, use `Number()` + `Number.isInteger()`. Current usage is safe since parsed values flow through parameterized queries.
 - IPv4-mapped IPv6 addresses (e.g. `::ffff:192.168.1.1`) can give a client two rate-limit buckets on dual-stack servers — low severity but worth noting for future hardening
+- Better Auth provides `updateUser` and `changePassword` client methods out of the box — no custom backend routes needed for Spec 015 profile/password features
+- When a spec mentions "groundwork for [future spec]" (e.g. theme preference for Spec 006), implement the foundational UI/storage even if the full feature comes later — reviewers will flag missing spec requirements
+- Any new Better Auth endpoints exposed should have rate limiting added to match existing auth endpoint protection patterns
 - Drizzle migrations are tracked by journal and run exactly once — `IF NOT EXISTS` safety is unnecessary and non-standard for Drizzle migration files
 - react-toastify renders string arguments as React text nodes (not innerHTML) — no XSS risk from passing `error.message` strings. No `dangerouslySetInnerHTML` in the library source.
 - react-toastify `position` prop is static — for responsive positioning (e.g., bottom-center on mobile, bottom-right on desktop), override `.Toastify__toast-container` with CSS media queries
 - Household access control pattern: `verifyRecipeAccess` / `verifyListAccess` check household membership OR personal ownership, with `isNull()` for null-safe comparison on nullable householdId columns. DELETE operations should use a stricter `verifyOwnership` wrapper that additionally checks `createdBy`.
 - When adding household scoping to existing endpoints, the list endpoint (GET /) and ALL individual-access endpoints must be updated — easy to miss individual endpoints that accept an ID parameter
 - Unique constraint on `household_members.user_id` enforces the "one household per user" business rule at the database level, making application-level race conditions non-critical
+- React Hook Form `defaultValues` are captured once at mount time. When forms depend on async data (e.g. user session), use the `values` prop instead to auto-sync form state when the data arrives. Otherwise the form stays on its initial (empty) defaults.
+- Better Auth `useSession()` may not auto-refetch after `updateUser()` — verify cache invalidation behavior or trigger a manual refetch after mutations to avoid stale UI

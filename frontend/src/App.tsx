@@ -16,6 +16,7 @@ import { RecipeDetailPage } from '@/pages/RecipeDetailPage'
 import { AddRecipePage } from '@/pages/AddRecipePage'
 import { EditRecipePage } from '@/pages/EditRecipePage'
 import { HouseholdPage } from '@/pages/HouseholdPage'
+import { SettingsPage } from '@/pages/SettingsPage'
 import { queryClient } from '@/lib/queryClient'
 
 function App() {
@@ -88,6 +89,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <HouseholdPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <SettingsPage />
                 </ProtectedRoute>
               }
             />

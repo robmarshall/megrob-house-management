@@ -95,6 +95,10 @@ app.options("/api/auth/*", (c) => {
 app.use("/api/auth/sign-in/*", rateLimiter(5, 60_000));
 // Password reset: 3 attempts per minute per IP
 app.use("/api/auth/forgot-password", rateLimiter(3, 60_000));
+// Profile update: 10 attempts per minute per IP
+app.use("/api/auth/update-user", rateLimiter(10, 60_000));
+// Password change: 5 attempts per minute per IP
+app.use("/api/auth/change-password", rateLimiter(5, 60_000));
 
 // Better Auth routes - handles all /api/auth/* endpoints
 app.on(["GET", "POST"], "/api/auth/*", async (c) => {

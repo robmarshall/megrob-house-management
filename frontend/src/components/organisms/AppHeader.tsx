@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { Dialog, Transition } from "@headlessui/react";
 import { Fragment } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Bars3Icon, HomeIcon, ArrowRightOnRectangleIcon, XMarkIcon, BookOpenIcon, ShoppingCartIcon, UserGroupIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon, HomeIcon, ArrowRightOnRectangleIcon, XMarkIcon, BookOpenIcon, ShoppingCartIcon, UserGroupIcon, Cog6ToothIcon } from "@heroicons/react/24/outline";
 import { toast } from "@/lib/toast";
 
 export function AppHeader() {
@@ -118,6 +118,15 @@ export function AppHeader() {
                     >
                       <UserGroupIcon className="w-5 h-5" />
                       <span className="text-sm font-medium">Household</span>
+                    </Link>
+
+                    <Link
+                      to="/settings"
+                      onClick={handleNavigation}
+                      className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-lg transition-colors"
+                    >
+                      <Cog6ToothIcon className="w-5 h-5" />
+                      <span className="text-sm font-medium">Settings</span>
                     </Link>
 
                     <button

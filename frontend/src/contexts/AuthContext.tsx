@@ -12,7 +12,7 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   // Use Better Auth's useSession hook for session state
-  const { data: sessionData, isPending: loading } = authClient.useSession();
+  const { data: sessionData, isPending: loading, refetch: refetchSession } = authClient.useSession();
 
   // Extract user and session from Better Auth response
   const user: User | null = sessionData?.user
@@ -84,6 +84,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const updateProfile = async (name: string) => {
+    const result = await authClient.updateUser({
+      name,
+    });
+
+    if (result.error) {
+      throw new Error(result.error.message || "Profile update failed");
+    }
+
+    // Force session refetch to ensure UI reflects the updated name immediately
+    await refetchSession();
+  };
+
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    const result = await authClient.changePassword({
+      currentPassword,
+      newPassword,
+      revokeOtherSessions: false,
+    });
+
+    if (result.error) {
+      throw new Error(result.error.message || "Password change failed");
+    }
+  };
+
   const value: AuthContextType = {
     user,
     session,
@@ -92,6 +117,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signOut,
     resetPassword,
     confirmResetPassword,
+    updateProfile,
+    changePassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
