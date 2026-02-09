@@ -30,7 +30,7 @@
 | 012 | Security Hardening & Backend Fixes | COMPLETE (v0.0.21) |
 | 013 | Schema Cleanup & Dead Code Removal | COMPLETE (v0.0.22) |
 | 014 | Frontend Bug Fixes & Component Polish | COMPLETE (v0.0.20) |
-| 015 | User Profile & Settings Page | IN PROGRESS |
+| 015 | User Profile & Settings Page | COMPLETE (v0.0.27) |
 
 ### Verified Issues (Code-Level)
 These are confirmed bugs found in the current codebase, not assumptions:
@@ -109,14 +109,10 @@ Bugs and security issues affecting correctness of the current production system.
   - Invitation flow was implemented as in-app notifications rather than email. The DB schema supports either approach; email delivery can be added later without schema changes.
   - The `or(eq(table.householdId, id), and(eq(table.createdBy, userId), isNull(table.householdId)))` pattern lets users keep their personal (pre-household) data visible after joining a household. New data gets assigned to the household automatically.
 
-### 2.2 User Profile & Settings (Spec 015)
-- **Status**: NOT STARTED
-- **Why**: No way for users to manage their profile, change password from within the app, or configure preferences
-- **Tasks**:
-  - Create Settings page with profile section (display name, email, change password via Better Auth)
-  - Add app settings section (theme preference for Spec 006 groundwork, stored in localStorage)
-  - Add /settings route and integrate into AppHeader navigation
-- **Files**: New: `SettingsPage.tsx`, `ProfileForm.tsx`, `user.ts` route. Modify: `App.tsx`, `AppHeader.tsx`
+### 2.2 User Profile & Settings (Spec 015) [COMPLETE]
+- **Status**: COMPLETE (v0.0.27) — committed a8ebeac
+- **Completed**: 2026-02-09
+- **Summary**: Settings page with three sections: ProfileSection (display name edit, email/member-since display), ChangePasswordSection (current + new + confirm), AppSettingsSection (theme preference light/dark/system in localStorage). Extended AuthContext with updateProfile and changePassword methods using Better Auth built-in endpoints. Added rate limiting for update-user (10/min) and change-password (5/min). Form uses `values` prop for proper async session data sync. 7 files modified (1 new, 6 modified).
 
 ---
 
