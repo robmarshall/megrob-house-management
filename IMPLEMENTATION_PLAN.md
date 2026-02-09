@@ -17,7 +17,7 @@
 | # | Title | Status |
 |---|-------|--------|
 | 001 | Toast Notification System | COMPLETE (v0.0.23) |
-| 002 | Meal Planning | IN PROGRESS |
+| 002 | Meal Planning | COMPLETE (v0.0.29) |
 | 003 | Household Tasks | NOT STARTED |
 | 004 | Inventory Tracking | NOT STARTED |
 | 005 | Recipe Enhancements | COMPLETE (v0.0.28) |
@@ -131,20 +131,11 @@ Bugs and security issues affecting correctness of the current production system.
 
 ---
 
-## Tier 4: Core Feature — Meal Planning (Spec 002)
+## Tier 4: Core Feature — Meal Planning (Spec 002) [COMPLETE]
 
-The most-requested "Coming Soon" feature. Bridges recipes and shopping lists.
-
-- **Status**: IN PROGRESS (review passed, pending commit)
-- **Tasks**:
-  - Create meal_plans and meal_plan_entries database tables and migration
-  - Implement meal plan API endpoints (CRUD + entry management + generate shopping list using existing `addOrMergeItems` service)
-  - Build MealPlanPage with weekly calendar view and recipe picker (search existing recipes)
-  - Add copy-previous-week functionality
-  - Update HomePage to link to meal plans (replace "Coming Soon" placeholder)
-- **DB**: New migration for `meal_plans` and `meal_plan_entries` tables
-- **Backend**: New `backend/src/routes/mealPlans.ts`
-- **Frontend**: New `MealPlanPage.tsx`, `MealPlanEntry.tsx`, `useMealPlans.ts`/`useMealPlanData.ts`
+- **Status**: COMPLETE (v0.0.29) — committed 0bdafd3
+- **Completed**: 2026-02-09
+- **Summary**: Full meal planning feature with weekly calendar view. Backend: 9 API endpoints (CRUD, entry management, copy-week, generate-shopping-list via addOrMergeItems). Household-scoped access control with cross-resource authorization (verifyRecipeAccess, verifyListAccess for recipe/shopping-list references). Frontend: MealPlanPage with 7-day x 4-meal-type grid, week navigation, AddMealEntryBottomSheet (recipe search or custom text), GenerateShoppingListBottomSheet (new or existing list), copy previous week. HomePage updated with active meal plan link. All 154 backend + 55 frontend tests pass.
 - **Learnings**:
   - Access control helpers (`verifyRecipeAccess`, `verifyListAccess`) should be applied to ANY cross-resource reference, not just the owning resource. When a meal plan references a recipe or shopping list, the referenced resource must be access-checked too.
   - Copy/duplicate operations that create a parent record plus child records should use database transactions for atomicity. The current copy-week and to-shopping-list routes work but are not transactional — acceptable for a home management app but worth noting for future features.
