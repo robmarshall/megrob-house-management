@@ -58,7 +58,11 @@
       "Skill(go)",
       "Bash(npm run db:migrate:*)",
       "Bash(npx tsx:*)",
-      "Bash(node --experimental-strip-types -e:*)"
+      "Bash(node --experimental-strip-types -e:*)",
+      "Bash(npm ls:*)",
+      "Bash(npx:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run test:*)"
     ],
     "deny": []
   }
