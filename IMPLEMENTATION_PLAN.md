@@ -20,7 +20,7 @@
 | 002 | Meal Planning | NOT STARTED |
 | 003 | Household Tasks | NOT STARTED |
 | 004 | Inventory Tracking | NOT STARTED |
-| 005 | Recipe Enhancements | NOT STARTED |
+| 005 | Recipe Enhancements | COMPLETE (v0.0.28) |
 | 006 | Dark Mode | NOT STARTED |
 | 007 | PWA & Offline | NOT STARTED |
 | 008 | Testing Infrastructure | COMPLETE (v0.0.25) |
@@ -116,19 +116,17 @@ Bugs and security issues affecting correctness of the current production system.
 
 ---
 
-## Tier 3: Core Feature — Recipe Enhancements (Spec 005)
+## Tier 3: Core Feature — Recipe Enhancements (Spec 005) [COMPLETE]
 
-Builds on the solid existing recipe foundation to add premium UX features.
-
-- **Status**: NOT STARTED
-- **Tasks**:
-  - Create StarRating atom component; wire to recipe `rating` field via PATCH API
-  - Create TimeBadge atom component for prep/cook time display
-  - Add recipe image support (image_url column migration, scrape og:image from imports, display on cards/detail)
-  - Implement print-friendly recipe view with CSS print stylesheet
-  - Build step-by-step cooking mode page with Wake Lock API, large font, ingredient reference panel
-- **DB**: New migration for `image_url` column on recipes table
-- **Files**: New: `StarRating.tsx`, `TimeBadge.tsx`, `CookingModePage.tsx`, print styles. Modify: `RecipeDetailPage.tsx`, `RecipesPage.tsx`, `recipeScraper.ts`, `App.tsx`
+- **Status**: COMPLETE (v0.0.28) — committed c4bdbde
+- **Completed**: 2026-02-09
+- **Summary**: Added recipe image extraction to scraper (JSON-LD, microdata, og:image) with SSRF protection (private IP blocking, protocol allowlist, fetch timeout, body size limits). Created StarRating atom (interactive/readonly, 3 sizes) and TimeBadge atom (prep/cook breakdown or compact total). Built CookingModePage with step-by-step navigation, Wake Lock API, keyboard shortcuts, progress indicator, and collapsible ingredient reference panel with per-step relevance matching. Updated RecipeDetailPage with recipe image, star rating, time badges, print button, and source link. Updated RecipesPage cards with image, rating, and time display. Added print stylesheet. Wrapped webhook recipe-update operations in a transaction. Migration 0007 adds `image_url` column to recipes table. 14 files modified (6 new, 8 modified). All 154 backend + 55 frontend tests pass.
+- **Learnings**:
+  - Wake Lock API requires `useRef` (not `useState`) to avoid stale closures in cleanup effects and event handlers. The lock reference must be mutable across re-renders without triggering them.
+  - Keyboard shortcut handlers in full-screen modes must check `e.target` against interactive elements (button, input, textarea, select) to avoid conflicting with native browser behavior (e.g., spacebar activating focused buttons).
+  - SSRF protection for URL scraping: validate protocol (http/https only), block private IP ranges (10.x, 172.16-31.x, 192.168.x, 169.254.x, localhost/loopback), enforce fetch timeout (AbortSignal.timeout), stream response body with size limit. `redirect: 'follow'` is acceptable for a home management app — DNS rebinding protection would require a custom redirect handler or `redirect: 'manual'`.
+  - Image URL validation (`isValidImageUrl`) at scrape time prevents `javascript:`, `data:`, and relative URLs from entering the DB. Frontend can safely use stored image URLs in `<img src>` without additional validation.
+  - Drizzle migration snapshots for migrations 0002-0007 are missing — this is a pre-existing issue. Future work should run `drizzle-kit generate` to create them.
 
 ---
 
@@ -271,6 +269,8 @@ These were considered but deferred as premature for current stage:
 - TanStack Query cache invalidation is automatic after mutations via useData hook
 - Recipe edit policy is currently permissive (anyone can edit) while delete requires ownership — document as intentional shared-edit policy (Spec 012)
 - Unique constraints exist on userFavorites(userId, recipeId) and recipeFeedback(recipeId, userId) via migrations 0002/0003
+- Wake Lock API: `WakeLockSentinel.release()` returns a Promise that can reject; always wrap in try/catch especially when chaining with navigation
+- Global keyboard handlers (window keydown) must check `e.target` to avoid conflicting with focused interactive elements like buttons
 - 15 database indexes already exist (migration 0003) covering most common query patterns
 - Recipe PATCH route still writes to dead `isFavorite` column (line 558 of recipes.ts) — fix in Spec 013
 - Badge component only has shopping-category variants — 6 semantic variants needed (Spec 014)
@@ -296,6 +296,11 @@ These were considered but deferred as premature for current stage:
 - Any new Better Auth endpoints exposed should have rate limiting added to match existing auth endpoint protection patterns
 - Drizzle migrations are tracked by journal and run exactly once — `IF NOT EXISTS` safety is unnecessary and non-standard for Drizzle migration files
 - react-toastify renders string arguments as React text nodes (not innerHTML) — no XSS risk from passing `error.message` strings. No `dangerouslySetInnerHTML` in the library source.
+- Server-side URL fetching (e.g. recipe scraper) is an SSRF vector: must validate protocol (http/https only), block private/reserved IP ranges (127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16), add fetch timeout via AbortSignal, and limit response body size
+- Image URLs scraped from external sites can contain `javascript:`, `data:`, or relative paths — validate protocol before storing in DB
+- Wake Lock API: the sentinel object must be tracked via a ref (not state) when used in useEffect cleanup, otherwise the cleanup closure captures the stale initial null value and never releases the lock
+- `new URL(string)` throws TypeError on invalid strings — always wrap in try/catch when used with user/external data in React components (uncaught throws crash the component tree)
+- Drizzle ORM `db.transaction()` should be used when multiple related writes (update + delete + insert) must succeed or fail atomically — especially in webhook handlers where partial completion leaves inconsistent state
 - react-toastify `position` prop is static — for responsive positioning (e.g., bottom-center on mobile, bottom-right on desktop), override `.Toastify__toast-container` with CSS media queries
 - Household access control pattern: `verifyRecipeAccess` / `verifyListAccess` check household membership OR personal ownership, with `isNull()` for null-safe comparison on nullable householdId columns. DELETE operations should use a stricter `verifyOwnership` wrapper that additionally checks `createdBy`.
 - When adding household scoping to existing endpoints, the list endpoint (GET /) and ALL individual-access endpoints must be updated — easy to miss individual endpoints that accept an ID parameter
