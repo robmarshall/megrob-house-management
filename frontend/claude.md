@@ -932,6 +932,73 @@ export const AnimatedList: React.FC<{ items: string[] }> = ({ items }) => {
 - **Keep animations subtle** - prefer 200-300ms durations
 - **Use `prefers-reduced-motion`** media query for accessibility
 
+### ⭐ MANDATORY: ConfirmDeleteBottomSheet for Delete Confirmations
+
+**All delete operations MUST use the `ConfirmDeleteBottomSheet` component. Never use native `window.confirm()` or `confirm()`.**
+
+Located at: `src/components/molecules/ConfirmDeleteBottomSheet.tsx`
+
+**Features:**
+- Two-step confirmation flow (warning → final confirmation)
+- Loading state during deletion
+- Customizable item name, type, and warning message
+- Prevents accidental closes during deletion
+
+**Usage Pattern:**
+
+```tsx
+import { useState } from 'react';
+import { ConfirmDeleteBottomSheet } from '@/components/molecules/ConfirmDeleteBottomSheet';
+
+export function MyComponent() {
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = () => {
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteItem(itemId);
+      setIsDeleteConfirmOpen(false);
+      // Navigate or update state after deletion
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <>
+      <Button onClick={handleDelete} variant="danger">Delete</Button>
+
+      <ConfirmDeleteBottomSheet
+        isOpen={isDeleteConfirmOpen}
+        onClose={() => setIsDeleteConfirmOpen(false)}
+        onConfirm={handleConfirmDelete}
+        itemName={item.name}
+        itemType="item"  // e.g., "recipe", "shopping list"
+        isDeleting={isDeleting}
+        warningMessage="Custom warning about what will be deleted..."
+      />
+    </>
+  );
+}
+```
+
+**Props:**
+
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| `isOpen` | `boolean` | Yes | Controls modal visibility |
+| `onClose` | `() => void` | Yes | Called when modal should close |
+| `onConfirm` | `() => void \| Promise<void>` | Yes | Async delete handler |
+| `itemName` | `string` | Yes | Name of item being deleted |
+| `itemType` | `string` | No | Type of item (default: "item") |
+| `isDeleting` | `boolean` | No | Shows loading state |
+| `warningMessage` | `string` | No | Custom warning text |
+
 ---
 
 ## File Organization
@@ -1019,6 +1086,7 @@ When creating or modifying components, ensure:
 - [ ] ✅ Data fetching uses TanStack Query hooks (never raw `fetch`)
 - [ ] ✅ Collection-specific hooks created (not using base hooks directly)
 - [ ] ✅ Dialogs/popovers use Headless UI
+- [ ] ✅ Delete confirmations use `ConfirmDeleteBottomSheet` (never `window.confirm()`)
 - [ ] ✅ Animations use Framer Motion
 - [ ] ✅ Component follows Atomic Design pattern
 - [ ] ✅ TypeScript types are properly defined

@@ -53,7 +53,12 @@
       "Bash(npm run build:*)",
       "WebSearch",
       "WebFetch(domain:lucia-auth.com)",
-      "Bash(npm show:*)"
+      "Bash(npm show:*)",
+      "WebFetch(domain:queuebear.com)",
+      "Skill(go)",
+      "Bash(npm run db:migrate:*)",
+      "Bash(npx tsx:*)",
+      "Bash(node --experimental-strip-types -e:*)"
     ],
     "deny": []
   }

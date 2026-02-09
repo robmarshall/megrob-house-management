@@ -14,14 +14,17 @@ export function AddItemInput({
   onAdd,
   placeholder = "Add item...",
   categories = [
-    "Produce",
+    "Fruit & Veg",
     "Dairy",
     "Meat",
+    "Fish",
     "Bakery",
     "Pantry",
     "Frozen",
     "Beverages",
     "Household",
+    "Toiletries",
+    "Medicine",
     "Other",
     "Uncategorized",
   ],
@@ -31,6 +34,8 @@ export function AddItemInput({
     defaultValues: {
       name: "",
       category: "",
+      quantity: 1,
+      unit: "",
     },
   });
 

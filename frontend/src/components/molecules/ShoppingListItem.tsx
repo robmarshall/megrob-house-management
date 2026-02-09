@@ -41,6 +41,16 @@ export function ShoppingListItem({
       ? parseFloat(item.quantity)
       : item.quantity;
 
+  const formatQuantityDisplay = () => {
+    if (itemQuantity <= 0) return null;
+    if (item.unit) {
+      return `${item.quantity}${item.unit}`;
+    }
+    return `${item.quantity}x`;
+  };
+
+  const quantityDisplay = formatQuantityDisplay();
+
   return (
     <div
       className={cn(
@@ -62,14 +72,14 @@ export function ShoppingListItem({
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          {itemQuantity > 0 && (
+          {quantityDisplay && (
             <span
               className={cn(
                 "text-lg font-medium text-gray-500",
                 item.checked && "line-through"
               )}
             >
-              {item.quantity}x
+              {quantityDisplay}
             </span>
           )}
           <span

@@ -29,7 +29,7 @@ export interface ShoppingListItem {
   listId: number;
   name: string;
   category?: BadgeVariant | null;
-  quantity: string | number; // Stored as numeric in DB, returned as string
+  quantity: number; // Stored as numeric in DB, converted to number by API
   unit?: string | null;
   notes?: string | null;
   checked: boolean;

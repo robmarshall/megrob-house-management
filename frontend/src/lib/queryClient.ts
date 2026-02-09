@@ -10,8 +10,8 @@ import { QueryClient } from '@tanstack/react-query';
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Always treat data as stale for immediate updates after mutations
-      staleTime: 0,
+      // Data is fresh for 5 minutes before being considered stale
+      staleTime: 5 * 60 * 1000,
       // Time before inactive queries are garbage collected (10 minutes)
       gcTime: 10 * 60 * 1000,
       // Retry failed requests up to 3 times

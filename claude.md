@@ -68,6 +68,39 @@ The frontend follows **Atomic Design** methodology:
 - **Templates**: Page layouts and structure
 - **Pages**: Complete views with data and routing
 
+## Form Development (React Hook Form)
+
+### Form Atoms (`frontend/src/components/atoms/`)
+- **Input** - Text/email/password/number fields (uses `useFormContext`)
+- **Checkbox** - Form checkboxes with label support
+- **Textarea** - Multi-line text input
+- **ControlledCheckbox** - Non-form UI only (shopping lists, etc.)
+
+### Quick Start Pattern
+```tsx
+import { useForm, FormProvider } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+
+const methods = useForm({ resolver: zodResolver(schema), defaultValues: {...} })
+
+<FormProvider {...methods}>
+  <form onSubmit={methods.handleSubmit(onSubmit)}>
+    <Input name="email" label="Email" required />
+    <Checkbox name="terms" id="terms" label="I agree" />
+  </form>
+</FormProvider>
+```
+
+### Key Rules
+- Always wrap forms in `FormProvider` - atoms use `useFormContext()` internally
+- Use `Controller` for custom/complex components (see `RecipeForm.tsx`)
+- Use `useFieldArray` for dynamic lists
+- Define validation schemas in `frontend/src/lib/schemas.ts` with Zod
+
+### Example Files
+- Simple form: `frontend/src/components/organisms/LoginForm.tsx`
+- Complex form: `frontend/src/components/organisms/RecipeForm.tsx`
+
 ## Development Setup
 
 ### Prerequisites
