@@ -125,6 +125,7 @@ export const recipes = pgTable('recipes', {
   cuisine: text('cuisine'),
   notes: text('notes'),
   rating: integer('rating'), // 1-5
+  imageUrl: text('image_url'), // Recipe image URL (scraped from og:image or recipe structured data)
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   createdBy: text('created_by')

@@ -10,6 +10,8 @@ import { Pagination } from "@/components/molecules/Pagination";
 import { Button } from "@/components/atoms/Button";
 import { Card } from "@/components/atoms/Card";
 import { Badge } from "@/components/atoms/Badge";
+import { StarRating } from "@/components/atoms/StarRating";
+import { TimeBadge } from "@/components/atoms/TimeBadge";
 import { useRecipes, useRecipeData, type RecipePaginationOptions } from "@/hooks/recipe/useRecipes";
 import type { Recipe } from "@/types/recipe";
 
@@ -86,19 +88,6 @@ export function RecipesPage() {
       // Error toast handled by useData hook
       setDeleteConfirm((prev) => ({ ...prev, isDeleting: false }));
     }
-  };
-
-  const formatTime = (minutes: number | null | undefined) => {
-    if (!minutes) return null;
-    if (minutes < 60) return `${minutes} min`;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  };
-
-  const getTotalTime = (recipe: Recipe) => {
-    const total = (recipe.prepTimeMinutes || 0) + (recipe.cookTimeMinutes || 0);
-    return total > 0 ? formatTime(total) : null;
   };
 
   if (isLoading) {
@@ -235,9 +224,18 @@ export function RecipesPage() {
             {recipes.map((recipe) => (
               <Card
                 key={recipe.id}
-                className="cursor-pointer hover:shadow-lg transition-shadow"
+                className="cursor-pointer hover:shadow-lg transition-shadow overflow-hidden"
+                padding="none"
                 onClick={() => handleOpenRecipe(recipe.id)}
               >
+                {recipe.imageUrl && (
+                  <img
+                    src={recipe.imageUrl}
+                    alt={recipe.name}
+                    className="w-full h-40 object-cover"
+                    loading="lazy"
+                  />
+                )}
                 <div className="p-4">
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">
@@ -258,12 +256,12 @@ export function RecipesPage() {
                     </p>
                   )}
 
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {getTotalTime(recipe) && (
-                      <Badge variant="gray">
-                        {getTotalTime(recipe)}
-                      </Badge>
-                    )}
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <TimeBadge
+                      prepTimeMinutes={recipe.prepTimeMinutes}
+                      cookTimeMinutes={recipe.cookTimeMinutes}
+                      compact
+                    />
                     {recipe.servings && (
                       <Badge variant="gray">
                         {recipe.servings} servings
@@ -284,11 +282,16 @@ export function RecipesPage() {
                     )}
                   </div>
 
-                  {recipe.cuisine && (
-                    <p className="text-xs text-gray-500">
-                      {recipe.cuisine}
-                    </p>
-                  )}
+                  <div className="flex items-center justify-between">
+                    {recipe.cuisine && (
+                      <p className="text-xs text-gray-500">
+                        {recipe.cuisine}
+                      </p>
+                    )}
+                    {recipe.rating && (
+                      <StarRating value={recipe.rating} readonly size="sm" />
+                    )}
+                  </div>
                 </div>
               </Card>
             ))}

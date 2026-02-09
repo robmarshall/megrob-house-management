@@ -27,3 +27,42 @@
     padding: 0 1rem 1rem;
   }
 }
+
+/* Print-friendly recipe view */
+@media print {
+  /* Hide non-essential UI elements */
+  nav,
+  header,
+  .Toastify,
+  .print\\:hidden {
+    display: none !important;
+  }
+
+  body {
+    background: white;
+    color: black;
+    font-size: 12pt;
+  }
+
+  /* Remove shadows for cleaner print */
+  * {
+    box-shadow: none !important;
+  }
+
+  /* Ensure images print */
+  img {
+    max-height: 300px;
+    page-break-inside: avoid;
+  }
+
+  /* Avoid breaking inside cards */
+  .rounded-lg {
+    page-break-inside: avoid;
+  }
+
+  /* Full width for print */
+  .max-w-7xl {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+}

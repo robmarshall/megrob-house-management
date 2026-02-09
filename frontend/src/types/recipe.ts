@@ -37,6 +37,7 @@ export interface Recipe {
   cuisine?: string | null;
   notes?: string | null;
   rating?: number | null; // 1-5
+  imageUrl?: string | null; // Recipe image URL (scraped from og:image or recipe structured data)
   isFavorite?: boolean; // Computed per-user from userFavorites, not stored on recipe
   createdAt: string;
   updatedAt: string;

@@ -99,67 +99,70 @@ const recipeImportHandler = serve<RecipeImportInput>(
       }
     );
 
-    // Step 4: Update recipe in database
+    // Step 4: Update recipe in database (wrapped in transaction for atomicity)
     await context.run('update-recipe', async () => {
-      // Update the recipe with scraped data
-      await db
-        .update(recipes)
-        .set({
-          name: scraped.name,
-          description: scraped.description || null,
-          servings: scraped.servings || 4,
-          prepTimeMinutes: parseDuration(scraped.prepTime),
-          cookTimeMinutes: parseDuration(scraped.cookTime),
-          instructions: JSON.stringify(scraped.instructions),
-          status: 'ready',
-          errorMessage: null,
-          updatedBy: userId,
-          updatedAt: new Date(),
-        })
-        .where(eq(recipes.id, recipeId));
+      await db.transaction(async (tx) => {
+        // Update the recipe with scraped data
+        await tx
+          .update(recipes)
+          .set({
+            name: scraped.name,
+            description: scraped.description || null,
+            servings: scraped.servings || 4,
+            prepTimeMinutes: parseDuration(scraped.prepTime),
+            cookTimeMinutes: parseDuration(scraped.cookTime),
+            instructions: JSON.stringify(scraped.instructions),
+            imageUrl: scraped.image || null,
+            status: 'ready',
+            errorMessage: null,
+            updatedBy: userId,
+            updatedAt: new Date(),
+          })
+          .where(eq(recipes.id, recipeId));
 
-      // Delete any existing ingredients (in case of retry)
-      await db.delete(recipeIngredients).where(eq(recipeIngredients.recipeId, recipeId));
+        // Delete any existing ingredients (in case of retry)
+        await tx.delete(recipeIngredients).where(eq(recipeIngredients.recipeId, recipeId));
 
-      // Insert parsed ingredients
-      if (parsedIngredients.length > 0) {
-        await db.insert(recipeIngredients).values(
-          parsedIngredients.map((ing, index) => ({
+        // Insert parsed ingredients
+        if (parsedIngredients.length > 0) {
+          await tx.insert(recipeIngredients).values(
+            parsedIngredients.map((ing, index) => ({
+              recipeId,
+              name: ing.name,
+              quantity: ing.quantity?.toString() || null,
+              unit: ing.unit || null,
+              notes: ing.notes || null,
+              position: index,
+            }))
+          );
+        }
+
+        // Delete any existing categories (in case of retry)
+        await tx.delete(recipeCategories).where(eq(recipeCategories.recipeId, recipeId));
+
+        // Insert auto-detected categories (allergens and dietary)
+        const categoryValues: { recipeId: number; categoryType: string; categoryValue: string }[] = [];
+
+        for (const allergen of allergens) {
+          categoryValues.push({
             recipeId,
-            name: ing.name,
-            quantity: ing.quantity?.toString() || null,
-            unit: ing.unit || null,
-            notes: ing.notes || null,
-            position: index,
-          }))
-        );
-      }
+            categoryType: 'allergen',
+            categoryValue: allergen,
+          });
+        }
 
-      // Delete any existing categories (in case of retry)
-      await db.delete(recipeCategories).where(eq(recipeCategories.recipeId, recipeId));
+        for (const diet of dietary) {
+          categoryValues.push({
+            recipeId,
+            categoryType: 'dietary',
+            categoryValue: diet,
+          });
+        }
 
-      // Insert auto-detected categories (allergens and dietary)
-      const categoryValues: { recipeId: number; categoryType: string; categoryValue: string }[] = [];
-
-      for (const allergen of allergens) {
-        categoryValues.push({
-          recipeId,
-          categoryType: 'allergen',
-          categoryValue: allergen,
-        });
-      }
-
-      for (const diet of dietary) {
-        categoryValues.push({
-          recipeId,
-          categoryType: 'dietary',
-          categoryValue: diet,
-        });
-      }
-
-      if (categoryValues.length > 0) {
-        await db.insert(recipeCategories).values(categoryValues);
-      }
+        if (categoryValues.length > 0) {
+          await tx.insert(recipeCategories).values(categoryValues);
+        }
+      });
     });
 
     logger.info({ recipeId, name: scraped.name }, "Successfully imported recipe");

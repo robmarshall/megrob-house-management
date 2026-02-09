@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router";
-import { ArrowLeftIcon, StarIcon, ClockIcon, ShoppingCartIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { ArrowLeftIcon, StarIcon, ShoppingCartIcon, PlusIcon, PrinterIcon, PlayIcon } from "@heroicons/react/24/outline";
 import { StarIcon as StarIconSolid } from "@heroicons/react/24/solid";
 import { MainLayout } from "@/components/templates/MainLayout";
 import { Button } from "@/components/atoms/Button";
 import { Badge } from "@/components/atoms/Badge";
 import { Card } from "@/components/atoms/Card";
+import { StarRating } from "@/components/atoms/StarRating";
+import { TimeBadge } from "@/components/atoms/TimeBadge";
 import { ServingScaler, scaleQuantity } from "@/components/molecules/ServingScaler";
 import { FeedbackButton } from "@/components/molecules/FeedbackButton";
 import { AddFeedbackBottomSheet } from "@/components/molecules/AddFeedbackBottomSheet";
@@ -29,7 +31,7 @@ export function RecipeDetailPage() {
   const [isDeletingRecipe, setIsDeletingRecipe] = useState(false);
 
   const { data: recipe, isLoading } = useRecipe(recipeId);
-  const { delete: deleteRecipe, toggleFavorite } = useRecipeData();
+  const { delete: deleteRecipe, toggleFavorite, edit: editRecipe } = useRecipeData();
   const { data: feedback, isLoading: isFeedbackLoading } = useRecipeFeedback(recipeId);
   const { addFeedback, deleteFeedback, isAdding, isDeleting } = useRecipeFeedbackMutations(recipeId);
 
@@ -65,12 +67,9 @@ export function RecipeDetailPage() {
     await deleteFeedback(feedbackId);
   };
 
-  const formatTime = (minutes: number | null | undefined) => {
-    if (!minutes) return null;
-    if (minutes < 60) return `${minutes} min`;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  const handleRatingChange = async (rating: number) => {
+    if (!recipe) return;
+    await editRecipe(recipeId, { rating });
   };
 
   const parseInstructions = (instructions: string): string[] => {
@@ -167,6 +166,18 @@ export function RecipeDetailPage() {
           <span>Back to Recipes</span>
         </button>
 
+        {/* Recipe Image */}
+        {recipe.imageUrl && (
+          <div className="mb-4 rounded-lg overflow-hidden">
+            <img
+              src={recipe.imageUrl}
+              alt={recipe.name}
+              className="w-full h-64 md:h-80 object-cover"
+              loading="lazy"
+            />
+          </div>
+        )}
+
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">{recipe.name}</h1>
@@ -188,19 +199,16 @@ export function RecipeDetailPage() {
         </div>
 
         {/* Meta info */}
-        <div className="flex flex-wrap gap-4 mt-4">
-          {recipe.prepTimeMinutes && (
-            <div className="flex items-center gap-1 text-sm text-gray-600">
-              <ClockIcon className="w-4 h-4" />
-              <span>Prep: {formatTime(recipe.prepTimeMinutes)}</span>
-            </div>
-          )}
-          {recipe.cookTimeMinutes && (
-            <div className="flex items-center gap-1 text-sm text-gray-600">
-              <ClockIcon className="w-4 h-4" />
-              <span>Cook: {formatTime(recipe.cookTimeMinutes)}</span>
-            </div>
-          )}
+        <div className="flex flex-wrap items-center gap-4 mt-4">
+          <TimeBadge
+            prepTimeMinutes={recipe.prepTimeMinutes}
+            cookTimeMinutes={recipe.cookTimeMinutes}
+          />
+          <StarRating
+            value={recipe.rating}
+            onChange={handleRatingChange}
+            size="sm"
+          />
         </div>
 
         {/* Feedback buttons */}
@@ -331,7 +339,13 @@ export function RecipeDetailPage() {
             rel="noopener noreferrer"
             className="text-primary-600 hover:text-primary-700 underline"
           >
-            {new URL(recipe.sourceUrl).hostname}
+            {(() => {
+              try {
+                return new URL(recipe.sourceUrl).hostname;
+              } catch {
+                return recipe.sourceUrl;
+              }
+            })()}
           </a>
         </div>
       )}
@@ -347,16 +361,32 @@ export function RecipeDetailPage() {
       </div>
 
       {/* Actions */}
-      <div className="mt-8 flex flex-wrap gap-4">
-        {recipe.ingredients && recipe.ingredients.length > 0 && (
+      <div className="mt-8 flex flex-wrap gap-4 print:hidden">
+        {instructions.length > 0 && (
           <Button
             variant="primary"
+            onClick={() => navigate(`/recipes/${recipeId}/cook`)}
+          >
+            <PlayIcon className="w-5 h-5 mr-2" />
+            Start Cooking
+          </Button>
+        )}
+        {recipe.ingredients && recipe.ingredients.length > 0 && (
+          <Button
+            variant="secondary"
             onClick={() => setIsShoppingListOpen(true)}
           >
             <ShoppingCartIcon className="w-5 h-5 mr-2" />
             Add to Shopping List
           </Button>
         )}
+        <Button
+          variant="secondary"
+          onClick={() => window.print()}
+        >
+          <PrinterIcon className="w-5 h-5 mr-2" />
+          Print
+        </Button>
         <Button
           variant="secondary"
           onClick={() => navigate(`/recipes/${recipeId}/edit`)}

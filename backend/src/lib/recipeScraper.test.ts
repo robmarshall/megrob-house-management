@@ -1,6 +1,31 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { parseDuration, scrapeRecipe } from './recipeScraper';
 
+/**
+ * Creates a mock fetch Response with headers and a streaming body,
+ * matching the properties accessed by the production scrapeRecipe code.
+ */
+function mockFetchResponse(html: string) {
+  const encoded = new TextEncoder().encode(html);
+  return {
+    ok: true,
+    headers: new Headers(),
+    body: {
+      getReader: () => {
+        let read = false;
+        return {
+          read: async () => {
+            if (read) return { done: true, value: undefined };
+            read = true;
+            return { done: false, value: encoded };
+          },
+          cancel: async () => {},
+        };
+      },
+    },
+  };
+}
+
 describe('parseDuration', () => {
   it('parses minutes only (PT30M)', () => {
     expect(parseDuration('PT30M')).toBe(30);
@@ -65,10 +90,9 @@ describe('scrapeRecipe', () => {
   });
 
   it('throws when no recipe data found', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => '<html><body>No recipe here</body></html>',
-    }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      mockFetchResponse('<html><body>No recipe here</body></html>')
+    ));
 
     await expect(scrapeRecipe('https://example.com/page')).rejects.toThrow(
       'No recipe data found on this page'
@@ -104,10 +128,7 @@ describe('scrapeRecipe', () => {
       </html>
     `;
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => html,
-    }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockFetchResponse(html)));
 
     const recipe = await scrapeRecipe('https://example.com/recipe');
     expect(recipe.name).toBe('Test Pasta');
@@ -143,10 +164,7 @@ describe('scrapeRecipe', () => {
       </html>
     `;
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => html,
-    }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockFetchResponse(html)));
 
     const recipe = await scrapeRecipe('https://example.com/recipe');
     expect(recipe.name).toBe('Graph Soup');
@@ -173,10 +191,7 @@ describe('scrapeRecipe', () => {
       </html>
     `;
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => html,
-    }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockFetchResponse(html)));
 
     const recipe = await scrapeRecipe('https://example.com/recipe');
     expect(recipe.instructions).toEqual(['Mix the flour.', 'Bake at 350F.']);
@@ -198,10 +213,7 @@ describe('scrapeRecipe', () => {
       </html>
     `;
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => html,
-    }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockFetchResponse(html)));
 
     await expect(scrapeRecipe('https://example.com/recipe')).rejects.toThrow(
       'Recipe name not found'
@@ -225,10 +237,7 @@ describe('scrapeRecipe', () => {
       </html>
     `;
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => html,
-    }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockFetchResponse(html)));
 
     await expect(scrapeRecipe('https://example.com/recipe')).rejects.toThrow(
       'No ingredients found in recipe'
@@ -252,10 +261,7 @@ describe('scrapeRecipe', () => {
       </html>
     `;
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => html,
-    }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockFetchResponse(html)));
 
     const recipe = await scrapeRecipe('https://example.com/recipe');
     expect(recipe.name).toBe("Chef's Special");
@@ -280,10 +286,7 @@ describe('scrapeRecipe', () => {
       </html>
     `;
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => html,
-    }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockFetchResponse(html)));
 
     const recipe = await scrapeRecipe('https://example.com/recipe');
     expect(recipe.servings).toBe(6);
@@ -306,10 +309,7 @@ describe('scrapeRecipe', () => {
       </html>
     `;
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => html,
-    }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockFetchResponse(html)));
 
     const recipe = await scrapeRecipe('https://example.com/recipe');
     expect(recipe.instructions).toHaveLength(3);
@@ -336,10 +336,7 @@ describe('scrapeRecipe', () => {
       </html>
     `;
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => html,
-    }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockFetchResponse(html)));
 
     const recipe = await scrapeRecipe('https://example.com/recipe');
     expect(recipe.ingredients).toEqual(['2 cups flour', '1 tsp baking powder']);
@@ -365,10 +362,7 @@ describe('scrapeRecipe', () => {
       </html>
     `;
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => html,
-    }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockFetchResponse(html)));
 
     const recipe = await scrapeRecipe('https://example.com/recipe');
     expect(recipe.name).toBe('Array Schema Cake');
@@ -395,10 +389,7 @@ describe('scrapeRecipe', () => {
       </html>
     `;
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => html,
-    }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockFetchResponse(html)));
 
     const recipe = await scrapeRecipe('https://example.com/recipe');
     expect(recipe.totalTime).toBe('PT30M');
@@ -427,10 +418,7 @@ describe('scrapeRecipe', () => {
       </html>
     `;
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => html,
-    }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockFetchResponse(html)));
 
     const recipe = await scrapeRecipe('https://example.com/recipe');
     expect(recipe.name).toBe('Microdata Soup');

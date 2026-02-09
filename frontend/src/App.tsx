@@ -15,6 +15,7 @@ import { RecipesPage } from '@/pages/RecipesPage'
 import { RecipeDetailPage } from '@/pages/RecipeDetailPage'
 import { AddRecipePage } from '@/pages/AddRecipePage'
 import { EditRecipePage } from '@/pages/EditRecipePage'
+import { CookingModePage } from '@/pages/CookingModePage'
 import { HouseholdPage } from '@/pages/HouseholdPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { queryClient } from '@/lib/queryClient'
@@ -81,6 +82,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <EditRecipePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/recipes/:id/cook"
+              element={
+                <ProtectedRoute>
+                  <CookingModePage />
                 </ProtectedRoute>
               }
             />
