@@ -17,7 +17,7 @@
 | # | Title | Status |
 |---|-------|--------|
 | 001 | Toast Notification System | COMPLETE (v0.0.23) |
-| 002 | Meal Planning | NOT STARTED |
+| 002 | Meal Planning | IN PROGRESS |
 | 003 | Household Tasks | NOT STARTED |
 | 004 | Inventory Tracking | NOT STARTED |
 | 005 | Recipe Enhancements | COMPLETE (v0.0.28) |
@@ -48,6 +48,7 @@ These are confirmed bugs found in the current codebase, not assumptions:
 11. **RecipeForm double type cast**: `RecipeForm.tsx:137` uses `as unknown as CreateRecipeFormData` — instructions transform from `{ step: string }[]` to `string[]` bypasses TypeScript
 12. **No rate limiting on auth endpoints**: Login and password reset have no brute-force protection
 13. ~~**Recipe authorization inconsistency**: PATCH allows any authenticated user to edit any recipe; DELETE checks ownership~~ (RESOLVED by Spec 009 — all recipe endpoints now use household-scoped `verifyRecipeAccess`; DELETE uses stricter `verifyRecipeOwnership` requiring creator)
+14. **Missing shopping list access control in recipes to-shopping-list**: `recipes.ts:800-810` — `POST /api/recipes/:id/to-shopping-list` only checks `eq(shoppingLists.id, shoppingListId)` without household scoping when user provides an existing list. A user could add items to any shopping list by guessing IDs. Should use `verifyListAccess()` pattern from `shoppingListItems.ts:36-53`.
 
 ---
 
@@ -134,7 +135,7 @@ Bugs and security issues affecting correctness of the current production system.
 
 The most-requested "Coming Soon" feature. Bridges recipes and shopping lists.
 
-- **Status**: NOT STARTED
+- **Status**: IN PROGRESS (review passed, pending commit)
 - **Tasks**:
   - Create meal_plans and meal_plan_entries database tables and migration
   - Implement meal plan API endpoints (CRUD + entry management + generate shopping list using existing `addOrMergeItems` service)
@@ -144,6 +145,10 @@ The most-requested "Coming Soon" feature. Bridges recipes and shopping lists.
 - **DB**: New migration for `meal_plans` and `meal_plan_entries` tables
 - **Backend**: New `backend/src/routes/mealPlans.ts`
 - **Frontend**: New `MealPlanPage.tsx`, `MealPlanEntry.tsx`, `useMealPlans.ts`/`useMealPlanData.ts`
+- **Learnings**:
+  - Access control helpers (`verifyRecipeAccess`, `verifyListAccess`) should be applied to ANY cross-resource reference, not just the owning resource. When a meal plan references a recipe or shopping list, the referenced resource must be access-checked too.
+  - Copy/duplicate operations that create a parent record plus child records should use database transactions for atomicity. The current copy-week and to-shopping-list routes work but are not transactional — acceptable for a home management app but worth noting for future features.
+  - Partial unique indexes (conditional on `household_id IS NULL` vs `IS NOT NULL`) cannot be expressed in Drizzle schema — they must be created in raw SQL migrations. The Drizzle schema is not the source of truth for these constraints.
 
 ---
 
@@ -284,6 +289,8 @@ These were considered but deferred as premature for current stage:
 - `zod` is used directly in `backend/src/middleware/validation.ts` and its test but is only a transitive dependency via `better-auth` — should be added as explicit dependency to avoid breakage if better-auth changes
 - recipeScraper.ts has dead code: `parsedUrl` variable (line 236-238) is assigned but never used after URL validation
 - Frontend vitest.config.ts coverage `include` should be expanded beyond `src/lib/**` and `src/components/atoms/**` to cover hooks, molecules, organisms, and pages when those test categories are added
+- Pre-existing bug: `recipes.ts:800-810` to-shopping-list route has same missing shopping list access control bug (only checks list exists, no household scoping). Meal Plans copied this vulnerable pattern. Both need fixing.
+- When cross-referencing resources across domains (e.g., linking a recipe to a meal plan, adding to a shopping list), always use the domain's `verifyAccess` helper — never just check existence with `eq(table.id, id)`
 - GET `/api/recipes/:id/status` endpoint lacks auth middleware (intentional for polling during import)
 - Homepage has 3 cards: Shopping Lists (active), Recipes (active), Meal Planning (Coming Soon placeholder)
 - Rate limiter IP resolution: When using @hono/node-server directly (not behind reverse proxy), use `getConnInfo(c)` from `@hono/node-server/conninfo` for the real socket-level client IP. Trusting X-Forwarded-For/X-Real-IP headers without trusted-proxy validation makes rate limiting fully bypassable.

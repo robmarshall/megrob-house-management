@@ -36,11 +36,14 @@ export function HomePage() {
             </div>
           </Link>
 
-          <div className="bg-white rounded-lg shadow p-6 opacity-50 cursor-not-allowed">
+          <Link
+            to="/recipes"
+            className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
+          >
             <div className="flex items-center gap-4">
-              <div className="bg-gray-100 rounded-lg p-3">
+              <div className="bg-primary-100 rounded-lg p-3">
                 <svg
-                  className="w-8 h-8 text-gray-400"
+                  className="w-8 h-8 text-primary-600"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -55,16 +58,19 @@ export function HomePage() {
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Recipes</h3>
-                <p className="text-sm text-gray-500">Coming soon</p>
+                <p className="text-sm text-gray-500">Store and organize recipes</p>
               </div>
             </div>
-          </div>
+          </Link>
 
-          <div className="bg-white rounded-lg shadow p-6 opacity-50 cursor-not-allowed">
+          <Link
+            to="/meal-plans"
+            className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
+          >
             <div className="flex items-center gap-4">
-              <div className="bg-gray-100 rounded-lg p-3">
+              <div className="bg-primary-100 rounded-lg p-3">
                 <svg
-                  className="w-8 h-8 text-gray-400"
+                  className="w-8 h-8 text-primary-600"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -81,10 +87,10 @@ export function HomePage() {
                 <h3 className="text-lg font-semibold text-gray-900">
                   Meal Planning
                 </h3>
-                <p className="text-sm text-gray-500">Coming soon</p>
+                <p className="text-sm text-gray-500">Plan your weekly meals</p>
               </div>
             </div>
-          </div>
+          </Link>
         </div>
       </div>
     </MainLayout>

@@ -92,6 +92,48 @@ export const inviteMemberSchema = z.object({
   email: z.string().email('Invalid email format'),
 });
 
+// Meal Plan schemas
+export const createMealPlanSchema = z.object({
+  name: z.string().max(200).optional(),
+  weekStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD format'),
+});
+
+export const updateMealPlanSchema = z.object({
+  name: z.string().max(200).optional(),
+});
+
+export const createMealPlanEntrySchema = z.object({
+  dayOfWeek: z.number().int().min(0).max(6),
+  mealType: z.enum(['breakfast', 'lunch', 'dinner', 'snack']),
+  recipeId: z.number().int().positive().optional(),
+  customText: z.string().max(200).optional(),
+  position: z.number().int().nonnegative().optional(),
+}).refine(
+  (data) => data.recipeId || data.customText,
+  { message: 'Either recipeId or customText is required' }
+);
+
+export const updateMealPlanEntrySchema = z.object({
+  dayOfWeek: z.number().int().min(0).max(6).optional(),
+  mealType: z.enum(['breakfast', 'lunch', 'dinner', 'snack']).optional(),
+  recipeId: z.number().int().positive().nullable().optional(),
+  customText: z.string().max(200).nullable().optional(),
+  position: z.number().int().nonnegative().optional(),
+});
+
+export const copyMealPlanSchema = z.object({
+  sourceWeek: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD format'),
+  targetWeek: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD format'),
+});
+
+export const mealPlanToShoppingListSchema = z.object({
+  shoppingListId: z.number().int().positive().optional(),
+  newListName: z.string().min(1).max(100).optional(),
+}).refine(
+  (data) => data.shoppingListId || data.newListName,
+  { message: 'Either shoppingListId or newListName is required' }
+);
+
 // Type exports for use in route handlers
 export type CreateShoppingListInput = z.infer<typeof createShoppingListSchema>;
 export type UpdateShoppingListInput = z.infer<typeof updateShoppingListSchema>;
@@ -104,3 +146,9 @@ export type CreateFeedbackInput = z.infer<typeof createFeedbackSchema>;
 export type AddToShoppingListInput = z.infer<typeof addToShoppingListSchema>;
 export type CreateHouseholdInput = z.infer<typeof createHouseholdSchema>;
 export type InviteMemberInput = z.infer<typeof inviteMemberSchema>;
+export type CreateMealPlanInput = z.infer<typeof createMealPlanSchema>;
+export type UpdateMealPlanInput = z.infer<typeof updateMealPlanSchema>;
+export type CreateMealPlanEntryInput = z.infer<typeof createMealPlanEntrySchema>;
+export type UpdateMealPlanEntryInput = z.infer<typeof updateMealPlanEntrySchema>;
+export type CopyMealPlanInput = z.infer<typeof copyMealPlanSchema>;
+export type MealPlanToShoppingListInput = z.infer<typeof mealPlanToShoppingListSchema>;

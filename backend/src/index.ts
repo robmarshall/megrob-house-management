@@ -12,6 +12,7 @@ import shoppingListItemsRoutes from "./routes/shoppingListItems.js";
 import recipesRoutes from "./routes/recipes.js";
 import webhooksRoutes from "./routes/webhooks.js";
 import householdsRoutes from "./routes/households.js";
+import mealPlansRoutes from "./routes/mealPlans.js";
 
 dotenv.config();
 
@@ -121,6 +122,7 @@ app.route("/api/households", householdsRoutes);
 app.route("/api/shopping-lists", shoppingListsRoutes);
 app.route("/api/shopping-lists", shoppingListItemsRoutes);
 app.route("/api/recipes", recipesRoutes);
+app.route("/api/meal-plans", mealPlansRoutes);
 
 // Webhook routes (no auth - verified by QueueBear signature)
 app.route("/api/webhooks", webhooksRoutes);

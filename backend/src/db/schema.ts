@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, numeric, boolean, unique } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, timestamp, integer, numeric, boolean, unique, date } from 'drizzle-orm/pg-core';
 import { user } from './auth-schema';
 
 // Re-export auth schema tables
@@ -195,5 +195,43 @@ export const userFavorites = pgTable('user_favorites', {
   recipeId: integer('recipe_id')
     .notNull()
     .references(() => recipes.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+/**
+ * Meal Plans Table
+ * Weekly meal plans scoped to household or personal
+ */
+export const mealPlans = pgTable('meal_plans', {
+  id: serial('id').primaryKey(),
+  name: text('name'),
+  weekStartDate: date('week_start_date').notNull(),
+  householdId: integer('household_id')
+    .references(() => households.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  createdBy: text('created_by')
+    .notNull()
+    .references(() => user.id),
+  updatedBy: text('updated_by')
+    .notNull()
+    .references(() => user.id),
+});
+
+/**
+ * Meal Plan Entries Table
+ * Individual meal slots within a meal plan
+ */
+export const mealPlanEntries = pgTable('meal_plan_entries', {
+  id: serial('id').primaryKey(),
+  mealPlanId: integer('meal_plan_id')
+    .notNull()
+    .references(() => mealPlans.id, { onDelete: 'cascade' }),
+  dayOfWeek: integer('day_of_week').notNull(), // 0=Monday, 6=Sunday
+  mealType: text('meal_type').notNull(), // 'breakfast' | 'lunch' | 'dinner' | 'snack'
+  recipeId: integer('recipe_id')
+    .references(() => recipes.id, { onDelete: 'set null' }),
+  customText: text('custom_text'),
+  position: integer('position').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
