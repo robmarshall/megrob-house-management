@@ -65,20 +65,6 @@ app.get("/health", (c) => {
   return c.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// Handle OPTIONS preflight for auth routes explicitly
-app.options("/api/auth/*", (c) => {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": process.env.FRONTEND_URL!,
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      "Access-Control-Allow-Credentials": "true",
-      "Access-Control-Max-Age": "600",
-    },
-  });
-});
-
 // Rate limiting for auth endpoints (applied before auth handler)
 // Login: 5 attempts per minute per IP
 app.use("/api/auth/sign-in/*", rateLimiter(5, 60_000));
@@ -91,21 +77,11 @@ app.use("/api/auth/update-user", rateLimiter(10, 60_000));
 // Password change: 5 attempts per minute per IP
 app.use("/api/auth/change-password", rateLimiter(5, 60_000));
 
-// Better Auth routes - handles all /api/auth/* endpoints
-app.on(["GET", "POST"], "/api/auth/*", async (c) => {
-  const response = await auth.handler(c.req.raw);
-
-  // Clone the response and add CORS headers since auth.handler bypasses Hono middleware
-  const headers = new Headers(response.headers);
-  headers.set("Access-Control-Allow-Origin", process.env.FRONTEND_URL!);
-  headers.set("Access-Control-Allow-Credentials", "true");
-
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  });
-});
+// Better Auth routes - handles all /api/auth/* endpoints.
+// The cors() middleware registered above applies the Access-Control-* headers
+// to this handler's response (verified in middleware/authCors.test.ts), so no
+// manual CORS handling is needed here.
+app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
 // API routes (protected with auth middleware)
 app.route("/api/households", householdsRoutes);
