@@ -119,6 +119,21 @@ export const updateMealPlanEntrySchema = z.object({
   recipeId: z.number().int().positive().nullable().optional(),
   customText: z.string().max(200).nullable().optional(),
   position: z.number().int().nonnegative().optional(),
+}).superRefine((data, ctx) => {
+  // Omitted fields (undefined) mean "keep existing value" and are always
+  // fine for a partial update. Only reject when the payload explicitly
+  // blanks BOTH recipeId and customText, which would leave the entry with
+  // neither a linked recipe nor any text.
+  const clearsRecipe = data.recipeId === null;
+  const clearsCustomText = data.customText === null || data.customText === '';
+
+  if (clearsRecipe && clearsCustomText) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'A meal entry must have either a recipe or custom text',
+      path: ['customText'],
+    });
+  }
 });
 
 export const copyMealPlanSchema = z.object({
