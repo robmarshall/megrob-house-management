@@ -35,7 +35,7 @@ import {
 // MealSlot (inline component)
 // ---------------------------------------------------------------------------
 
-function MealSlot({
+export function MealSlot({
   mealType,
   entries,
   onAdd,
@@ -86,7 +86,7 @@ function MealSlot({
               </span>
               <button
                 onClick={() => onDelete(entry.id)}
-                className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity p-0.5"
+                className="text-gray-400 hover:text-red-500 p-0.5"
                 aria-label="Remove meal entry"
               >
                 <XMarkIcon className="w-3.5 h-3.5" />
