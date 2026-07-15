@@ -224,6 +224,8 @@ export function RecipesPage() {
             {recipes.map((recipe) => (
               <Card
                 key={recipe.id}
+                interactive
+                aria-label={`View recipe: ${recipe.name}`}
                 className="cursor-pointer hover:shadow-lg transition-shadow overflow-hidden"
                 padding="none"
                 onClick={() => handleOpenRecipe(recipe.id)}
