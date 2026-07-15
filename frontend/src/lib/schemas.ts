@@ -102,17 +102,17 @@ const difficultyEnum = ['easy', 'medium', 'hard'] as const
 const categoryTypeEnum = ['meal_type', 'dietary', 'allergen'] as const
 
 export const recipeIngredientSchema = z.object({
-  name: z.string().min(1, 'Ingredient name is required'),
+  name: z.string().min(1, 'Ingredient name is required').max(200, 'Ingredient name must be 200 characters or less'),
   quantity: z.number().positive().optional().or(z.literal('')),
-  unit: z.string().optional(),
-  notes: z.string().optional(),
+  unit: z.string().max(20, 'Unit must be 20 characters or less').optional(),
+  notes: z.string().max(200, 'Notes must be 200 characters or less').optional(),
 })
 
 export type RecipeIngredientFormData = z.infer<typeof recipeIngredientSchema>
 
 export const recipeCategorySchema = z.object({
   type: z.enum(categoryTypeEnum),
-  value: z.string().min(1),
+  value: z.string().min(1).max(100, 'Value must be 100 characters or less'),
 })
 
 export type RecipeCategoryFormData = z.infer<typeof recipeCategorySchema>
@@ -127,9 +127,9 @@ export type RecipeInstructionFormData = z.infer<typeof recipeInstructionSchema>
 export const createRecipeSchema = z.object({
   name: z.string().min(1, 'Recipe name is required').max(200, 'Name must be less than 200 characters'),
   description: z.string().max(1000, 'Description must be less than 1000 characters').optional(),
-  servings: z.number().int().positive('Servings must be a positive number'),
-  prepTimeMinutes: z.number().int().nonnegative().optional().or(z.literal('')),
-  cookTimeMinutes: z.number().int().nonnegative().optional().or(z.literal('')),
+  servings: z.number().int().positive('Servings must be a positive number').max(100, 'Servings must be 100 or less'),
+  prepTimeMinutes: z.number().int().nonnegative().max(1440, 'Prep time must be 1440 minutes (24h) or less').optional().or(z.literal('')),
+  cookTimeMinutes: z.number().int().nonnegative().max(1440, 'Cook time must be 1440 minutes (24h) or less').optional().or(z.literal('')),
   difficulty: z.enum(difficultyEnum).optional(),
   cuisine: z.string().max(50).optional(),
   notes: z.string().max(2000, 'Notes must be less than 2000 characters').optional(),
