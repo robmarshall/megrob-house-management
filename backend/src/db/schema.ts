@@ -64,7 +64,7 @@ export const shoppingLists = pgTable('shopping_lists', {
   name: text('name').notNull(),
   description: text('description'),
   householdId: integer('household_id')
-    .references(() => households.id),
+    .references(() => households.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   createdBy: text('created_by')
@@ -113,7 +113,7 @@ export const recipes = pgTable('recipes', {
   name: text('name').notNull(),
   description: text('description'),
   householdId: integer('household_id')
-    .references(() => households.id),
+    .references(() => households.id, { onDelete: 'cascade' }),
   servings: integer('servings').default(4),
   prepTimeMinutes: integer('prep_time_minutes'),
   cookTimeMinutes: integer('cook_time_minutes'),
@@ -207,7 +207,7 @@ export const mealPlans = pgTable('meal_plans', {
   name: text('name'),
   weekStartDate: date('week_start_date').notNull(),
   householdId: integer('household_id')
-    .references(() => households.id),
+    .references(() => households.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   createdBy: text('created_by')
