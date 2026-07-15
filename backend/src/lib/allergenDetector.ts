@@ -49,6 +49,8 @@ const ALLERGEN_KEYWORDS: Record<AllergenType, string[]> = {
     'aioli',
     'hollandaise',
     'bearnaise',
+    'eggnog',
+    'albumen',
   ],
   dairy: [
     'milk',
@@ -83,6 +85,9 @@ const ALLERGEN_KEYWORDS: Record<AllergenType, string[]> = {
     'bulgur',
     'farro',
     'seitan',
+    'graham',
+    'matzo', 'matzoh',
+    'orzo',
     'soy sauce', // traditional soy sauce contains wheat
     'teriyaki sauce',
     'malt', 'malt vinegar', 'malted',
@@ -148,6 +153,7 @@ const ALLERGEN_KEYWORDS: Record<AllergenType, string[]> = {
     'pike',
     'carp',
     'fish sauce',
+    'surimi', // imitation seafood made from processed fish
     'worcestershire sauce', // contains anchovies
   ],
 };
@@ -255,6 +261,20 @@ const PLANT_QUALIFIERS = [
 const PLANT_QUALIFIER_ALTERNATION = PLANT_QUALIFIERS.map(escapeRegex).join('|');
 
 /**
+ * Phrases in which a given keyword must NOT count as a match. Some keywords are
+ * whole words in their own right but also appear inside the names of unrelated,
+ * non-allergen foods. Before matching such a keyword, any listed phrase is stripped
+ * from the normalized text so the incidental occurrence cannot trigger a match.
+ * e.g. "oyster mushroom" is a vegan fungus (not shellfish) and "ginger ale" is
+ * typically gluten-free (not an ale). Genuine matches such as "fresh oysters" or
+ * "pale ale" are unaffected because those phrases are not stripped.
+ */
+const KEYWORD_EXCLUSIONS: Record<string, string[]> = {
+  oyster: ['oyster mushroom'],
+  ale: ['ginger ale'],
+};
+
+/**
  * Check if an ingredient contains any of the given keywords
  */
 function containsKeyword(ingredient: string, keywords: string[]): boolean {
@@ -262,6 +282,19 @@ function containsKeyword(ingredient: string, keywords: string[]): boolean {
 
   for (const keyword of keywords) {
     const normalizedKeyword = normalizeText(keyword);
+
+    // Some keywords must not count inside specific unrelated phrases (e.g.
+    // "oyster mushroom", "ginger ale"). Strip those phrases from the text before
+    // matching this keyword so the incidental occurrence cannot trigger a match,
+    // while genuine matches ("fresh oysters", "pale ale") remain intact.
+    let text = normalized;
+    const exclusions = KEYWORD_EXCLUSIONS[normalizedKeyword];
+    if (exclusions) {
+      for (const phrase of exclusions) {
+        const exclusionRegex = new RegExp(escapeRegex(normalizeText(phrase)), 'gi');
+        text = text.replace(exclusionRegex, ' ');
+      }
+    }
 
     // Check for whole word match to avoid false positives
     // e.g., "coconut" should not match "nut"
@@ -276,7 +309,7 @@ function containsKeyword(ingredient: string, keywords: string[]): boolean {
     }
 
     const regex = new RegExp(pattern, 'i');
-    if (regex.test(normalized)) {
+    if (regex.test(text)) {
       return true;
     }
   }

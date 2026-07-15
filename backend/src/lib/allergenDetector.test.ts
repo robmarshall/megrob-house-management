@@ -211,6 +211,61 @@ describe('detectAllergens', () => {
     });
   });
 
+  describe('added keyword false negatives now detected', () => {
+    it('detects eggnog as eggs', () => {
+      expect(detectAllergens(['eggnog'])).toContain('eggs');
+    });
+
+    it('detects albumen as eggs', () => {
+      expect(detectAllergens(['albumen'])).toContain('eggs');
+    });
+
+    it('detects matzo balls as gluten', () => {
+      expect(detectAllergens(['matzo balls'])).toContain('gluten');
+    });
+
+    it('detects orzo pasta as gluten', () => {
+      expect(detectAllergens(['orzo pasta'])).toContain('gluten');
+    });
+
+    it('detects graham crackers as gluten', () => {
+      expect(detectAllergens(['graham crackers'])).toContain('gluten');
+    });
+
+    it('detects surimi as fish', () => {
+      expect(detectAllergens(['surimi'])).toContain('fish');
+    });
+  });
+
+  describe('multi-word keyword false positives now avoided', () => {
+    it('does not flag oyster mushroom as shellfish', () => {
+      expect(detectAllergens(['oyster mushroom'])).not.toContain('shellfish');
+    });
+
+    it('does not flag oyster mushrooms as shellfish', () => {
+      expect(detectAllergens(['sliced oyster mushrooms'])).not.toContain('shellfish');
+    });
+
+    it('does not flag ginger ale as gluten', () => {
+      expect(detectAllergens(['ginger ale'])).not.toContain('gluten');
+    });
+
+    it('still detects genuine oysters as shellfish', () => {
+      expect(detectAllergens(['oysters'])).toContain('shellfish');
+      expect(detectAllergens(['fresh oysters'])).toContain('shellfish');
+    });
+
+    it('still detects genuine ale as gluten', () => {
+      expect(detectAllergens(['pale ale'])).toContain('gluten');
+      expect(detectAllergens(['brown ale'])).toContain('gluten');
+    });
+
+    it('detects oyster in a mixed list containing oyster mushroom and real oysters', () => {
+      const result = detectAllergens(['oyster mushroom', 'fresh oysters']);
+      expect(result).toContain('shellfish');
+    });
+  });
+
   describe('case insensitivity', () => {
     it('detects allergens regardless of case', () => {
       expect(detectAllergens(['MILK'])).toContain('dairy');
