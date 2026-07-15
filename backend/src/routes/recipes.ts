@@ -21,6 +21,7 @@ import {
 } from '../lib/validation.js';
 import { qb, getWebhookUrl } from '../lib/queuebear.js';
 import { addOrMergeItems, type AddItemInput } from '../services/shoppingListItemService.js';
+import { replaceRecipeRelations } from '../services/recipeRelations.js';
 
 const app = new Hono();
 
@@ -495,50 +496,32 @@ app.post('/', validateBody(createRecipeSchema), async (c) => {
 
     const householdId = await getUserHouseholdId(userId);
 
-    // Create the recipe
-    const [newRecipe] = await db
-      .insert(recipes)
-      .values({
-        name,
-        description: description || null,
-        householdId,
-        servings: servings || 4,
-        prepTimeMinutes: prepTimeMinutes || null,
-        cookTimeMinutes: cookTimeMinutes || null,
-        instructions: typeof instructions === 'string' ? instructions : JSON.stringify(instructions),
-        difficulty: difficulty || null,
-        cuisine: cuisine || null,
-        notes: notes || null,
-        status: 'ready',
-        createdBy: userId,
-        updatedBy: userId,
-      })
-      .returning();
+    // Create the recipe and its child rows atomically so a failure inserting
+    // ingredients/categories cannot leave a recipe with partial child rows.
+    const newRecipe = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(recipes)
+        .values({
+          name,
+          description: description || null,
+          householdId,
+          servings: servings || 4,
+          prepTimeMinutes: prepTimeMinutes || null,
+          cookTimeMinutes: cookTimeMinutes || null,
+          instructions: typeof instructions === 'string' ? instructions : JSON.stringify(instructions),
+          difficulty: difficulty || null,
+          cuisine: cuisine || null,
+          notes: notes || null,
+          status: 'ready',
+          createdBy: userId,
+          updatedBy: userId,
+        })
+        .returning();
 
-    // Insert ingredients if provided
-    if (ingredients && ingredients.length > 0) {
-      await db.insert(recipeIngredients).values(
-        ingredients.map((ing, index) => ({
-          recipeId: newRecipe.id,
-          name: ing.name,
-          quantity: ing.quantity?.toString() || null,
-          unit: ing.unit || null,
-          notes: ing.notes || null,
-          position: index,
-        }))
-      );
-    }
+      await replaceRecipeRelations(tx, created.id, { ingredients, categories });
 
-    // Insert categories if provided
-    if (categories && categories.length > 0) {
-      await db.insert(recipeCategories).values(
-        categories.map((cat) => ({
-          recipeId: newRecipe.id,
-          categoryType: cat.type,
-          categoryValue: cat.value,
-        }))
-      );
-    }
+      return created;
+    });
 
     return c.json(newRecipe, 201);
   } catch (error) {
@@ -586,64 +569,35 @@ app.patch('/:id', validateBody(updateRecipeSchema), async (c) => {
       categories,
     } = getValidatedBody<UpdateRecipeInput>(c);
 
-    // Update the recipe
-    const [updatedRecipe] = await db
-      .update(recipes)
-      .set({
-        name: name !== undefined ? name : existingRecipe.name,
-        description: description !== undefined ? description : existingRecipe.description,
-        servings: servings !== undefined ? servings : existingRecipe.servings,
-        prepTimeMinutes: prepTimeMinutes !== undefined ? prepTimeMinutes : existingRecipe.prepTimeMinutes,
-        cookTimeMinutes: cookTimeMinutes !== undefined ? cookTimeMinutes : existingRecipe.cookTimeMinutes,
-        instructions: instructions !== undefined
-          ? (typeof instructions === 'string' ? instructions : JSON.stringify(instructions))
-          : existingRecipe.instructions,
-        difficulty: difficulty !== undefined ? difficulty : existingRecipe.difficulty,
-        cuisine: cuisine !== undefined ? cuisine : existingRecipe.cuisine,
-        notes: notes !== undefined ? notes : existingRecipe.notes,
-        rating: rating !== undefined ? rating : existingRecipe.rating,
-        updatedBy: userId,
-        updatedAt: new Date(),
-      })
-      .where(eq(recipes.id, id))
-      .returning();
+    // Update the recipe and replace its child rows atomically so a failure
+    // after deleting ingredients/categories cannot leave the recipe with zero
+    // child rows (the data-loss bug this transaction closes).
+    const updatedRecipe = await db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(recipes)
+        .set({
+          name: name !== undefined ? name : existingRecipe.name,
+          description: description !== undefined ? description : existingRecipe.description,
+          servings: servings !== undefined ? servings : existingRecipe.servings,
+          prepTimeMinutes: prepTimeMinutes !== undefined ? prepTimeMinutes : existingRecipe.prepTimeMinutes,
+          cookTimeMinutes: cookTimeMinutes !== undefined ? cookTimeMinutes : existingRecipe.cookTimeMinutes,
+          instructions: instructions !== undefined
+            ? (typeof instructions === 'string' ? instructions : JSON.stringify(instructions))
+            : existingRecipe.instructions,
+          difficulty: difficulty !== undefined ? difficulty : existingRecipe.difficulty,
+          cuisine: cuisine !== undefined ? cuisine : existingRecipe.cuisine,
+          notes: notes !== undefined ? notes : existingRecipe.notes,
+          rating: rating !== undefined ? rating : existingRecipe.rating,
+          updatedBy: userId,
+          updatedAt: new Date(),
+        })
+        .where(eq(recipes.id, id))
+        .returning();
 
-    // Update ingredients if provided
-    if (ingredients !== undefined && Array.isArray(ingredients)) {
-      // Delete existing ingredients
-      await db.delete(recipeIngredients).where(eq(recipeIngredients.recipeId, id));
+      await replaceRecipeRelations(tx, id, { ingredients, categories });
 
-      // Insert new ingredients
-      if (ingredients.length > 0) {
-        await db.insert(recipeIngredients).values(
-          ingredients.map((ing: { name: string; quantity?: number; unit?: string; notes?: string }, index: number) => ({
-            recipeId: id,
-            name: ing.name,
-            quantity: ing.quantity?.toString() || null,
-            unit: ing.unit || null,
-            notes: ing.notes || null,
-            position: index,
-          }))
-        );
-      }
-    }
-
-    // Update categories if provided
-    if (categories !== undefined && Array.isArray(categories)) {
-      // Delete existing categories
-      await db.delete(recipeCategories).where(eq(recipeCategories.recipeId, id));
-
-      // Insert new categories
-      if (categories.length > 0) {
-        await db.insert(recipeCategories).values(
-          categories.map((cat: { type: string; value: string }) => ({
-            recipeId: id,
-            categoryType: cat.type,
-            categoryValue: cat.value,
-          }))
-        );
-      }
-    }
+      return updated;
+    });
 
     return c.json(updatedRecipe);
   } catch (error) {

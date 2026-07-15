@@ -5,6 +5,9 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    // Run test files sequentially so DB-backed tests that TRUNCATE shared
+    // tables cannot race and truncate each other's fixtures mid-run.
+    fileParallelism: false,
     env: {
       // Ensure both the code-under-test (singleton db) and fixtures use the
       // dedicated test database. Set before any module loads; dotenv in

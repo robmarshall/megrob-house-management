@@ -235,18 +235,6 @@ app.post('/copy', validateBody(copyMealPlanSchema), async (c) => {
 
     const householdId = await getUserHouseholdId(userId);
 
-    // Create the target plan
-    const [targetPlan] = await db
-      .insert(mealPlans)
-      .values({
-        name: sourcePlan.name,
-        weekStartDate: targetWeek,
-        householdId,
-        createdBy: userId,
-        updatedBy: userId,
-      })
-      .returning();
-
     // Get all entries from the source plan
     const sourceEntries = await db
       .select()
@@ -254,19 +242,36 @@ app.post('/copy', validateBody(copyMealPlanSchema), async (c) => {
       .where(eq(mealPlanEntries.mealPlanId, sourcePlan.id))
       .orderBy(asc(mealPlanEntries.dayOfWeek), asc(mealPlanEntries.position));
 
-    // Copy entries to the new plan
-    if (sourceEntries.length > 0) {
-      await db.insert(mealPlanEntries).values(
-        sourceEntries.map((entry) => ({
-          mealPlanId: targetPlan.id,
-          dayOfWeek: entry.dayOfWeek,
-          mealType: entry.mealType,
-          recipeId: entry.recipeId,
-          customText: entry.customText,
-          position: entry.position,
-        }))
-      );
-    }
+    // Create the target plan and copy its entries atomically so a failure
+    // copying entries cannot leave an empty target plan behind.
+    const targetPlan = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(mealPlans)
+        .values({
+          name: sourcePlan.name,
+          weekStartDate: targetWeek,
+          householdId,
+          createdBy: userId,
+          updatedBy: userId,
+        })
+        .returning();
+
+      // Copy entries to the new plan
+      if (sourceEntries.length > 0) {
+        await tx.insert(mealPlanEntries).values(
+          sourceEntries.map((entry) => ({
+            mealPlanId: created.id,
+            dayOfWeek: entry.dayOfWeek,
+            mealType: entry.mealType,
+            recipeId: entry.recipeId,
+            customText: entry.customText,
+            position: entry.position,
+          }))
+        );
+      }
+
+      return created;
+    });
 
     // Fetch the new entries with recipe info
     const newEntries = await db
