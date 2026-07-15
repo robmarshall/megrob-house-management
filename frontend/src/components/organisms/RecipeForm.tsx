@@ -1,4 +1,10 @@
-import { useForm, FormProvider, Controller, useFieldArray } from "react-hook-form";
+import {
+  useForm,
+  FormProvider,
+  Controller,
+  useFieldArray,
+  type FieldErrors,
+} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Input } from "@/components/atoms/Input";
@@ -11,6 +17,7 @@ import {
   createRecipeSchema,
   type CreateRecipeFormData,
   type RecipeFormSubmitData,
+  type RecipeIngredientFormData,
 } from "@/lib/schemas";
 import type { Recipe, RecipeCategoryType } from "@/types/recipe";
 import { cn } from "@/lib/utils";
@@ -332,16 +339,28 @@ export function RecipeForm({
                   key={field.id}
                   name={`ingredients.${index}`}
                   control={methods.control}
-                  render={({ field: controllerField, fieldState }) => (
-                    <IngredientInput
-                      index={index}
-                      value={controllerField.value}
-                      onChange={controllerField.onChange}
-                      onRemove={() => removeIngredient(index)}
-                      error={fieldState.error?.message}
-                      disabled={isSubmitting}
-                    />
-                  )}
+                  render={({ field: controllerField, fieldState }) => {
+                    // fieldState.error for an object-path Controller is a nested
+                    // errors object (e.g. { name: { message }, quantity: ... }),
+                    // not a flat FieldError, so read the nested field messages.
+                    const ingredientError = fieldState.error as
+                      | FieldErrors<RecipeIngredientFormData>
+                      | undefined;
+                    return (
+                      <IngredientInput
+                        index={index}
+                        value={controllerField.value}
+                        onChange={controllerField.onChange}
+                        onRemove={() => removeIngredient(index)}
+                        error={
+                          ingredientError?.name?.message ??
+                          ingredientError?.quantity?.message ??
+                          fieldState.error?.message
+                        }
+                        disabled={isSubmitting}
+                      />
+                    );
+                  }}
                 />
               ))}
             </div>

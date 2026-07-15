@@ -1,0 +1,73 @@
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { RecipeForm } from "./RecipeForm";
+import type { Recipe } from "@/types/recipe";
+
+/**
+ * RecipeForm seeds its own useForm from `initialData`. These fixtures are valid
+ * for every required field EXCEPT the ingredient name, so that on submit the
+ * only Zod error produced is the nested `ingredients.0.name` error. That nested
+ * error is what the bug fix surfaces into IngredientInput.
+ */
+function makeInitialData(ingredientName: string): Partial<Recipe> {
+  return {
+    name: "Test Recipe",
+    servings: 4,
+    // Seeds parseInstructions() -> one non-empty step, satisfying min(1).
+    instructions: JSON.stringify(["Combine ingredients and cook."]),
+    ingredients: [
+      {
+        id: 1,
+        recipeId: 1,
+        name: ingredientName,
+        quantity: "2",
+        unit: "cups",
+        notes: null,
+        position: 0,
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    ],
+  };
+}
+
+describe("RecipeForm ingredient validation", () => {
+  it("surfaces the nested ingredient-name error and blocks submit when a name is empty", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <RecipeForm
+        initialData={makeInitialData("")}
+        onSubmit={onSubmit}
+        onCancel={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Create Recipe" }));
+
+    // The message was absent before the fix (error was handed `undefined`).
+    expect(await screen.findByText("Ingredient name is required")).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("calls onSubmit when all fields including the ingredient name are valid", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <RecipeForm
+        initialData={makeInitialData("Flour")}
+        onSubmit={onSubmit}
+        onCancel={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Create Recipe" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(
+      screen.queryByText("Ingredient name is required")
+    ).not.toBeInTheDocument();
+  });
+});
