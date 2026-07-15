@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Input } from "@/components/atoms/Input";
 import { Textarea } from "@/components/atoms/Textarea";
+import { Select } from "@/components/atoms/Select";
 import { Button } from "@/components/atoms/Button";
 import { Card } from "@/components/atoms/Card";
 import { IngredientInput } from "@/components/molecules/IngredientInput";
@@ -260,55 +261,27 @@ export function RecipeForm({
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Difficulty
-                </label>
-                <Controller
-                  name="difficulty"
-                  control={methods.control}
-                  render={({ field }) => (
-                    <select
-                      {...field}
-                      value={field.value || ""}
-                      disabled={isSubmitting}
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    >
-                      {DIFFICULTY_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                />
-              </div>
+              <Select
+                name="difficulty"
+                label="Difficulty"
+                disabled={isSubmitting}
+              >
+                {DIFFICULTY_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </Select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cuisine
-              </label>
-              <Controller
-                name="cuisine"
-                control={methods.control}
-                render={({ field }) => (
-                  <select
-                    {...field}
-                    value={field.value || ""}
-                    disabled={isSubmitting}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  >
-                    <option value="">Select cuisine (optional)</option>
-                    {CUISINE_OPTIONS.filter(Boolean).map((cuisine) => (
-                      <option key={cuisine} value={cuisine}>
-                        {cuisine}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              />
-            </div>
+            <Select name="cuisine" label="Cuisine" disabled={isSubmitting}>
+              <option value="">Select cuisine (optional)</option>
+              {CUISINE_OPTIONS.filter(Boolean).map((cuisine) => (
+                <option key={cuisine} value={cuisine}>
+                  {cuisine}
+                </option>
+              ))}
+            </Select>
           </div>
         </Card>
 
