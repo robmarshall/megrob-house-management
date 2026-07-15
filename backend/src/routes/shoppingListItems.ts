@@ -1,12 +1,12 @@
 import { Hono } from "hono";
-import { eq, and, asc, or, isNull, type SQL } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { shoppingLists, shoppingListItems } from "../db/schema.js";
 import { authMiddleware, getUserId } from "../middleware/auth.js";
 import { addOrMergeItem } from "../services/shoppingListItemService.js";
 import { validateBody, getValidatedBody } from "../middleware/validation.js";
 import { logger } from "../lib/logger.js";
-import { getUserHouseholdId } from "../lib/household.js";
+import { verifyShoppingListAccess } from "../lib/shoppingListAccess.js";
 import {
   createShoppingListItemSchema,
   updateShoppingListItemSchema,
@@ -28,30 +28,6 @@ function normalizeItem<T extends { quantity: string | null }>(item: T): T & { qu
     ...item,
     quantity: item.quantity ? parseFloat(item.quantity) : 1,
   };
-}
-
-/**
- * Helper function to verify list access (household or personal ownership)
- */
-async function verifyListAccess(listId: number, userId: string) {
-  const householdId = await getUserHouseholdId(userId);
-
-  let accessFilter: SQL;
-  if (householdId) {
-    accessFilter = or(
-      eq(shoppingLists.householdId, householdId),
-      and(eq(shoppingLists.createdBy, userId), isNull(shoppingLists.householdId))
-    )!;
-  } else {
-    accessFilter = eq(shoppingLists.createdBy, userId);
-  }
-
-  const [list] = await db
-    .select()
-    .from(shoppingLists)
-    .where(and(eq(shoppingLists.id, listId), accessFilter));
-
-  return list;
 }
 
 /**
@@ -79,7 +55,7 @@ app.get("/:listId/items", async (c) => {
 
   try {
     // Verify list ownership
-    const list = await verifyListAccess(listId, userId);
+    const list = await verifyShoppingListAccess(listId, userId);
     if (!list) {
       return c.json({ error: "Shopping list not found" }, 404);
     }
@@ -132,7 +108,7 @@ app.post("/:listId/items", validateBody(createShoppingListItemSchema), async (c)
 
   try {
     // Verify list ownership
-    const list = await verifyListAccess(listId, userId);
+    const list = await verifyShoppingListAccess(listId, userId);
     if (!list) {
       return c.json({ error: "Shopping list not found" }, 404);
     }
@@ -180,7 +156,7 @@ app.patch("/:listId/items/:itemId", validateBody(updateShoppingListItemSchema), 
 
   try {
     // Verify list ownership
-    const list = await verifyListAccess(listId, userId);
+    const list = await verifyShoppingListAccess(listId, userId);
     if (!list) {
       return c.json({ error: "Shopping list not found" }, 404);
     }
@@ -254,7 +230,7 @@ app.patch("/:listId/items/:itemId/toggle", async (c) => {
 
   try {
     // Verify list ownership
-    const list = await verifyListAccess(listId, userId);
+    const list = await verifyShoppingListAccess(listId, userId);
     if (!list) {
       return c.json({ error: "Shopping list not found" }, 404);
     }
@@ -311,7 +287,7 @@ app.delete("/:listId/items/:itemId", async (c) => {
 
   try {
     // Verify list ownership
-    const list = await verifyListAccess(listId, userId);
+    const list = await verifyShoppingListAccess(listId, userId);
     if (!list) {
       return c.json({ error: "Shopping list not found" }, 404);
     }

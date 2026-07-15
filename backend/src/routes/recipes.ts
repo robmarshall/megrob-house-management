@@ -5,6 +5,7 @@ import { recipes, recipeIngredients, recipeCategories, recipeFeedback, shoppingL
 import { authMiddleware, getUserId } from '../middleware/auth.js';
 import { logger } from '../lib/logger.js';
 import { getUserHouseholdId } from '../lib/household.js';
+import { verifyShoppingListAccess } from '../lib/shoppingListAccess.js';
 import { validateBody, getValidatedBody } from '../middleware/validation.js';
 import {
   createRecipeSchema,
@@ -798,11 +799,8 @@ app.post('/:id/to-shopping-list', validateBody(addToShoppingListSchema), async (
         .returning();
       targetListId = newList.id;
     } else if (shoppingListId) {
-      // Verify list exists
-      const [existingList] = await db
-        .select()
-        .from(shoppingLists)
-        .where(eq(shoppingLists.id, shoppingListId));
+      // Verify list exists AND the user has household-scoped access
+      const existingList = await verifyShoppingListAccess(shoppingListId, userId);
 
       if (!existingList) {
         return c.json({ error: 'Shopping list not found' }, 404);

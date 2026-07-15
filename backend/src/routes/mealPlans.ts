@@ -21,6 +21,7 @@ import {
   type MealPlanToShoppingListInput,
 } from '../lib/validation.js';
 import { addOrMergeItems, type AddItemInput } from '../services/shoppingListItemService.js';
+import { verifyShoppingListAccess } from '../lib/shoppingListAccess.js';
 
 const app = new Hono();
 
@@ -50,31 +51,6 @@ async function verifyRecipeAccess(recipeId: number, userId: string) {
     .where(and(eq(recipes.id, recipeId), accessFilter));
 
   return recipe ?? null;
-}
-
-/**
- * Helper to verify shopping list access (household or personal ownership).
- * Returns the list if the user has access, null otherwise.
- */
-async function verifyListAccess(listId: number, userId: string) {
-  const householdId = await getUserHouseholdId(userId);
-
-  let accessFilter: SQL;
-  if (householdId) {
-    accessFilter = or(
-      eq(shoppingLists.householdId, householdId),
-      and(eq(shoppingLists.createdBy, userId), isNull(shoppingLists.householdId))
-    )!;
-  } else {
-    accessFilter = eq(shoppingLists.createdBy, userId);
-  }
-
-  const [list] = await db
-    .select()
-    .from(shoppingLists)
-    .where(and(eq(shoppingLists.id, listId), accessFilter));
-
-  return list ?? null;
 }
 
 /**
@@ -733,7 +709,7 @@ app.post('/:id/to-shopping-list', validateBody(mealPlanToShoppingListSchema), as
       targetListId = newList.id;
     } else if (shoppingListId) {
       // Verify list exists AND the user has household-scoped access
-      const existingList = await verifyListAccess(shoppingListId, userId);
+      const existingList = await verifyShoppingListAccess(shoppingListId, userId);
 
       if (!existingList) {
         return c.json({ error: 'Shopping list not found' }, 404);
