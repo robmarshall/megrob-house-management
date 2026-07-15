@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { shoppingLists, shoppingListItems } from "../db/schema.js";
 import { authMiddleware, getUserId } from "../middleware/auth.js";
@@ -60,13 +60,12 @@ app.get("/:listId/items", async (c) => {
       return c.json({ error: "Shopping list not found" }, 404);
     }
 
-    // Get total count
-    const allItems = await db
-      .select()
+    // Get total count with filters applied
+    const countResult = await db
+      .select({ count: sql<number>`count(*)::int` })
       .from(shoppingListItems)
       .where(eq(shoppingListItems.listId, listId));
-
-    const total = allItems.length;
+    const total = countResult[0]?.count || 0;
     const totalPages = Math.ceil(total / pageSize);
 
     // Get paginated data ordered by position then creation date

@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { eq, and, desc, or, isNull, type SQL } from 'drizzle-orm';
+import { eq, and, desc, or, isNull, sql, type SQL } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { shoppingLists } from '../db/schema.js';
 import { authMiddleware, getUserId } from '../middleware/auth.js';
@@ -56,13 +56,12 @@ app.get('/', async (c) => {
     const householdId = await getUserHouseholdId(userId);
     const accessFilter = listAccessCondition(userId, householdId);
 
-    // Get total count
-    const allLists = await db
-      .select()
+    // Get total count with filters applied
+    const countResult = await db
+      .select({ count: sql<number>`count(*)::int` })
       .from(shoppingLists)
       .where(accessFilter);
-
-    const total = allLists.length;
+    const total = countResult[0]?.count || 0;
     const totalPages = Math.ceil(total / pageSize);
 
     // Get paginated data
