@@ -45,6 +45,7 @@ export function HouseholdPage() {
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
+  const [editNameError, setEditNameError] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<HouseholdMember | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
 
@@ -114,9 +115,18 @@ export function HouseholdPage() {
   };
 
   const handleSaveName = async () => {
-    if (!editName.trim()) return;
+    const trimmedName = editName.trim();
+    if (!trimmedName) {
+      setEditNameError('Name is required');
+      return;
+    }
+    if (trimmedName.length > 100) {
+      setEditNameError('Name must be 100 characters or less');
+      return;
+    }
+    setEditNameError(null);
     try {
-      await actions.updateHousehold({ name: editName.trim() });
+      await actions.updateHousehold({ name: trimmedName });
       setIsEditing(false);
     } catch {
       // toast handled by hook
@@ -261,21 +271,30 @@ export function HouseholdPage() {
               <input
                 type="text"
                 value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                className="text-3xl font-bold text-gray-900 border-b-2 border-primary-500 outline-none bg-transparent flex-1"
+                onChange={(e) => {
+                  setEditName(e.target.value);
+                  if (editNameError) setEditNameError(null);
+                }}
+                className="text-3xl font-bold text-gray-900 border-b-2 border-primary-500 outline-none bg-transparent flex-1 disabled:opacity-50"
+                maxLength={100}
+                disabled={actions.isLoading}
+                aria-invalid={Boolean(editNameError)}
+                aria-describedby={editNameError ? 'household-name-error' : undefined}
                 autoFocus
               />
               <button
                 onClick={handleSaveName}
-                className="p-1 text-green-600 hover:text-green-700"
+                className="p-1 text-green-600 hover:text-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Save name"
+                disabled={actions.isLoading}
               >
                 <CheckIcon className="w-6 h-6" />
               </button>
               <button
-                onClick={() => setIsEditing(false)}
-                className="p-1 text-gray-400 hover:text-gray-600"
+                onClick={() => { setIsEditing(false); setEditNameError(null); }}
+                className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Cancel editing"
+                disabled={actions.isLoading}
               >
                 <XMarkIcon className="w-6 h-6" />
               </button>
@@ -285,7 +304,7 @@ export function HouseholdPage() {
               <h1 className="text-3xl font-bold text-gray-900">{household.name}</h1>
               {isOwner && (
                 <button
-                  onClick={() => { setEditName(household.name); setIsEditing(true); }}
+                  onClick={() => { setEditName(household.name); setEditNameError(null); setIsEditing(true); }}
                   className="p-1 text-gray-400 hover:text-gray-600"
                   aria-label="Edit household name"
                 >
@@ -295,6 +314,11 @@ export function HouseholdPage() {
             </>
           )}
         </div>
+        {isEditing && editNameError && (
+          <p id="household-name-error" className="mt-1 text-sm text-red-600" role="alert">
+            {editNameError}
+          </p>
+        )}
         <p className="mt-1 text-sm text-gray-500">
           {household.members.length} member{household.members.length !== 1 ? 's' : ''}
         </p>
