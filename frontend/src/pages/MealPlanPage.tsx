@@ -22,46 +22,14 @@ import {
   TrashIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline'
-
-// ---------------------------------------------------------------------------
-// Date helpers
-// ---------------------------------------------------------------------------
-
-function getMonday(d: Date): Date {
-  const date = new Date(d)
-  const day = date.getDay()
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1)
-  date.setDate(diff)
-  date.setHours(0, 0, 0, 0)
-  return date
-}
-
-function formatWeekDate(date: Date): string {
-  return date.toISOString().split('T')[0] // YYYY-MM-DD
-}
-
-function addWeeks(date: Date, weeks: number): Date {
-  const result = new Date(date)
-  result.setDate(result.getDate() + weeks * 7)
-  return result
-}
-
-function formatDisplayDate(dateStr: string): string {
-  const d = new Date(dateStr + 'T00:00:00')
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
-
-function getDayDate(weekStart: Date, dayOfWeek: number): string {
-  const d = new Date(weekStart)
-  d.setDate(d.getDate() + dayOfWeek)
-  return formatWeekDate(d)
-}
-
-function getWeekEndDate(weekStart: Date): string {
-  const d = new Date(weekStart)
-  d.setDate(d.getDate() + 6)
-  return formatWeekDate(d)
-}
+import {
+  getMonday,
+  toLocalISODate,
+  addWeeks,
+  formatDisplayDate,
+  getDayDate,
+  getWeekEndDate,
+} from '@/lib/weekDates'
 
 // ---------------------------------------------------------------------------
 // MealSlot (inline component)
@@ -168,7 +136,7 @@ export function MealPlanPage() {
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()))
 
   // Meal plan data
-  const { data: mealPlan, isLoading } = useMealPlan(formatWeekDate(weekStart))
+  const { data: mealPlan, isLoading } = useMealPlan(toLocalISODate(weekStart))
   const {
     createPlan,
     addEntry,
@@ -190,14 +158,14 @@ export function MealPlanPage() {
 
   // Derived values
   const weekEndDateStr = getWeekEndDate(weekStart)
-  const weekStartDateStr = formatWeekDate(weekStart)
+  const weekStartDateStr = toLocalISODate(weekStart)
   const weekDescription = `Week of ${formatDisplayDate(weekStartDateStr)} - ${formatDisplayDate(weekEndDateStr)}`
   const hasRecipeEntries =
     mealPlan?.entries?.some((e) => e.recipeId != null) ?? false
 
   // Handlers
   const handleCreatePlan = async () => {
-    await createPlan({ weekStartDate: formatWeekDate(weekStart) })
+    await createPlan({ weekStartDate: toLocalISODate(weekStart) })
   }
 
   const handleAddEntry = async (input: CreateMealPlanEntryInput) => {
@@ -220,8 +188,8 @@ export function MealPlanPage() {
 
   const handleCopyPreviousWeek = async () => {
     await copyWeek({
-      sourceWeek: formatWeekDate(addWeeks(weekStart, -1)),
-      targetWeek: formatWeekDate(weekStart),
+      sourceWeek: toLocalISODate(addWeeks(weekStart, -1)),
+      targetWeek: toLocalISODate(weekStart),
     })
   }
 
