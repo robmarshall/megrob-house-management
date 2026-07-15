@@ -185,6 +185,112 @@ describe('parseIngredient', () => {
       expect(result.name).toBe('water');
     });
   });
+
+  describe('spaced / spelled-out ranges', () => {
+    it('parses spelled-out range ("2 to 3")', () => {
+      const result = parseIngredient('2 to 3 cups flour');
+      expect(result).toEqual({
+        quantity: 2,
+        unit: 'cups',
+        name: 'flour',
+        notes: null,
+      });
+    });
+
+    it('parses spaced-hyphen range ("2 - 3")', () => {
+      const result = parseIngredient('2 - 3 cups flour');
+      expect(result).toEqual({
+        quantity: 2,
+        unit: 'cups',
+        name: 'flour',
+        notes: null,
+      });
+    });
+
+    it('parses en-dash range ("2 – 3")', () => {
+      const result = parseIngredient('2 – 3 cups flour');
+      expect(result).toEqual({
+        quantity: 2,
+        unit: 'cups',
+        name: 'flour',
+        notes: null,
+      });
+    });
+
+    it('still parses no-space range ("2-3")', () => {
+      const result = parseIngredient('2-3 cups flour');
+      expect(result).toEqual({
+        quantity: 2,
+        unit: 'cups',
+        name: 'flour',
+        notes: null,
+      });
+    });
+
+    it('does not treat "Salt to taste" as a range', () => {
+      // Quantity is null here, so the range branch must not trigger and must
+      // not corrupt the name. (Note: without a comma, extractNotes does not
+      // split off "to taste", so it remains part of the name — pre-existing
+      // behavior, unchanged by the range fix.)
+      const result = parseIngredient('Salt to taste');
+      expect(result.quantity).toBeNull();
+      expect(result.unit).toBeNull();
+      expect(result.name).toBe('Salt to taste');
+    });
+
+    it('does not treat "Salt, to taste" as a range', () => {
+      const result = parseIngredient('Salt, to taste');
+      expect(result.quantity).toBeNull();
+      expect(result.name).toBe('Salt');
+      expect(result.notes).toBe('to taste');
+    });
+
+    it('does not treat a plain noun after a number as a separator', () => {
+      const result = parseIngredient('2 tomatoes');
+      expect(result).toEqual({
+        quantity: 2,
+        unit: null,
+        name: 'tomatoes',
+        notes: null,
+      });
+    });
+  });
+
+  describe('multi-word units', () => {
+    it('parses "fl oz"', () => {
+      const result = parseIngredient('2 fl oz milk');
+      expect(result).toEqual({
+        quantity: 2,
+        unit: 'fl oz',
+        name: 'milk',
+        notes: null,
+      });
+    });
+
+    it('parses "fluid ounce" (singular)', () => {
+      const result = parseIngredient('1 fluid ounce water');
+      expect(result.quantity).toBe(1);
+      expect(result.unit).toBe('fl oz');
+      expect(result.name).toBe('water');
+    });
+
+    it('parses "fluid ounces" (plural)', () => {
+      const result = parseIngredient('8 fluid ounces broth');
+      expect(result.quantity).toBe(8);
+      expect(result.unit).toBe('fl oz');
+      expect(result.name).toBe('broth');
+    });
+
+    it('parses a range with a multi-word unit', () => {
+      const result = parseIngredient('2 to 3 fl oz milk');
+      expect(result).toEqual({
+        quantity: 2,
+        unit: 'fl oz',
+        name: 'milk',
+        notes: null,
+      });
+    });
+  });
 });
 
 describe('scaleIngredient', () => {

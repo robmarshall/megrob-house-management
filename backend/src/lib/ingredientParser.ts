@@ -97,6 +97,8 @@ function normalizeUnit(unit: string): string {
     'grams': 'g',
     'kilogram': 'kg',
     'kilograms': 'kg',
+    'fluid ounce': 'fl oz',
+    'fluid ounces': 'fl oz',
     'milliliter': 'ml',
     'milliliters': 'ml',
     'liter': 'L',
@@ -245,10 +247,37 @@ export function parseIngredient(text: string): ParsedIngredient {
         nameStartIndex = 2;
       }
     }
+
+    // Handle spaced / spelled-out ranges (e.g., "2 to 3", "2 - 3", "2 – 3")
+    // Convention: use the first number of a range. Only trigger when the next
+    // token is a range separator AND the token after it parses as a number.
+    const RANGE_SEPARATORS = new Set(['to', '-', '–', '—']);
+    if (tokens.length > nameStartIndex + 1) {
+      const separatorToken = tokens[nameStartIndex].toLowerCase();
+      if (
+        RANGE_SEPARATORS.has(separatorToken) &&
+        parseQuantity(tokens[nameStartIndex + 1]) !== null
+      ) {
+        // Skip past both the separator and the upper-bound number.
+        nameStartIndex += 2;
+      }
+    }
   }
 
-  // Try to parse unit from next token
-  if (tokens.length > nameStartIndex) {
+  // Try to parse unit from next token(s)
+  // First try a two-token combination (e.g., "fl oz", "fluid ounces"), then
+  // fall back to a single-token match.
+  if (tokens.length > nameStartIndex + 1) {
+    const first = tokens[nameStartIndex].toLowerCase().replace(/[.,]$/g, '');
+    const second = tokens[nameStartIndex + 1].toLowerCase().replace(/[.,]$/g, '');
+    const possibleMultiUnit = `${first} ${second}`;
+    if (UNITS.has(possibleMultiUnit)) {
+      unit = normalizeUnit(possibleMultiUnit);
+      nameStartIndex += 2;
+    }
+  }
+
+  if (unit === null && tokens.length > nameStartIndex) {
     const possibleUnit = tokens[nameStartIndex].toLowerCase().replace(/[.,]/g, '');
     if (UNITS.has(possibleUnit)) {
       unit = normalizeUnit(possibleUnit);
