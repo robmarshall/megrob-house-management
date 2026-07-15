@@ -185,8 +185,9 @@ function findJsonLdRecipe(html: string): Record<string, unknown> | null {
 
       const data = JSON.parse(content);
 
-      // Check if it's directly a Recipe
-      if (data['@type'] === 'Recipe') {
+      // Check if it's directly a Recipe (@type may be a string or an array)
+      const type = data['@type'];
+      if (type === 'Recipe' || (Array.isArray(type) && type.includes('Recipe'))) {
         return data;
       }
 
@@ -552,10 +553,19 @@ export async function scrapeRecipe(url: string): Promise<ScrapedRecipe> {
     throw new Error('No instructions found in recipe');
   }
 
-  // Extract image: try structured data first, fallback to og:image
-  // Validate image URL protocol (reject javascript:, data:, relative paths)
+  // Extract image: try structured data first, fallback to og:image.
+  // Resolve relative / protocol-relative URLs against the fetched page URL
+  // BEFORE validating, then reject anything that isn't http(s).
   const rawImage = extractImage(recipeData.image) || extractOgImage(html);
-  const image = rawImage && isValidImageUrl(rawImage) ? rawImage : undefined;
+  let image: string | undefined;
+  if (rawImage) {
+    try {
+      const resolved = new URL(rawImage, currentUrl).href;
+      if (isValidImageUrl(resolved)) image = resolved;
+    } catch {
+      image = undefined;
+    }
+  }
 
   return {
     name: cleanText(name),

@@ -435,6 +435,82 @@ describe('scrapeRecipe', () => {
     expect(recipe.ingredients).toHaveLength(2);
     expect(recipe.instructions.length).toBeGreaterThan(0);
   });
+
+  it('recognizes an array @type on the top-level JSON-LD object', async () => {
+    const html = `
+      <html>
+      <head>
+        <script type="application/ld+json">
+        {
+          "@type": ["Recipe", "NewsArticle"],
+          "name": "Array Type Stew",
+          "recipeIngredient": ["500g beef", "3 carrots"],
+          "recipeInstructions": ["Brown the beef then simmer with the carrots."]
+        }
+        </script>
+      </head>
+      <body></body>
+      </html>
+    `;
+
+    // Public literal IP so DNS validation is skipped and no network is hit.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockFetchResponse(html)));
+
+    const recipe = await scrapeRecipe('http://93.184.216.34/recipe');
+    expect(recipe.name).toBe('Array Type Stew');
+    expect(recipe.ingredients).toEqual(['500g beef', '3 carrots']);
+    expect(recipe.instructions).toEqual([
+      'Brown the beef then simmer with the carrots.',
+    ]);
+  });
+
+  it('resolves a relative og:image against the page URL', async () => {
+    const html = `
+      <html>
+      <head>
+        <meta property="og:image" content="/img/cake.jpg">
+        <script type="application/ld+json">
+        {
+          "@type": "Recipe",
+          "name": "Relative Image Cake",
+          "recipeIngredient": ["2 cups flour"],
+          "recipeInstructions": ["Mix everything and bake until golden."]
+        }
+        </script>
+      </head>
+      <body></body>
+      </html>
+    `;
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockFetchResponse(html)));
+
+    const recipe = await scrapeRecipe('http://93.184.216.34/recipe');
+    expect(recipe.image).toBe('http://93.184.216.34/img/cake.jpg');
+  });
+
+  it('resolves a protocol-relative og:image against the page scheme', async () => {
+    const html = `
+      <html>
+      <head>
+        <meta property="og:image" content="//cdn.example.com/x.jpg">
+        <script type="application/ld+json">
+        {
+          "@type": "Recipe",
+          "name": "Protocol Relative Cake",
+          "recipeIngredient": ["2 cups flour"],
+          "recipeInstructions": ["Mix everything and bake until golden."]
+        }
+        </script>
+      </head>
+      <body></body>
+      </html>
+    `;
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockFetchResponse(html)));
+
+    const recipe = await scrapeRecipe('http://93.184.216.34/recipe');
+    expect(recipe.image).toBe('http://cdn.example.com/x.jpg');
+  });
 });
 
 describe('isPrivateOrReservedIp', () => {
