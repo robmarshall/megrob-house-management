@@ -11,7 +11,6 @@ import { onError } from "./middleware/errorHandler.js";
 import shoppingListsRoutes from "./routes/shoppingLists.js";
 import shoppingListItemsRoutes from "./routes/shoppingListItems.js";
 import recipesRoutes from "./routes/recipes.js";
-import webhooksRoutes from "./routes/webhooks.js";
 import householdsRoutes from "./routes/households.js";
 import mealPlansRoutes from "./routes/mealPlans.js";
 
@@ -114,9 +113,6 @@ app.route("/api/shopping-lists", shoppingListsRoutes);
 app.route("/api/shopping-lists", shoppingListItemsRoutes);
 app.route("/api/recipes", recipesRoutes);
 app.route("/api/meal-plans", mealPlansRoutes);
-
-// Webhook routes (no auth - verified by QueueBear signature)
-app.route("/api/webhooks", webhooksRoutes);
 
 const port = parseInt(process.env.PORT || "3000");
 

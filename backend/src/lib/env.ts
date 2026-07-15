@@ -2,8 +2,7 @@
  * Required environment variables for the backend to boot safely.
  *
  * Includes:
- * - Core app/database/auth config
- * - QueueBear API + webhook signing secret (webhook signature verification)
+ * - Core app/database/auth config (DATABASE_URL also backs the pg-boss job queue)
  * - SMTP config used to deliver password-reset emails
  *
  * Note: SMTP_SECURE is intentionally excluded because email.ts has a safe
@@ -14,10 +13,6 @@ export const REQUIRED_ENV_VARS: string[] = [
   "BETTER_AUTH_SECRET",
   "BETTER_AUTH_URL",
   "FRONTEND_URL",
-  "QUEUEBEAR_API_KEY",
-  "QUEUEBEAR_PROJECT_ID",
-  "QUEUEBEAR_REDIRECT_URL",
-  "QUEUEBEAR_SIGNING_SECRET",
   "SMTP_HOST",
   "SMTP_PORT",
   "SMTP_USER",

@@ -19,7 +19,7 @@ import {
   type CreateFeedbackInput,
   type AddToShoppingListInput,
 } from '../lib/validation.js';
-import { qb, getWebhookUrl } from '../lib/queuebear.js';
+import { enqueueRecipeImport } from '../lib/queue.js';
 import { addOrMergeItems, type AddItemInput } from '../services/shoppingListItemService.js';
 import { replaceRecipeRelations } from '../services/recipeRelations.js';
 
@@ -305,8 +305,8 @@ app.get('/', async (c) => {
  * POST /api/recipes/import
  * Import a recipe from a URL by scraping structured data
  *
- * This endpoint creates a pending recipe and queues the import job via QueueBear.
- * The actual scraping happens asynchronously via the webhook endpoint.
+ * This endpoint creates a pending recipe and enqueues the import job on the
+ * pg-boss queue. The actual scraping happens asynchronously in the worker process.
  *
  * Returns 202 Accepted with the pending recipe.
  * Frontend should poll GET /api/recipes/:id/status to check progress.
@@ -333,24 +333,15 @@ app.post('/import', validateBody(importRecipeSchema), async (c) => {
       })
       .returning();
 
-    // Trigger the import workflow via QueueBear
+    // Enqueue the import job for the worker process to pick up.
     try {
-      const workflowUrl = getWebhookUrl('/api/webhooks/recipe-import');
+      const jobId = await enqueueRecipeImport({
+        recipeId: newRecipe.id,
+        url,
+        userId,
+      });
 
-      const { id: workflowRunId } = await qb.workflows.trigger(
-        `recipe-import-${newRecipe.id}`,
-        workflowUrl,
-        {
-          recipeId: newRecipe.id,
-          url,
-          userId,
-        },
-        {
-          idempotencyKey: `recipe-import-${newRecipe.id}`,
-        }
-      );
-
-      logger.info({ recipeId: newRecipe.id, workflowRunId }, "Triggered recipe import workflow");
+      logger.info({ recipeId: newRecipe.id, jobId }, "Enqueued recipe import job");
     } catch (queueError) {
       // If queueing fails, update recipe to failed status
       logger.error({ err: queueError, recipeId: newRecipe.id }, "Failed to queue import job");

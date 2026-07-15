@@ -21,11 +21,11 @@ describe("getMissingEnvVars", () => {
 
   it("reports variables that are absent from the env", () => {
     const env = buildFullEnv();
-    delete env.QUEUEBEAR_SIGNING_SECRET;
+    delete env.BETTER_AUTH_SECRET;
     delete env.SMTP_HOST;
 
     const missing = getMissingEnvVars(REQUIRED_ENV_VARS, env);
-    expect(missing).toContain("QUEUEBEAR_SIGNING_SECRET");
+    expect(missing).toContain("BETTER_AUTH_SECRET");
     expect(missing).toContain("SMTP_HOST");
     expect(missing).toHaveLength(2);
   });
@@ -48,22 +48,26 @@ describe("getMissingEnvVars", () => {
 });
 
 describe("REQUIRED_ENV_VARS", () => {
-  it("includes the original core env vars", () => {
+  it("includes the core app/database/auth env vars", () => {
     for (const name of [
       "DATABASE_URL",
       "BETTER_AUTH_SECRET",
       "BETTER_AUTH_URL",
       "FRONTEND_URL",
-      "QUEUEBEAR_API_KEY",
-      "QUEUEBEAR_PROJECT_ID",
-      "QUEUEBEAR_REDIRECT_URL",
     ]) {
       expect(REQUIRED_ENV_VARS).toContain(name);
     }
   });
 
-  it("includes the webhook signing secret", () => {
-    expect(REQUIRED_ENV_VARS).toContain("QUEUEBEAR_SIGNING_SECRET");
+  it("no longer requires the removed QueueBear vars", () => {
+    for (const name of [
+      "QUEUEBEAR_API_KEY",
+      "QUEUEBEAR_PROJECT_ID",
+      "QUEUEBEAR_REDIRECT_URL",
+      "QUEUEBEAR_SIGNING_SECRET",
+    ]) {
+      expect(REQUIRED_ENV_VARS).not.toContain(name);
+    }
   });
 
   it("includes the SMTP vars without safe defaults", () => {
