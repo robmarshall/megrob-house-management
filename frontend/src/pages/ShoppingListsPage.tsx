@@ -6,6 +6,7 @@ import { PlusIcon } from "@heroicons/react/24/outline";
 import { MainLayout } from "@/components/templates/MainLayout";
 import { ShoppingListCard } from "@/components/organisms/ShoppingListCard";
 import { EmptyState } from "@/components/molecules/EmptyState";
+import { Pagination } from "@/components/molecules/Pagination";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { Textarea } from "@/components/atoms/Textarea";
@@ -23,7 +24,7 @@ export function ShoppingListsPage() {
   const navigate = useNavigate();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const { data: lists, isLoading, error } = useShoppingLists();
+  const { data: lists, isLoading, error, page, totalPages, goToPage } = useShoppingLists();
   const { create, delete: deleteList } = useShoppingListData();
 
   const methods = useForm<CreateShoppingListFormData>({
@@ -154,16 +155,26 @@ export function ShoppingListsPage() {
             }}
           />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {lists.map((list) => (
-              <ShoppingListCard
-                key={list.id}
-                list={list}
-                onClick={() => handleOpenList(list.id)}
-                onDelete={handleDeleteList}
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {lists.map((list) => (
+                <ShoppingListCard
+                  key={list.id}
+                  list={list}
+                  onClick={() => handleOpenList(list.id)}
+                  onDelete={handleDeleteList}
+                />
+              ))}
+            </div>
+
+            <div className="mt-8">
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={goToPage}
               />
-            ))}
-          </div>
+            </div>
+          </>
         )}
 
         {/* Floating Action Button */}
