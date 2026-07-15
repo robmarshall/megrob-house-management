@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useAuth } from '@/hooks/useAuth'
@@ -15,16 +15,6 @@ import {
 } from '@/lib/schemas'
 
 type ThemePreference = 'light' | 'dark' | 'system'
-
-const THEME_STORAGE_KEY = 'theme-preference'
-
-function getStoredTheme(): ThemePreference {
-  const stored = localStorage.getItem(THEME_STORAGE_KEY)
-  if (stored === 'light' || stored === 'dark' || stored === 'system') {
-    return stored
-  }
-  return 'system'
-}
 
 function ProfileSection() {
   const { user, updateProfile } = useAuth()
@@ -168,12 +158,6 @@ function ChangePasswordSection() {
 }
 
 function AppSettingsSection() {
-  const [theme, setTheme] = useState<ThemePreference>(getStoredTheme)
-
-  useEffect(() => {
-    localStorage.setItem(THEME_STORAGE_KEY, theme)
-  }, [theme])
-
   const options: { value: ThemePreference; label: string; description: string }[] = [
     { value: 'light', label: 'Light', description: 'Always use light theme' },
     { value: 'dark', label: 'Dark', description: 'Always use dark theme' },
@@ -185,23 +169,23 @@ function AppSettingsSection() {
       <h2 className="text-lg font-semibold text-gray-900 mb-4">App Settings</h2>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Theme Preference
-          </label>
+          <div className="flex items-center gap-2 mb-3">
+            <label className="block text-sm font-medium text-gray-700">Theme Preference</label>
+            <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+              Coming soon
+            </span>
+          </div>
           <div className="flex gap-3">
             {options.map((option) => (
               <button
                 key={option.value}
                 type="button"
-                onClick={() => setTheme(option.value)}
-                className={`flex-1 rounded-lg border-2 px-4 py-3 text-sm font-medium transition-colors ${
-                  theme === option.value
-                    ? 'border-primary-600 bg-primary-50 text-primary-700'
-                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                }`}
+                disabled
+                aria-disabled="true"
+                className="flex-1 cursor-not-allowed rounded-lg border-2 border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-400 transition-colors disabled:opacity-60"
               >
                 <div>{option.label}</div>
-                <div className="text-xs font-normal text-gray-500 mt-1">
+                <div className="text-xs font-normal text-gray-400 mt-1">
                   {option.description}
                 </div>
               </button>
