@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   FunnelIcon,
   XMarkIcon,
@@ -43,6 +43,14 @@ const CUISINE_OPTIONS = [
 export function RecipeFilters({ filters, onFiltersChange }: RecipeFiltersProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchInput, setSearchInput] = useState(filters.search || "");
+
+  // Keep the search box in sync when the parent clears or otherwise changes
+  // the search filter externally (e.g. the "Clear Filters" action on the
+  // Recipes page resets `filters` directly without going through this
+  // component's own clear handlers).
+  useEffect(() => {
+    setSearchInput(filters.search || "");
+  }, [filters.search]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
