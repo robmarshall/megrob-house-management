@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useSearchParams } from "react-router";
 import {
   ArrowLeftIcon,
   ChevronLeftIcon,
@@ -31,8 +31,20 @@ function getRelevantIngredients(
 export function CookingModePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const recipeId = parseInt(id || "0", 10);
   const { data: recipe, isLoading, error } = useRecipe(recipeId);
+
+  // Serving-scale multiplier from the `servings` query param. Falls back to 1
+  // when the param or the recipe's base servings are missing/invalid.
+  const multiplier = useMemo(() => {
+    const servingsParam = parseFloat(searchParams.get("servings") || "");
+    const baseServings = recipe?.servings ?? 0;
+    if (!Number.isFinite(servingsParam) || servingsParam <= 0 || baseServings <= 0) {
+      return 1;
+    }
+    return servingsParam / baseServings;
+  }, [searchParams, recipe?.servings]);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [showIngredients, setShowIngredients] = useState(false);
@@ -243,7 +255,7 @@ export function CookingModePage() {
                 <li key={ing.id} className="text-sm text-gray-700">
                   <span className="text-primary-600 mr-1">&bull;</span>
                   {ing.quantity && (
-                    <span className="font-medium">{scaleQuantity(ing.quantity, 1)} </span>
+                    <span className="font-medium">{scaleQuantity(ing.quantity, multiplier)} </span>
                   )}
                   {ing.unit && <span>{ing.unit} </span>}
                   <span>{ing.name}</span>
@@ -266,9 +278,9 @@ export function CookingModePage() {
           >
             <span>Ingredients</span>
             {showIngredients ? (
-              <ChevronDownIcon className="w-4 h-4" />
-            ) : (
               <ChevronUpIcon className="w-4 h-4" />
+            ) : (
+              <ChevronDownIcon className="w-4 h-4" />
             )}
           </button>
           {showIngredients && (
@@ -278,7 +290,7 @@ export function CookingModePage() {
                   <li key={ing.id} className="text-sm text-gray-700">
                     <span className="text-primary-600 mr-1">&bull;</span>
                     {ing.quantity && (
-                      <span className="font-medium">{scaleQuantity(ing.quantity, 1)} </span>
+                      <span className="font-medium">{scaleQuantity(ing.quantity, multiplier)} </span>
                     )}
                     {ing.unit && <span>{ing.unit} </span>}
                     <span>{ing.name}</span>

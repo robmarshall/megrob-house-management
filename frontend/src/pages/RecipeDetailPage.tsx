@@ -371,7 +371,11 @@ export function RecipeDetailPage() {
         {instructions.length > 0 && (
           <Button
             variant="primary"
-            onClick={() => navigate(`/recipes/${recipeId}/cook`)}
+            onClick={() =>
+              navigate(
+                `/recipes/${recipeId}/cook?servings=${currentServings ?? recipe.servings}`
+              )
+            }
           >
             <PlayIcon className="w-5 h-5 mr-2" />
             Start Cooking
