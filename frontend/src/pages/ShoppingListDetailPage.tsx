@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router";
 import { MainLayout } from "@/components/templates/MainLayout";
 import { ShoppingListDetail } from "@/components/organisms/ShoppingListDetail";
 import { ConfirmDeleteBottomSheet } from "@/components/molecules/ConfirmDeleteBottomSheet";
+import { Pagination } from "@/components/molecules/Pagination";
 import {
   useShoppingList,
   useShoppingListData,
@@ -20,7 +21,13 @@ export function ShoppingListDetailPage() {
   const listId = parseInt(id || "0", 10);
 
   const { data: list, isLoading: listLoading } = useShoppingList(listId);
-  const { data: items, isLoading: itemsLoading } = useShoppingListItems(listId);
+  const {
+    data: items,
+    isLoading: itemsLoading,
+    page,
+    totalPages,
+    goToPage,
+  } = useShoppingListItems(listId, { pageSize: 200 });
   const {
     create: createItem,
     edit: editItem,
@@ -165,6 +172,14 @@ export function ShoppingListDetailPage() {
         onEditList={handleEditList}
         onDeleteList={handleDeleteList}
       />
+
+      <div className="mt-8">
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          onPageChange={goToPage}
+        />
+      </div>
 
       {/* Delete List Confirmation Bottom Sheet */}
       <ConfirmDeleteBottomSheet
