@@ -173,6 +173,12 @@ describe('normalizeUnit', () => {
   it('lowercases and trims', () => {
     expect(normalizeUnit('  Cups  ')).toBe('cups');
   });
+
+  it('canonicalizes unit aliases (cup -> cups, lbs -> lb)', () => {
+    expect(normalizeUnit('cup')).toBe('cups');
+    expect(normalizeUnit('lbs')).toBe('lb');
+    expect(normalizeUnit('Pound')).toBe('lb');
+  });
 });
 
 describe('unitsMatch', () => {
@@ -202,6 +208,25 @@ describe('unitsMatch', () => {
 
   it('does not match unit with null', () => {
     expect(unitsMatch('cups', null)).toBe(false);
+  });
+
+  // Regression: parser-normalized units (cups, lb) and raw user-typed units
+  // (cup, lbs, Pound) must be treated as the same unit so items merge.
+  it('matches unit aliases: cup and cups', () => {
+    expect(unitsMatch('cup', 'cups')).toBe(true);
+  });
+
+  it('matches unit aliases: lb and lbs', () => {
+    expect(unitsMatch('lb', 'lbs')).toBe(true);
+  });
+
+  it('matches unit aliases: Pound and lb (case-insensitive)', () => {
+    expect(unitsMatch('Pound', 'lb')).toBe(true);
+  });
+
+  it('still distinguishes genuinely different units', () => {
+    expect(unitsMatch('cups', 'grams')).toBe(false);
+    expect(unitsMatch('cups', 'g')).toBe(false);
   });
 });
 

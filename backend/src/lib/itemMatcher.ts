@@ -3,6 +3,8 @@
  * Handles fuzzy name matching (singular/plural) and unit comparison.
  */
 
+import { canonicalizeUnit } from './units.js';
+
 /**
  * Normalize a word to its singular form for comparison.
  * Uses simple English pluralization rules with common food item irregulars.
@@ -105,7 +107,7 @@ export function normalizeUnit(unit: string | null | undefined): string | null {
   if (!unit || unit.trim() === '') {
     return null;
   }
-  return unit.toLowerCase().trim();
+  return canonicalizeUnit(unit);
 }
 
 /**

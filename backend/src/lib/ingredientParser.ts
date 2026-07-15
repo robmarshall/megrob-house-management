@@ -1,3 +1,5 @@
+import { canonicalizeUnit } from './units.js';
+
 /**
  * Parsed ingredient data
  */
@@ -72,48 +74,11 @@ const UNICODE_FRACTIONS: Record<string, number> = {
 };
 
 /**
- * Normalize unit to a standard form
+ * Normalize unit to a standard form.
+ * Delegates to the shared canonicalizeUnit (single source of truth).
  */
 function normalizeUnit(unit: string): string {
-  const lowerUnit = unit.toLowerCase().trim();
-
-  // Map variations to standard forms
-  const unitMap: Record<string, string> = {
-    'c': 'cups',
-    'cup': 'cups',
-    'tablespoon': 'tbsp',
-    'tablespoons': 'tbsp',
-    'tbs': 'tbsp',
-    'tb': 'tbsp',
-    'teaspoon': 'tsp',
-    'teaspoons': 'tsp',
-    'ts': 'tsp',
-    'pound': 'lb',
-    'pounds': 'lb',
-    'lbs': 'lb',
-    'ounce': 'oz',
-    'ounces': 'oz',
-    'gram': 'g',
-    'grams': 'g',
-    'kilogram': 'kg',
-    'kilograms': 'kg',
-    'fluid ounce': 'fl oz',
-    'fluid ounces': 'fl oz',
-    'milliliter': 'ml',
-    'milliliters': 'ml',
-    'liter': 'L',
-    'liters': 'L',
-    'l': 'L',
-    'piece': 'pieces',
-    'pc': 'pieces',
-    'pcs': 'pieces',
-    'slice': 'slices',
-    'clove': 'cloves',
-    'package': 'pkg',
-    'packages': 'pkg',
-  };
-
-  return unitMap[lowerUnit] || lowerUnit;
+  return canonicalizeUnit(unit);
 }
 
 /**
