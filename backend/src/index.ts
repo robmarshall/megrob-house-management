@@ -4,7 +4,7 @@ import { cors } from "hono/cors";
 import dotenv from "dotenv";
 import { auth } from "./lib/auth.js";
 import { logger } from "./lib/logger.js";
-import { getMissingEnvVars } from "./lib/env.js";
+import { getMissingEnvVars, EMAIL_ENV_VARS } from "./lib/env.js";
 import { rateLimiter } from "./middleware/rateLimiter.js";
 import { requestLogger } from "./middleware/requestLogger.js";
 import { onError } from "./middleware/errorHandler.js";
@@ -22,6 +22,16 @@ const missingEnvVars = getMissingEnvVars();
 if (missingEnvVars.length > 0) {
   logger.fatal({ missing: missingEnvVars }, "Missing required environment variables");
   process.exit(1);
+}
+
+// SMTP config is optional at boot: when unset the server still runs, but
+// password-reset emails cannot be delivered until these are provided.
+const missingEmailEnvVars = getMissingEnvVars(EMAIL_ENV_VARS);
+if (missingEmailEnvVars.length > 0) {
+  logger.warn(
+    { missing: missingEmailEnvVars },
+    "SMTP not fully configured; password-reset emails will not be sent until these are set"
+  );
 }
 
 const app = new Hono();
