@@ -41,3 +41,6 @@ drizzle/migrations/
 
 # OS
 Thumbs.db
+
+# Tooling output (regenerable)
+graphify-out/
