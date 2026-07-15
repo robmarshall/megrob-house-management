@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { HandThumbUpIcon, HandThumbDownIcon, TrashIcon } from "@heroicons/react/24/solid";
 import { Card } from "@/components/atoms/Card";
+import { ConfirmDeleteBottomSheet } from "@/components/molecules/ConfirmDeleteBottomSheet";
 import type { RecipeFeedback } from "@/types/recipe";
 import { cn } from "@/lib/utils";
 
@@ -54,6 +56,26 @@ export function FeedbackTimeline({
   isDeleting = false,
   className,
 }: FeedbackTimelineProps) {
+  // Track which feedback entry is pending deletion (by id)
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null);
+  const [isConfirmDeleting, setIsConfirmDeleting] = useState(false);
+
+  const pendingEntry = entries.find((entry) => entry.id === pendingDelete);
+  const pendingLabel = pendingEntry?.note
+    ? `${pendingEntry.note.slice(0, 40)}${pendingEntry.note.length > 40 ? "…" : ""}`
+    : "this feedback";
+
+  const handleConfirmDelete = async () => {
+    if (pendingDelete === null || !onDelete) return;
+    setIsConfirmDeleting(true);
+    try {
+      await onDelete(pendingDelete);
+      setPendingDelete(null);
+    } finally {
+      setIsConfirmDeleting(false);
+    }
+  };
+
   if (entries.length === 0) {
     return (
       <Card className={className}>
@@ -85,6 +107,7 @@ export function FeedbackTimeline({
   }
 
   return (
+    <>
     <Card className={className}>
       <div className="p-4">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">
@@ -148,11 +171,12 @@ export function FeedbackTimeline({
                   {isOwnEntry && onDelete && (
                     <button
                       type="button"
-                      onClick={() => onDelete(entry.id)}
-                      disabled={isDeleting}
+                      onClick={() => setPendingDelete(entry.id)}
+                      disabled={isDeleting || isConfirmDeleting}
                       className={cn(
                         "p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors",
-                        isDeleting && "opacity-50 cursor-not-allowed"
+                        (isDeleting || isConfirmDeleting) &&
+                          "opacity-50 cursor-not-allowed"
                       )}
                       aria-label="Delete feedback"
                     >
@@ -166,5 +190,15 @@ export function FeedbackTimeline({
         </div>
       </div>
     </Card>
+
+      <ConfirmDeleteBottomSheet
+        isOpen={pendingDelete !== null}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={handleConfirmDelete}
+        itemName={pendingLabel}
+        itemType="feedback"
+        isDeleting={isDeleting || isConfirmDeleting}
+      />
+    </>
   );
 }
