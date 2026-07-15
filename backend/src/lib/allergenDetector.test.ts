@@ -63,6 +63,64 @@ describe('detectAllergens', () => {
     });
   });
 
+  describe('plant-based "milk/cream/butter" are NOT dairy', () => {
+    it('does not flag coconut milk as dairy', () => {
+      expect(detectAllergens(['coconut milk'])).not.toContain('dairy');
+    });
+
+    it('does not flag almond milk as dairy', () => {
+      expect(detectAllergens(['almond milk'])).not.toContain('dairy');
+    });
+
+    it('does not flag soy milk as dairy', () => {
+      expect(detectAllergens(['soy milk'])).not.toContain('dairy');
+    });
+
+    it('does not flag oat milk as dairy', () => {
+      expect(detectAllergens(['oat milk'])).not.toContain('dairy');
+    });
+
+    it('does not flag coconut cream as dairy', () => {
+      expect(detectAllergens(['coconut cream'])).not.toContain('dairy');
+    });
+
+    it('does not flag peanut butter as dairy but does flag it as nuts', () => {
+      const result = detectAllergens(['peanut butter']);
+      expect(result).not.toContain('dairy');
+      expect(result).toContain('nuts');
+    });
+
+    it('does not flag almond butter as dairy but does flag it as nuts', () => {
+      const result = detectAllergens(['almond butter']);
+      expect(result).not.toContain('dairy');
+      expect(result).toContain('nuts');
+    });
+
+    it('does not flag cocoa butter as dairy', () => {
+      expect(detectAllergens(['cocoa butter'])).not.toContain('dairy');
+    });
+  });
+
+  describe('genuine dairy still detected', () => {
+    const genuineDairy: string[] = [
+      'milk',
+      'whole milk',
+      'heavy cream',
+      'sour cream',
+      'cream cheese',
+      'butter',
+      'unsalted butter',
+      'buttermilk',
+      'condensed milk',
+    ];
+
+    for (const ingredient of genuineDairy) {
+      it(`detects "${ingredient}" as dairy`, () => {
+        expect(detectAllergens([ingredient])).toContain('dairy');
+      });
+    }
+  });
+
   describe('gluten allergens', () => {
     it('detects flour', () => {
       expect(detectAllergens(['2 cups flour'])).toContain('gluten');
@@ -184,6 +242,28 @@ describe('detectDietary', () => {
     it('does not classify egg ingredients as vegan', () => {
       const dietary = detectDietary(['flour', 'eggs', 'sugar']);
       expect(dietary).not.toContain('vegan');
+    });
+
+    it('classifies a coconut-milk curry as vegan and vegetarian', () => {
+      const dietary = detectDietary([
+        'coconut milk',
+        'rice',
+        'vegetables',
+        'curry powder',
+      ]);
+      expect(dietary).toContain('vegan');
+      expect(dietary).toContain('vegetarian');
+    });
+
+    it('does not classify genuine milk as vegan', () => {
+      const dietary = detectDietary(['milk', 'sugar']);
+      expect(dietary).not.toContain('vegan');
+    });
+
+    it('is not blocked from vegan by peanut butter', () => {
+      const dietary = detectDietary(['peanut butter', 'jam', 'bread']);
+      expect(dietary).toContain('vegan');
+      expect(dietary).toContain('vegetarian');
     });
   });
 

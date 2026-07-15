@@ -213,6 +213,48 @@ function normalizeText(text: string): string {
 }
 
 /**
+ * Bare dairy words that are ambiguous because they also appear in the names of
+ * plant-based ingredients (e.g. "coconut milk", "peanut butter", "coconut cream").
+ * When one of these is matched we additionally require that it is NOT immediately
+ * preceded by a plant-based qualifier so that plant-based products are not wrongly
+ * flagged as dairy (and, via ANIMAL_PRODUCT_KEYWORDS, as non-vegan).
+ */
+const AMBIGUOUS_DAIRY_WORDS = new Set(['milk', 'cream', 'butter']);
+
+/**
+ * Plant-based qualifiers that, when directly preceding an ambiguous dairy word,
+ * indicate a plant-based ingredient rather than genuine dairy.
+ */
+const PLANT_QUALIFIERS = [
+  'coconut',
+  'almond',
+  'soy', 'soya',
+  'oat',
+  'rice',
+  'cashew',
+  'hemp',
+  'flax',
+  'pea',
+  'hazelnut',
+  'macadamia',
+  'walnut',
+  'sunflower',
+  'peanut',
+  'nut',
+  'seed',
+  'cocoa', 'coco',
+  'shea',
+  'apple',
+  'plant', 'plant-based',
+  'vegan',
+];
+
+/**
+ * Build the alternation used in the negative lookbehind for ambiguous dairy words.
+ */
+const PLANT_QUALIFIER_ALTERNATION = PLANT_QUALIFIERS.map(escapeRegex).join('|');
+
+/**
  * Check if an ingredient contains any of the given keywords
  */
 function containsKeyword(ingredient: string, keywords: string[]): boolean {
@@ -223,7 +265,17 @@ function containsKeyword(ingredient: string, keywords: string[]): boolean {
 
     // Check for whole word match to avoid false positives
     // e.g., "coconut" should not match "nut"
-    const regex = new RegExp(`\\b${escapeRegex(normalizedKeyword)}\\b`, 'i');
+    let pattern = `\\b${escapeRegex(normalizedKeyword)}\\b`;
+
+    // For bare, ambiguous dairy words, reject a directly preceding plant-based
+    // qualifier so "coconut milk", "peanut butter", "coconut cream" etc. are NOT
+    // matched as dairy, while genuine dairy ("whole milk", "heavy cream",
+    // "unsalted butter", "buttermilk", "condensed milk", ...) still matches.
+    if (AMBIGUOUS_DAIRY_WORDS.has(normalizedKeyword)) {
+      pattern = `(?<!\\b(?:${PLANT_QUALIFIER_ALTERNATION}) )${pattern}`;
+    }
+
+    const regex = new RegExp(pattern, 'i');
     if (regex.test(normalized)) {
       return true;
     }
