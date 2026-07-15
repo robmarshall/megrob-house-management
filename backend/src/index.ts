@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 import dotenv from "dotenv";
 import { auth } from "./lib/auth.js";
 import { logger } from "./lib/logger.js";
+import { getMissingEnvVars } from "./lib/env.js";
 import { rateLimiter } from "./middleware/rateLimiter.js";
 import { requestLogger } from "./middleware/requestLogger.js";
 import { onError } from "./middleware/errorHandler.js";
@@ -17,19 +18,7 @@ import mealPlansRoutes from "./routes/mealPlans.js";
 dotenv.config();
 
 // Validate required environment variables
-const requiredEnvVars = [
-  "DATABASE_URL",
-  "BETTER_AUTH_SECRET",
-  "BETTER_AUTH_URL",
-  "FRONTEND_URL",
-  "QUEUEBEAR_API_KEY",
-  "QUEUEBEAR_PROJECT_ID",
-  "QUEUEBEAR_REDIRECT_URL",
-];
-
-const missingEnvVars = requiredEnvVars.filter(
-  (varName) => !process.env[varName]
-);
+const missingEnvVars = getMissingEnvVars();
 
 if (missingEnvVars.length > 0) {
   logger.fatal({ missing: missingEnvVars }, "Missing required environment variables");
@@ -95,7 +84,9 @@ app.options("/api/auth/*", (c) => {
 // Login: 5 attempts per minute per IP
 app.use("/api/auth/sign-in/*", rateLimiter(5, 60_000));
 // Password reset: 3 attempts per minute per IP
-app.use("/api/auth/forgot-password", rateLimiter(3, 60_000));
+// Better Auth's request-password-reset endpoint (with /forget-password legacy alias)
+app.use("/api/auth/request-password-reset", rateLimiter(3, 60_000));
+app.use("/api/auth/forget-password", rateLimiter(3, 60_000));
 // Profile update: 10 attempts per minute per IP
 app.use("/api/auth/update-user", rateLimiter(10, 60_000));
 // Password change: 5 attempts per minute per IP
