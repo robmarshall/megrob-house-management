@@ -5,6 +5,7 @@ import BottomSheet from "@/components/atoms/BottomSheet";
 import { Input } from "@/components/atoms/Input";
 import { Button } from "@/components/atoms/Button";
 import type { BadgeVariant } from "@/components/atoms/Badge";
+import { SHOPPING_CATEGORIES } from "@/lib/categories";
 
 export interface Unit {
   value: UnitType | '';
@@ -28,21 +29,7 @@ export default function AddItemBottomSheet({
   isOpen,
   onClose,
   onAdd,
-  categories = [
-    { slug: "fruitveg", name: "Fruit & Veg" },
-    { slug: "dairy", name: "Dairy" },
-    { slug: "meat", name: "Meat" },
-    { slug: "fish", name: "Fish" },
-    { slug: "bakery", name: "Bakery" },
-    { slug: "pantry", name: "Pantry" },
-    { slug: "frozen", name: "Frozen" },
-    { slug: "beverages", name: "Beverages" },
-    { slug: "household", name: "Household" },
-    { slug: "toiletries", name: "Toiletries" },
-    { slug: "medicine", name: "Medicine" },
-    { slug: "other", name: "Other" },
-    { slug: "default", name: "Uncategorized" },
-  ],
+  categories = SHOPPING_CATEGORIES,
   units = [
     { value: "", label: "No unit" },
     { value: "g", label: "g (grams)" },

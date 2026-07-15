@@ -13,6 +13,7 @@ import type { BadgeVariant } from "@/components/atoms/Badge";
 
 import EditListBottomSheet from "@/components/molecules/EditListBottomSheet";
 import type { UpdateShoppingListFormData, UnitType } from "@/lib/schemas";
+import { categoryLabel } from "@/lib/categories";
 
 interface ShoppingListDetailProps {
   list: ShoppingList;
@@ -61,10 +62,7 @@ export function ShoppingListDetail({
 
   // Group items by category and sort alphabetically
   const groupedItems = items.reduce((acc, item) => {
-    const category = item.category
-      ? item.category.charAt(0).toUpperCase() +
-        item.category.slice(1).toLowerCase()
-      : "Uncategorized";
+    const category = categoryLabel(item.category);
 
     if (!acc[category]) {
       acc[category] = [];
