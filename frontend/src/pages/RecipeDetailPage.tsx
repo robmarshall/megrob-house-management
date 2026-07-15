@@ -32,7 +32,7 @@ export function RecipeDetailPage() {
 
   const { data: recipe, isLoading } = useRecipe(recipeId);
   const { delete: deleteRecipe, toggleFavorite, edit: editRecipe } = useRecipeData();
-  const { data: feedback, isLoading: isFeedbackLoading } = useRecipeFeedback(recipeId);
+  const { data: feedback } = useRecipeFeedback(recipeId);
   const { addFeedback, deleteFeedback, isAdding, isDeleting } = useRecipeFeedbackMutations(recipeId);
 
   const handleBack = () => {
@@ -61,6 +61,10 @@ export function RecipeDetailPage() {
 
   const handleAddFeedback = async (isLike: boolean, note: string) => {
     await addFeedback({ isLike, note: note || undefined });
+  };
+
+  const handleQuickFeedback = async (isLike: boolean) => {
+    await addFeedback({ isLike });
   };
 
   const handleDeleteFeedback = async (feedbackId: number) => {
@@ -216,12 +220,14 @@ export function RecipeDetailPage() {
           <FeedbackButton
             type="like"
             count={feedback?.likes ?? 0}
-            disabled={isFeedbackLoading}
+            onClick={() => handleQuickFeedback(true)}
+            disabled={isAdding}
           />
           <FeedbackButton
             type="dislike"
             count={feedback?.dislikes ?? 0}
-            disabled={isFeedbackLoading}
+            onClick={() => handleQuickFeedback(false)}
+            disabled={isAdding}
           />
           <button
             type="button"
