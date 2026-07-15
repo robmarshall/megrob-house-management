@@ -37,21 +37,26 @@ export function singularize(word: string): string {
     blackberries: 'blackberry',
     cranberries: 'cranberry',
     anchovies: 'anchovy',
+    candies: 'candy',
+    pastries: 'pastry',
+    scarves: 'scarf',
   };
 
   if (irregulars[lower]) {
     return irregulars[lower];
   }
 
+  // NOTE: The general '-ies -> -y' and '-ves -> -f' rules were removed because
+  // they are genuinely ambiguous (cookie->cookies vs berry->berries;
+  // olive->olives vs leaf->leaves) and mangled common grocery plurals
+  // (olives -> 'olif', cookies -> 'cooky', gloves -> 'glof'), so singular and
+  // plural forms never collapsed to the same string. Genuine '-y'/'-f'/'-fe'
+  // plurals are handled by the irregulars map above; everything else falls
+  // through to the conservative '-es'/'-s' strip below, which keeps
+  // singular/plural of the SAME word normalizing to the SAME string
+  // (olives/olive -> 'olive', cookies/cookie -> 'cookie').
+
   // Rules applied in order of specificity
-  if (lower.endsWith('ies') && lower.length > 3) {
-    // berries -> berry, cherries -> cherry (not in irregulars map)
-    return lower.slice(0, -3) + 'y';
-  }
-  if (lower.endsWith('ves') && lower.length > 3) {
-    // calves -> calf (not in irregulars map)
-    return lower.slice(0, -3) + 'f';
-  }
   if (lower.endsWith('es') && lower.length > 2) {
     const stem = lower.slice(0, -2);
     // boxes -> box, dishes -> dish, tomatoes -> tomato

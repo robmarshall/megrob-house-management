@@ -74,6 +74,43 @@ describe('singularize', () => {
   it('handles words ending in ss (no false trim)', () => {
     expect(singularize('grass')).toBe('grass');
   });
+
+  // Duplicate-matcher collapse: singular and plural of the SAME word must
+  // normalize to the SAME string (correctness of the singular is secondary).
+  it('collapses olives/olive to the same stem', () => {
+    expect(singularize('olives')).toBe(singularize('olive'));
+    expect(singularize('olives')).toBe('olive');
+  });
+
+  it('collapses cookies/cookie to the same stem', () => {
+    expect(singularize('cookies')).toBe(singularize('cookie'));
+    expect(singularize('cookies')).toBe('cookie');
+  });
+
+  it('collapses gloves/glove to the same stem', () => {
+    expect(singularize('gloves')).toBe(singularize('glove'));
+    expect(singularize('gloves')).toBe('glove');
+  });
+
+  it('collapses cloves/clove to the same stem', () => {
+    expect(singularize('cloves')).toBe(singularize('clove'));
+    expect(singularize('cloves')).toBe('clove');
+  });
+
+  it('collapses brownies/brownie to the same stem', () => {
+    expect(singularize('brownies')).toBe(singularize('brownie'));
+    expect(singularize('brownies')).toBe('brownie');
+  });
+
+  // Regression: genuine irregulars must still resolve correctly.
+  it('still handles genuine irregulars after rule removal', () => {
+    expect(singularize('berries')).toBe('berry');
+    expect(singularize('leaves')).toBe('leaf');
+    expect(singularize('knives')).toBe('knife');
+    expect(singularize('tomatoes')).toBe('tomato');
+    expect(singularize('potatoes')).toBe('potato');
+    expect(singularize('carrots')).toBe('carrot');
+  });
 });
 
 describe('normalizeItemName', () => {
@@ -105,6 +142,14 @@ describe('namesMatch', () => {
 
   it('matches identical items', () => {
     expect(namesMatch('butter', 'butter')).toBe(true);
+  });
+
+  it('merges common grocery singular/plural pairs', () => {
+    expect(namesMatch('olives', 'olive')).toBe(true);
+    expect(namesMatch('cookies', 'cookie')).toBe(true);
+    expect(namesMatch('gloves', 'glove')).toBe(true);
+    expect(namesMatch('cloves', 'clove')).toBe(true);
+    expect(namesMatch('brownies', 'brownie')).toBe(true);
   });
 });
 
