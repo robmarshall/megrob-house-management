@@ -75,4 +75,19 @@ describe('MealSlot', () => {
     expect(onDelete).toHaveBeenCalledTimes(1)
     expect(onDelete).toHaveBeenCalledWith(entry.id)
   })
+
+  it('renders the empty-state "Add meal" button with accessible contrast text', () => {
+    render(
+      <MealSlot
+        mealType={MEAL_TYPES[0]}
+        entries={[]}
+        onAdd={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    )
+
+    const addMealButton = screen.getByRole('button', { name: 'Add meal' })
+    expect(addMealButton.className).toContain('text-gray-600')
+    expect(addMealButton.className).not.toContain('text-gray-400')
+  })
 })

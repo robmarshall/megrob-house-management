@@ -341,7 +341,7 @@ export function HouseholdPage() {
                     <p className="font-medium text-gray-900">
                       {member.userName}
                       {member.userId === user?.id && (
-                        <span className="text-gray-400 text-sm ml-1">(you)</span>
+                        <span className="text-gray-600 text-sm ml-1">(you)</span>
                       )}
                     </p>
                     <p className="text-sm text-gray-500">{member.userEmail}</p>

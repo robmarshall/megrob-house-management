@@ -82,7 +82,7 @@ export function ServingScaler({
 
       {isScaled && (
         <>
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-gray-600">
             (originally {originalServings})
           </span>
           <button

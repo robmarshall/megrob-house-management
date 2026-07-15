@@ -260,7 +260,7 @@ export function CookingModePage() {
                   {ing.unit && <span>{ing.unit} </span>}
                   <span>{ing.name}</span>
                   {ing.notes && (
-                    <span className="text-gray-400"> ({ing.notes})</span>
+                    <span className="text-gray-600"> ({ing.notes})</span>
                   )}
                 </li>
               ))}
@@ -295,7 +295,7 @@ export function CookingModePage() {
                     {ing.unit && <span>{ing.unit} </span>}
                     <span>{ing.name}</span>
                     {ing.notes && (
-                      <span className="text-gray-400"> ({ing.notes})</span>
+                      <span className="text-gray-600"> ({ing.notes})</span>
                     )}
                   </li>
                 ))}

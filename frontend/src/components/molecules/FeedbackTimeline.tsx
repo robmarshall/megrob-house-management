@@ -161,7 +161,7 @@ export function FeedbackTimeline({
 
                     {/* No note indicator */}
                     {!entry.note && (
-                      <p className="mt-1 text-sm text-gray-400 italic">
+                      <p className="mt-1 text-sm text-gray-600 italic">
                         {entry.isLike ? "Gave a thumbs up" : "Gave a thumbs down"}
                       </p>
                     )}

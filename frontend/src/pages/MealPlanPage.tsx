@@ -79,7 +79,7 @@ export function MealSlot({
       {entries.length === 0 ? (
         <button
           onClick={onAdd}
-          className="w-full text-center text-xs text-gray-400 py-2 border border-dashed border-gray-300 rounded hover:border-primary-300 hover:text-primary-500 transition-colors"
+          className="w-full text-center text-xs text-gray-600 py-2 border border-dashed border-gray-300 rounded hover:border-primary-300 hover:text-primary-500 transition-colors"
         >
           Add meal
         </button>
@@ -329,7 +329,7 @@ export function MealPlanPage() {
             <Card key={dayOfWeek} padding="md">
               <h3 className="font-semibold text-gray-900 mb-3 text-sm uppercase tracking-wide">
                 {DAY_LABELS[dayOfWeek]}
-                <span className="text-gray-400 font-normal ml-2">
+                <span className="text-gray-600 font-normal ml-2">
                   {formatDisplayDate(getDayDate(weekStart, dayOfWeek))}
                 </span>
               </h3>
