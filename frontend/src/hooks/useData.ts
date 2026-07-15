@@ -9,6 +9,30 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api/client";
 import { toast } from "@/lib/toast";
 
+/**
+ * Derives a human-readable label for toast messages from an API collection
+ * path, using the last meaningful path segment (the actual entity) rather
+ * than the first, so nested collections (e.g. "shopping-lists/5/items")
+ * resolve to the entity being acted on ("items") instead of the parent
+ * ("shopping lists").
+ *
+ * @param collection - The API collection path (e.g. "shopping-lists/5/items")
+ * @returns A space-separated, human-readable label (e.g. "items")
+ */
+export function collectionLabel(collection: string): string {
+  const segments = collection
+    .split('/')
+    .filter((segment) => segment.length > 0 && !/^\d+$/.test(segment));
+
+  const lastSegment = segments[segments.length - 1];
+
+  if (!lastSegment) {
+    return collection.replace(/-/g, ' ');
+  }
+
+  return lastSegment.replace(/-/g, ' ');
+}
+
 interface UseDataReturn<T> {
   create: (data: Partial<T>) => Promise<T>;
   edit: (id: string | number, data: Partial<T>) => Promise<T>;
@@ -51,7 +75,7 @@ export function useData<T>(
   });
 
   // Human-readable collection name for toast messages
-  const label = collection.replace(/-/g, ' ').replace(/\/.+/, '');
+  const label = collectionLabel(collection);
 
   // Create mutation
   const createMutation = useMutation({
