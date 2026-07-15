@@ -61,6 +61,14 @@ export function Checkbox({
   const requiredMessage =
     typeof required === 'string' ? required : required ? 'This field is required' : false
 
+  const describedBy =
+    [
+      description ? `${id}-description` : null,
+      !inGroup && errorMessage ? `${id}-error` : null,
+    ]
+      .filter(Boolean)
+      .join(' ') || undefined
+
   return (
     <InputWrapper
       id={id}
@@ -71,9 +79,7 @@ export function Checkbox({
       <div className={cn('relative flex items-start', large && 'mb-2')}>
         <div className="flex h-6 items-center">
           <input
-            {...(description && {
-              'aria-describedby': `${id}-description`,
-            })}
+            {...(describedBy && { 'aria-describedby': describedBy })}
             aria-invalid={Boolean(errorMessage)}
             aria-required={Boolean(required)}
             className={inputClasses}

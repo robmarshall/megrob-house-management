@@ -75,6 +75,14 @@ export const Textarea = forwardRef(function Textarea(
 
   const textareaId = id || name;
 
+  const describedBy =
+    [
+      description ? `${textareaId}-description` : null,
+      errorMessage ? `${textareaId}-error` : null,
+    ]
+      .filter(Boolean)
+      .join(" ") || undefined;
+
   return (
     <InputWrapper
       description={description}
@@ -86,9 +94,7 @@ export const Textarea = forwardRef(function Textarea(
       required={Boolean(required)}
     >
       <textarea
-        {...(description && {
-          "aria-describedby": `${textareaId}-description`,
-        })}
+        {...(describedBy && { "aria-describedby": describedBy })}
         aria-invalid={Boolean(errorMessage)}
         aria-required={Boolean(required)}
         id={textareaId}

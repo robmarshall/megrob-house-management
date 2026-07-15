@@ -88,6 +88,14 @@ export const Input = forwardRef(function Input(
 
   const inputId = id || name;
 
+  const describedBy =
+    [
+      description ? `${inputId}-description` : null,
+      errorMessage ? `${inputId}-error` : null,
+    ]
+      .filter(Boolean)
+      .join(" ") || undefined;
+
   return (
     <InputWrapper
       description={description}
@@ -105,9 +113,7 @@ export const Input = forwardRef(function Input(
           </div>
         )}
         <input
-          {...(description && {
-            "aria-describedby": `${inputId}-description`,
-          })}
+          {...(describedBy && { "aria-describedby": describedBy })}
           aria-invalid={Boolean(errorMessage)}
           aria-required={Boolean(required)}
           type={type}

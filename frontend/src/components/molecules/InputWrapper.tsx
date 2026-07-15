@@ -74,7 +74,7 @@ export const InputWrapper = forwardRef<HTMLDivElement, InputWrapperProps>(
           </p>
         )}
         {children}
-        {error && <ErrorMessage message={error} />}
+        {error && <ErrorMessage message={error} id={`${id}-error`} />}
       </div>
     );
   }
