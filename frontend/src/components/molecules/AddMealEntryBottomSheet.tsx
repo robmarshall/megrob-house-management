@@ -37,17 +37,16 @@ export default function AddMealEntryBottomSheet({
     pageSize: 10,
   });
 
-  // Reset state when bottom sheet closes
+  // Apply defaults and reset transient state when the bottom sheet opens
   useEffect(() => {
-    if (!isOpen) {
-      setMode('recipe');
-      setSelectedDay(defaultDayOfWeek ?? null);
-      setSelectedMealType(defaultMealType ?? null);
-      setSelectedRecipe(null);
-      setCustomText('');
-      setSearchTerm('');
-      setIsSubmitting(false);
-    }
+    if (!isOpen) return;
+    setMode('recipe');
+    setSelectedDay(defaultDayOfWeek ?? null);
+    setSelectedMealType(defaultMealType ?? null);
+    setSelectedRecipe(null);
+    setCustomText('');
+    setSearchTerm('');
+    setIsSubmitting(false);
   }, [isOpen, defaultDayOfWeek, defaultMealType]);
 
   const canSubmit =
