@@ -35,7 +35,7 @@ describe('MealSlot', () => {
     expect(removeButton.className).not.toContain('group-hover')
   })
 
-  it('calls onDelete with the entry id when clicked', async () => {
+  it('opens the confirm sheet without calling onDelete immediately', async () => {
     const user = userEvent.setup()
     const onDelete = vi.fn()
     render(
@@ -49,6 +49,30 @@ describe('MealSlot', () => {
 
     await user.click(screen.getByLabelText('Remove meal entry'))
 
+    expect(
+      await screen.findByText(`Delete "${entry.recipeName}"?`)
+    ).toBeInTheDocument()
+    expect(onDelete).not.toHaveBeenCalled()
+  })
+
+  it('calls onDelete with the entry id when confirming in the sheet', async () => {
+    const user = userEvent.setup()
+    const onDelete = vi.fn()
+    render(
+      <MealSlot
+        mealType={MEAL_TYPES[0]}
+        entries={[entry]}
+        onAdd={vi.fn()}
+        onDelete={onDelete}
+      />
+    )
+
+    await user.click(screen.getByLabelText('Remove meal entry'))
+    await screen.findByText(`Delete "${entry.recipeName}"?`)
+    await user.click(screen.getByRole('button', { name: 'Yes, Delete' }))
+    await user.click(screen.getByRole('button', { name: 'Permanently Delete' }))
+
+    expect(onDelete).toHaveBeenCalledTimes(1)
     expect(onDelete).toHaveBeenCalledWith(entry.id)
   })
 })

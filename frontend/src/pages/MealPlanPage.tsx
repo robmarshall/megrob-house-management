@@ -46,7 +46,23 @@ export function MealSlot({
   onAdd: () => void
   onDelete: (entryId: number) => void
 }) {
+  // Track which entry is pending deletion (null = none)
+  const [pendingDelete, setPendingDelete] = useState<MealPlanEntry | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) return
+    setIsDeleting(true)
+    try {
+      await onDelete(pendingDelete.id)
+      setPendingDelete(null)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   return (
+    <>
     <div className="bg-gray-50 rounded-lg p-3 min-h-[80px]">
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-medium text-gray-500 uppercase">
@@ -85,7 +101,7 @@ export function MealSlot({
                 {entry.recipeName || entry.customText || 'Untitled'}
               </span>
               <button
-                onClick={() => onDelete(entry.id)}
+                onClick={() => setPendingDelete(entry)}
                 className="text-gray-400 hover:text-red-500 p-0.5"
                 aria-label="Remove meal entry"
               >
@@ -96,6 +112,18 @@ export function MealSlot({
         </div>
       )}
     </div>
+
+      <ConfirmDeleteBottomSheet
+        isOpen={pendingDelete !== null}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={handleConfirmDelete}
+        itemName={
+          pendingDelete?.recipeName || pendingDelete?.customText || 'this meal'
+        }
+        itemType="meal"
+        isDeleting={isDeleting}
+      />
+    </>
   )
 }
 
