@@ -1,4 +1,5 @@
-import { pgTable, serial, text, timestamp, integer, numeric, boolean, unique, date } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, timestamp, integer, numeric, boolean, unique, uniqueIndex, date } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { user } from './auth-schema';
 
 // Re-export auth schema tables
@@ -164,7 +165,10 @@ export const recipeCategories = pgTable('recipe_categories', {
     .references(() => recipes.id, { onDelete: 'cascade' }),
   categoryType: text('category_type').notNull(), // 'meal_type' | 'dietary' | 'allergen'
   categoryValue: text('category_value').notNull(), // e.g., 'vegetarian', 'contains_nuts'
-});
+}, (table) => [
+  // Prevent duplicate category entries per recipe (migration 0004).
+  unique('unique_recipe_category').on(table.recipeId, table.categoryType, table.categoryValue),
+]);
 
 /**
  * Recipe Feedback Table
@@ -181,7 +185,10 @@ export const recipeFeedback = pgTable('recipe_feedback', {
   isLike: boolean('is_like').notNull(), // true = like, false = dislike
   note: text('note'), // Optional explanation for the feedback
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (table) => [
+  // One feedback row per user per recipe (migration 0003).
+  unique('unique_user_recipe_feedback').on(table.recipeId, table.userId),
+]);
 
 /**
  * User Favorites Table
@@ -196,7 +203,10 @@ export const userFavorites = pgTable('user_favorites', {
     .notNull()
     .references(() => recipes.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (table) => [
+  // Prevent duplicate favorites (migration 0002, unique index).
+  uniqueIndex('user_favorites_user_recipe_unique').on(table.userId, table.recipeId),
+]);
 
 /**
  * Meal Plans Table
@@ -216,7 +226,16 @@ export const mealPlans = pgTable('meal_plans', {
   updatedBy: text('updated_by')
     .notNull()
     .references(() => user.id),
-});
+}, (table) => [
+  // One plan per week per user (personal) or per household (migration 0008,
+  // partial unique indexes split on whether the plan is household-scoped).
+  uniqueIndex('idx_meal_plans_week_user')
+    .on(table.weekStartDate, table.createdBy)
+    .where(sql`${table.householdId} is null`),
+  uniqueIndex('idx_meal_plans_week_household')
+    .on(table.weekStartDate, table.householdId)
+    .where(sql`${table.householdId} is not null`),
+]);
 
 /**
  * Meal Plan Entries Table

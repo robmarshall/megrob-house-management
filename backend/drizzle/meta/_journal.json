@@ -71,6 +71,13 @@
       "when": 1784116864481,
       "tag": "0009_sudden_pretty_boy",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784123241769,
+      "tag": "0010_lean_tyrannus",
+      "breakpoints": true
     }
   ]
 }
