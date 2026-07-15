@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useAuth } from '@/hooks/useAuth'
@@ -10,8 +10,13 @@ import { ErrorMessage } from '@/components/atoms/ErrorMessage'
 
 export function LoginForm() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { signIn } = useAuth()
   const [formError, setFormError] = useState<string | null>(null)
+
+  const fromPath =
+    (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
+  const redirectTo = fromPath && fromPath !== '/login' ? fromPath : '/'
 
   const methods = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -26,7 +31,7 @@ export function LoginForm() {
 
     try {
       await signIn(data.email, data.password)
-      navigate('/')
+      navigate(redirectTo, { replace: true })
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Failed to sign in')
     }
