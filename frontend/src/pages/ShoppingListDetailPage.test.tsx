@@ -54,18 +54,22 @@ const deleteList = vi.fn();
 
 let mockTotalPages = 2;
 
-const useShoppingListItems = vi.fn(() => ({
-  data: items,
-  isLoading: false,
-  error: null,
-  page: 1,
-  get totalPages() {
-    return mockTotalPages;
-  },
-  goToPage,
-  nextPage: vi.fn(),
-  prevPage: vi.fn(),
-}));
+const useShoppingListItems = vi.fn((listId?: number, options?: unknown) => {
+  void listId;
+  void options;
+  return {
+    data: items,
+    isLoading: false,
+    error: null,
+    page: 1,
+    get totalPages() {
+      return mockTotalPages;
+    },
+    goToPage,
+    nextPage: vi.fn(),
+    prevPage: vi.fn(),
+  };
+});
 
 vi.mock('react-router', async () => {
   const actual = await vi.importActual('react-router');
