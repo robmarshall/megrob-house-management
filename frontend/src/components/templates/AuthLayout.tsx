@@ -22,7 +22,7 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
         </div>
 
         <p className="mt-8 text-center text-sm text-gray-500">
-          © {new Date().getFullYear()} Your Company. All rights reserved.
+          © {new Date().getFullYear()} Home Management. All rights reserved.
         </p>
       </div>
     </div>
