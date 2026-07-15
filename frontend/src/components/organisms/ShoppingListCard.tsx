@@ -68,7 +68,6 @@ export function ShoppingListCard({
               size="sm"
               onClick={handleDelete}
               aria-label={`Delete ${list.name}`}
-              className="opacity-0 group-hover:opacity-100 transition-opacity"
             >
               <svg
                 className="w-4 h-4"
