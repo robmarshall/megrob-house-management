@@ -3,7 +3,8 @@
  * Uses session cookies for authentication (Better Auth)
  */
 
-import type { ApiError, QueryParams } from "@/types/api";
+import type { QueryParams } from "@/types/api";
+import { ApiError } from "./ApiError";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -46,13 +47,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
       errorMessage = response.statusText || errorMessage;
     }
 
-    const error: ApiError = {
-      message: errorMessage,
-      status: response.status,
-      details: errorDetails,
-    };
-
-    throw error;
+    throw new ApiError(errorMessage, response.status, errorDetails);
   }
 
   // Handle 204 No Content
