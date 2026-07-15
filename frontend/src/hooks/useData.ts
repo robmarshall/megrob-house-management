@@ -35,7 +35,11 @@ export function collectionLabel(collection: string): string {
 
 interface UseDataReturn<T> {
   create: (data: Partial<T>) => Promise<T>;
-  edit: (id: string | number, data: Partial<T>) => Promise<T>;
+  edit: (
+    id: string | number,
+    data: Partial<T>,
+    options?: { silent?: boolean }
+  ) => Promise<T>;
   delete: (id: string | number) => Promise<void>;
   isLoading: boolean;
 }
@@ -104,17 +108,20 @@ export function useData<T>(
     }: {
       id: string | number;
       data: Partial<T>;
+      silent?: boolean;
     }) => {
       return apiPatch<T>(`/api/${collection}/${id}`, data);
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey;
           return Array.isArray(key) && key[0] === collection;
         },
       });
-      toast.success(`${label} updated`);
+      if (!variables.silent) {
+        toast.success(`${label} updated`);
+      }
     },
     onError: (error: Error) => {
       toast.error(error.message || `Failed to update ${label}`);
@@ -143,8 +150,11 @@ export function useData<T>(
   // Base return object with mutation functions
   const baseReturn = {
     create: (data: Partial<T>) => createMutation.mutateAsync(data),
-    edit: (id: string | number, data: Partial<T>) =>
-      editMutation.mutateAsync({ id, data }),
+    edit: (
+      id: string | number,
+      data: Partial<T>,
+      options?: { silent?: boolean }
+    ) => editMutation.mutateAsync({ id, data, silent: options?.silent }),
     delete: (id: string | number) => deleteMutation.mutateAsync(id),
     isLoading:
       createMutation.isPending ||

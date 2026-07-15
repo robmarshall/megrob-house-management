@@ -55,7 +55,7 @@ export function ShoppingListDetailPage() {
     const item = items.find((i) => i.id === itemId);
     if (!item) return;
 
-    await editItem(itemId, { checked: !item.checked });
+    await editItem(itemId, { checked: !item.checked }, { silent: true });
   };
 
   const handleDeleteItem = async (itemId: number) => {
