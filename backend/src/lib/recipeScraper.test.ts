@@ -1,5 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { parseDuration, scrapeRecipe } from './recipeScraper';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  parseDuration,
+  scrapeRecipe,
+  isPrivateOrReservedIp,
+  assertUrlSafe,
+  type LookupFn,
+} from './recipeScraper';
 
 /**
  * Creates a mock fetch Response with headers and a streaming body,
@@ -71,6 +77,10 @@ describe('parseDuration', () => {
 describe('scrapeRecipe', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('throws on invalid URL', async () => {
@@ -423,6 +433,229 @@ describe('scrapeRecipe', () => {
     const recipe = await scrapeRecipe('https://example.com/recipe');
     expect(recipe.name).toBe('Microdata Soup');
     expect(recipe.ingredients).toHaveLength(2);
+    expect(recipe.instructions.length).toBeGreaterThan(0);
+  });
+});
+
+describe('isPrivateOrReservedIp', () => {
+  const blocked: Array<[string, string]> = [
+    ['127.0.0.1', 'loopback (literal blocked before)'],
+    ['127.0.0.5', 'rest of 127.0.0.0/8'],
+    ['10.0.0.1', '10.0.0.0/8 private'],
+    ['172.16.0.1', '172.16.0.0/12 lower bound'],
+    ['172.31.255.255', '172.16.0.0/12 upper bound'],
+    ['192.168.1.1', '192.168.0.0/16 private'],
+    ['169.254.169.254', 'link-local / cloud metadata'],
+    ['100.64.0.1', 'CGNAT 100.64.0.0/10'],
+    ['0.0.0.0', 'unspecified'],
+    ['255.255.255.255', 'broadcast'],
+    ['::1', 'IPv6 loopback'],
+    ['::', 'IPv6 unspecified'],
+    ['fe80::1', 'IPv6 link-local'],
+    ['fc00::1', 'IPv6 unique-local'],
+    ['fd12:3456::1', 'IPv6 unique-local (fd)'],
+    ['::ffff:127.0.0.1', 'IPv4-mapped loopback'],
+    ['::ffff:169.254.169.254', 'IPv4-mapped metadata'],
+    ['::ffff:10.0.0.1', 'IPv4-mapped private'],
+  ];
+
+  for (const [ip, label] of blocked) {
+    it(`blocks ${ip} (${label})`, () => {
+      expect(isPrivateOrReservedIp(ip)).toBe(true);
+    });
+  }
+
+  const allowed: Array<[string, string]> = [
+    ['8.8.8.8', 'public DNS'],
+    ['93.184.216.34', 'public (example.com)'],
+    ['172.15.0.1', 'just below 172.16/12'],
+    ['172.32.0.1', 'just above 172.31/12'],
+    ['1.1.1.1', 'public'],
+    ['2001:4860:4860::8888', 'public IPv6 (Google DNS)'],
+    ['::ffff:8.8.8.8', 'IPv4-mapped public'],
+  ];
+
+  for (const [ip, label] of allowed) {
+    it(`allows ${ip} (${label})`, () => {
+      expect(isPrivateOrReservedIp(ip)).toBe(false);
+    });
+  }
+
+  it('returns false for non-IP strings', () => {
+    expect(isPrivateOrReservedIp('example.com')).toBe(false);
+    expect(isPrivateOrReservedIp('not-an-ip')).toBe(false);
+    expect(isPrivateOrReservedIp('')).toBe(false);
+  });
+});
+
+describe('assertUrlSafe', () => {
+  // A resolver that must never be invoked (used for IP-literal hosts).
+  const throwLookup: LookupFn = async () => {
+    throw new Error('DNS lookup should not be called for IP literals');
+  };
+  const publicLookup: LookupFn = async () => [{ address: '8.8.8.8', family: 4 }];
+  const privateLookup: LookupFn = async () => [{ address: '10.0.0.5', family: 4 }];
+
+  it('rejects non-http(s) protocols', async () => {
+    await expect(assertUrlSafe('ftp://8.8.8.8/', throwLookup)).rejects.toThrow(
+      'Only http and https URLs are allowed'
+    );
+    await expect(assertUrlSafe('file:///etc/passwd', throwLookup)).rejects.toThrow(
+      'Only http and https URLs are allowed'
+    );
+  });
+
+  const blockedLiterals = [
+    'http://127.0.0.1/',
+    'http://127.0.0.5/',
+    'http://10.0.0.1/',
+    'http://192.168.1.1/',
+    'http://169.254.169.254/latest/meta-data',
+    'http://100.64.0.1/',
+    'http://0.0.0.0/',
+    'http://[::1]/',
+    'http://[fe80::1]/',
+    'http://[fc00::1]/',
+    'http://[::ffff:127.0.0.1]/',
+    'http://[::ffff:169.254.169.254]/',
+  ];
+
+  for (const url of blockedLiterals) {
+    it(`rejects literal ${url}`, async () => {
+      await expect(assertUrlSafe(url, throwLookup)).rejects.toThrow('private/reserved');
+    });
+  }
+
+  // Numeric IPv4 encodings the WHATWG URL parser normalizes into hostname.
+  const encodedLoopback = [
+    'http://2130706433/', // integer form of 127.0.0.1
+    'http://0x7f000001/', // hex form
+    'http://017700000001/', // octal form
+  ];
+
+  for (const url of encodedLoopback) {
+    it(`rejects encoded loopback ${url}`, async () => {
+      // Sanity: parser normalizes these to the dotted-decimal literal.
+      expect(new URL(url).hostname).toBe('127.0.0.1');
+      await expect(assertUrlSafe(url, throwLookup)).rejects.toThrow('private/reserved');
+    });
+  }
+
+  const allowedLiterals = ['http://8.8.8.8/', 'https://93.184.216.34/', 'http://[2001:4860:4860::8888]/'];
+
+  for (const url of allowedLiterals) {
+    it(`allows literal ${url}`, async () => {
+      await expect(assertUrlSafe(url, throwLookup)).resolves.toBeUndefined();
+    });
+  }
+
+  it('rejects a DNS name that resolves to a private address', async () => {
+    await expect(assertUrlSafe('http://internal.evil.example/', privateLookup)).rejects.toThrow(
+      'private/reserved'
+    );
+  });
+
+  it('allows a DNS name that resolves to a public address', async () => {
+    await expect(assertUrlSafe('http://recipes.example.com/', publicLookup)).resolves.toBeUndefined();
+  });
+
+  it('rejects a DNS name if ANY resolved address is private', async () => {
+    const mixedLookup: LookupFn = async () => [
+      { address: '8.8.8.8', family: 4 },
+      { address: '10.1.2.3', family: 4 },
+    ];
+    await expect(assertUrlSafe('http://rebind.example.com/', mixedLookup)).rejects.toThrow(
+      'private/reserved'
+    );
+  });
+
+  it('rejects when the host cannot be resolved', async () => {
+    const failLookup: LookupFn = async () => {
+      throw new Error('ENOTFOUND');
+    };
+    await expect(assertUrlSafe('http://nonexistent.invalid/', failLookup)).rejects.toThrow(
+      'Unable to resolve host'
+    );
+  });
+});
+
+describe('scrapeRecipe redirect handling', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const recipeHtml = `
+    <html>
+    <head>
+      <script type="application/ld+json">
+      {
+        "@type": "Recipe",
+        "name": "Redirect Pasta",
+        "recipeIngredient": ["200g pasta", "2 cups sauce"],
+        "recipeInstructions": ["Boil the pasta and add the sauce to serve."]
+      }
+      </script>
+    </head>
+    <body></body>
+    </html>
+  `;
+
+  it('re-validates every redirect hop and blocks a 302 to cloud metadata', async () => {
+    // First (and only) fetch: a public literal IP that 302s to the metadata IP.
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 302,
+      statusText: 'Found',
+      headers: new Headers({ Location: 'http://169.254.169.254/latest/meta-data' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(scrapeRecipe('http://93.184.216.34/recipe')).rejects.toThrow('private/reserved');
+
+    // fetch was called exactly once (the initial public URL) and NEVER for metadata.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const calledUrls = fetchMock.mock.calls.map((c) => String(c[0]));
+    expect(calledUrls.some((u) => u.includes('169.254.169.254'))).toBe(false);
+  });
+
+  it('follows a redirect to an allowed URL and scrapes it', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 301,
+        statusText: 'Moved Permanently',
+        headers: new Headers({ Location: 'http://8.8.8.8/final-recipe' }),
+      })
+      .mockResolvedValueOnce(mockFetchResponse(recipeHtml));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const recipe = await scrapeRecipe('http://93.184.216.34/recipe');
+    expect(recipe.name).toBe('Redirect Pasta');
+    expect(recipe.ingredients).toEqual(['200g pasta', '2 cups sauce']);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws when the redirect limit is exceeded', async () => {
+    // Always 302 to another allowed public IP -> should exhaust the hop budget.
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 302,
+      statusText: 'Found',
+      headers: new Headers({ Location: 'http://8.8.8.8/loop' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(scrapeRecipe('http://8.8.8.8/start')).rejects.toThrow(
+      'Too many redirects while fetching URL'
+    );
+  });
+
+  it('scrapes a direct 200 JSON-LD response through the manual-redirect path', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockFetchResponse(recipeHtml)));
+
+    const recipe = await scrapeRecipe('http://93.184.216.34/recipe');
+    expect(recipe.name).toBe('Redirect Pasta');
     expect(recipe.instructions.length).toBeGreaterThan(0);
   });
 });

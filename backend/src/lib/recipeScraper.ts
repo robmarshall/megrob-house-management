@@ -1,5 +1,7 @@
 import * as cheerio from 'cheerio';
 import he from 'he';
+import { isIP } from 'node:net';
+import { lookup as dnsLookup } from 'node:dns/promises';
 
 /**
  * Scraped recipe data from a URL
@@ -270,34 +272,155 @@ function findMicrodataRecipe(html: string): Record<string, unknown> | null {
 }
 
 /**
- * Validate that a URL uses an allowed protocol and does not point to a private/reserved IP range.
- * Prevents SSRF attacks when fetching user-provided URLs.
+ * Classify a dotted-decimal IPv4 address (given as four octets) as private/reserved.
  */
-function validateUrlSafety(parsedUrl: URL): void {
+function isPrivateOrReservedIpv4(a: number, b: number, c: number, d: number): boolean {
+  return (
+    a === 0 ||                                            // 0.0.0.0/8 ("this network" / unspecified)
+    a === 10 ||                                           // 10.0.0.0/8 (private)
+    a === 127 ||                                          // 127.0.0.0/8 (loopback)
+    (a === 100 && b >= 64 && b <= 127) ||                 // 100.64.0.0/10 (CGNAT)
+    (a === 169 && b === 254) ||                           // 169.254.0.0/16 (link-local)
+    (a === 172 && b >= 16 && b <= 31) ||                  // 172.16.0.0/12 (private)
+    (a === 192 && b === 168) ||                           // 192.168.0.0/16 (private)
+    (a === 255 && b === 255 && c === 255 && d === 255)    // 255.255.255.255 (broadcast)
+  );
+}
+
+/**
+ * Expand an IPv6 address string into its eight 16-bit hextets.
+ * Handles "::" compression and a trailing embedded dotted-decimal IPv4
+ * (e.g. "::ffff:127.0.0.1"). Returns null if the input is not a parseable IPv6.
+ */
+function expandIpv6(ip: string): number[] | null {
+  let s = ip.toLowerCase();
+
+  // Convert a trailing embedded IPv4 (dotted-decimal) into two hextets.
+  if (s.includes('.')) {
+    const lastColon = s.lastIndexOf(':');
+    const v4 = s.slice(lastColon + 1);
+    if (isIP(v4) !== 4) return null;
+    const [a, b, c, d] = v4.split('.').map(Number);
+    const hi = ((a << 8) | b).toString(16);
+    const lo = ((c << 8) | d).toString(16);
+    s = s.slice(0, lastColon + 1) + hi + ':' + lo;
+  }
+
+  const halves = s.split('::');
+  if (halves.length > 2) return null;
+
+  const head = halves[0] ? halves[0].split(':') : [];
+  const tail = halves.length === 2 ? (halves[1] ? halves[1].split(':') : []) : [];
+
+  let groups: string[];
+  if (halves.length === 2) {
+    const missing = 8 - (head.length + tail.length);
+    if (missing < 0) return null;
+    groups = [...head, ...Array(missing).fill('0'), ...tail];
+  } else {
+    groups = head;
+  }
+
+  if (groups.length !== 8) return null;
+  return groups.map((g) => parseInt(g || '0', 16));
+}
+
+/**
+ * Classify an IPv6 address string as private/reserved. Covers loopback (::1),
+ * unspecified (::), link-local (fe80::/10), unique-local (fc00::/7), and
+ * IPv4-mapped addresses (::ffff:a.b.c.d) whose embedded IPv4 is private/reserved.
+ */
+function isPrivateOrReservedIpv6(ip: string): boolean {
+  const h = expandIpv6(ip);
+  if (!h) return false;
+
+  // Unspecified ::
+  if (h.every((x) => x === 0)) return true;
+  // Loopback ::1
+  if (h.slice(0, 7).every((x) => x === 0) && h[7] === 1) return true;
+  // IPv4-mapped ::ffff:a.b.c.d -> classify the embedded IPv4
+  if (h[0] === 0 && h[1] === 0 && h[2] === 0 && h[3] === 0 && h[4] === 0 && h[5] === 0xffff) {
+    const a = (h[6] >> 8) & 0xff;
+    const b = h[6] & 0xff;
+    const c = (h[7] >> 8) & 0xff;
+    const d = h[7] & 0xff;
+    return isPrivateOrReservedIpv4(a, b, c, d);
+  }
+  // Link-local fe80::/10 (fe80 - febf)
+  if (h[0] >= 0xfe80 && h[0] <= 0xfebf) return true;
+  // Unique-local fc00::/7 (fc00 - fdff)
+  if (h[0] >= 0xfc00 && h[0] <= 0xfdff) return true;
+
+  return false;
+}
+
+/**
+ * Returns true if the given IP literal (IPv4 or IPv6) falls in a private,
+ * loopback, link-local, CGNAT, unique-local, or otherwise reserved range.
+ * Returns false for anything that is not a valid IP literal.
+ */
+export function isPrivateOrReservedIp(ip: string): boolean {
+  const family = isIP(ip);
+  if (family === 4) {
+    const [a, b, c, d] = ip.split('.').map(Number);
+    return isPrivateOrReservedIpv4(a, b, c, d);
+  }
+  if (family === 6) {
+    return isPrivateOrReservedIpv6(ip);
+  }
+  return false;
+}
+
+/** DNS resolver signature, kept injectable so tests can stub resolution. */
+export type LookupFn = (hostname: string) => Promise<Array<{ address: string; family: number }>>;
+
+/** Default resolver: resolve every A/AAAA record for the host. */
+const defaultLookup: LookupFn = (hostname) => dnsLookup(hostname, { all: true });
+
+/**
+ * Assert that a URL is safe to fetch: it must use http(s) and must not resolve
+ * to a private/reserved IP. IP-literal hosts are classified directly; DNS names
+ * are resolved (resolver injectable for tests) and rejected if ANY resolved
+ * address is private/reserved. Prevents SSRF against cloud metadata endpoints,
+ * RFC1918 hosts, and DNS names that point at internal addresses.
+ *
+ * NOTE: this validates-then-fetches. A residual TOCTOU / DNS-rebinding window
+ * remains because the connection may resolve the host again to a different IP;
+ * fully closing it requires connection-level IP pinning, which is out of scope.
+ */
+export async function assertUrlSafe(url: URL | string, lookupFn: LookupFn = defaultLookup): Promise<void> {
+  const parsed = typeof url === 'string' ? new URL(url) : url;
+
   // Only allow http and https protocols
-  if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
     throw new Error('Only http and https URLs are allowed');
   }
 
-  const hostname = parsedUrl.hostname;
+  // Strip IPv6 brackets that URL.hostname preserves (e.g. "[::1]").
+  const host = parsed.hostname.replace(/^\[/, '').replace(/\]$/, '');
 
-  // Block localhost and loopback
-  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
-    throw new Error('URLs pointing to localhost are not allowed');
+  // IP literal: classify directly (covers int/hex/octal IPv4 normalized by URL).
+  if (isIP(host) !== 0) {
+    if (isPrivateOrReservedIp(host)) {
+      throw new Error('URLs pointing to private/reserved IP addresses are not allowed');
+    }
+    return;
   }
 
-  // Block private/reserved IPv4 ranges
-  const ipv4Match = hostname.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
-  if (ipv4Match) {
-    const [, a, b] = ipv4Match.map(Number);
-    if (
-      a === 10 ||                           // 10.0.0.0/8
-      (a === 172 && b >= 16 && b <= 31) ||  // 172.16.0.0/12
-      (a === 192 && b === 168) ||           // 192.168.0.0/16
-      (a === 169 && b === 254) ||           // 169.254.0.0/16 (link-local)
-      a === 0                                // 0.0.0.0/8
-    ) {
-      throw new Error('URLs pointing to private/reserved IP ranges are not allowed');
+  // DNS name: resolve and reject if ANY address is private/reserved. This also
+  // catches "localhost" (resolves to loopback) and DNS-rebinding setups.
+  let addresses: Array<{ address: string; family: number }>;
+  try {
+    addresses = await lookupFn(host);
+  } catch {
+    throw new Error(`Unable to resolve host: ${host}`);
+  }
+  if (!addresses || addresses.length === 0) {
+    throw new Error(`Unable to resolve host: ${host}`);
+  }
+  for (const { address } of addresses) {
+    if (isPrivateOrReservedIp(address)) {
+      throw new Error('URLs pointing to private/reserved IP addresses are not allowed');
     }
   }
 }
@@ -321,6 +444,9 @@ const MAX_RESPONSE_SIZE = 5 * 1024 * 1024;
 /** Fetch timeout in milliseconds (10 seconds) */
 const FETCH_TIMEOUT_MS = 10_000;
 
+/** Maximum number of redirect hops to follow (each hop is re-validated). */
+const MAX_REDIRECTS = 5;
+
 /**
  * Scrape a recipe from a URL
  */
@@ -333,19 +459,40 @@ export async function scrapeRecipe(url: string): Promise<ScrapedRecipe> {
     throw new Error('Invalid URL provided');
   }
 
-  // SSRF protection: validate protocol and block private IPs
-  validateUrlSafety(parsedUrl);
+  // Fetch the page with timeout and size limit. Redirects are followed manually
+  // so that EVERY hop is re-validated for SSRF (a public URL can 302 to an
+  // internal address such as the cloud metadata endpoint).
+  let currentUrl = parsedUrl;
+  let redirectCount = 0;
+  let response: Response;
+  while (true) {
+    // SSRF protection: validate protocol and resolve host on every hop.
+    await assertUrlSafe(currentUrl);
 
-  // Fetch the page with timeout and size limit
-  const response = await fetch(parsedUrl.href, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.5',
-    },
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    redirect: 'follow',
-  });
+    response = await fetch(currentUrl.href, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+      },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      redirect: 'manual',
+    });
+
+    // Handle 3xx redirects ourselves so the target is re-validated before fetch.
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location');
+      if (location) {
+        if (redirectCount >= MAX_REDIRECTS) {
+          throw new Error('Too many redirects while fetching URL');
+        }
+        redirectCount++;
+        currentUrl = new URL(location, currentUrl);
+        continue;
+      }
+    }
+    break;
+  }
 
   if (!response.ok) {
     throw new Error(`Failed to fetch URL: ${response.status} ${response.statusText}`);
