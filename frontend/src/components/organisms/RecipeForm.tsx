@@ -187,7 +187,11 @@ export function RecipeForm({
                         type="number"
                         min="1"
                         {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || 4)}
+                        onChange={(e) =>
+                          field.onChange(
+                            e.target.value === "" ? "" : parseInt(e.target.value, 10)
+                          )
+                        }
                         disabled={isSubmitting}
                         className={cn(
                           "w-full px-3 py-2 rounded-lg border bg-white",

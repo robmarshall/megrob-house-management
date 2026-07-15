@@ -59,7 +59,8 @@ export default function AddItemBottomSheet({
   const onSubmit = async (data: QuickAddItemFormData) => {
     const category = data.category ? data.category : undefined;
     const unit = data.unit ? data.unit : undefined;
-    const quantity = data.quantity ?? 1;
+    // Empty (cleared) or non-numeric quantity defaults to 1 at submit.
+    const quantity = typeof data.quantity === "number" ? data.quantity : 1;
     await onAdd(data.name.trim(), category as BadgeVariant | undefined, quantity, unit as UnitType | undefined);
     methods.reset();
   };
@@ -110,7 +111,11 @@ export default function AddItemBottomSheet({
                     min="0.01"
                     step="any"
                     disabled={isSubmitting}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 1)}
+                    onChange={(e) =>
+                      field.onChange(
+                        e.target.value === "" ? "" : parseFloat(e.target.value)
+                      )
+                    }
                     className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors disabled:bg-gray-100 disabled:cursor-not-allowed"
                   />
                 )}

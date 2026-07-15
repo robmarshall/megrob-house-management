@@ -71,3 +71,73 @@ describe("RecipeForm ingredient validation", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+/**
+ * The servings input previously did `parseInt(e.target.value) || 4`, so
+ * clearing the field (or typing 0) snapped the value straight back to the
+ * default of 4 instead of letting the user leave it empty / type 0. These
+ * tests cover the fixed behavior: clearing stays empty and is caught by
+ * required-field validation on submit, while a valid number still submits.
+ */
+describe("RecipeForm servings number input", () => {
+  function getServingsInput(): HTMLInputElement {
+    const label = screen.getByText("Servings");
+    const wrapper = label.parentElement;
+    if (!wrapper) throw new Error("Servings label has no parent wrapper");
+    const input = wrapper.querySelector('input[type="number"]');
+    if (!input) throw new Error("Servings input not found");
+    return input as HTMLInputElement;
+  }
+
+  it("leaves the servings input empty instead of snapping back to 4, and blocks submit with a validation error", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <RecipeForm
+        initialData={makeInitialData("Flour")}
+        onSubmit={onSubmit}
+        onCancel={vi.fn()}
+      />
+    );
+
+    const servingsInput = getServingsInput();
+    expect(servingsInput).toHaveValue(4);
+
+    await user.clear(servingsInput);
+
+    // Was previously snapped back to 4 by the `|| 4` fallback.
+    expect(servingsInput).toHaveValue(null);
+
+    await user.click(screen.getByRole("button", { name: "Create Recipe" }));
+
+    await waitFor(() => {
+      expect(servingsInput.parentElement?.querySelector("p.text-red-600")).not.toBeNull();
+    });
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("submits the typed servings value when a valid number is entered", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <RecipeForm
+        initialData={makeInitialData("Flour")}
+        onSubmit={onSubmit}
+        onCancel={vi.fn()}
+      />
+    );
+
+    const servingsInput = getServingsInput();
+    await user.clear(servingsInput);
+    await user.type(servingsInput, "6");
+    expect(servingsInput).toHaveValue(6);
+
+    await user.click(screen.getByRole("button", { name: "Create Recipe" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    const submittedData = onSubmit.mock.calls[0][0] as { servings: number };
+    expect(submittedData.servings).toBe(6);
+  });
+});

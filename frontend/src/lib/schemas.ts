@@ -90,7 +90,7 @@ export type UpdateShoppingListItemFormData = z.infer<typeof updateShoppingListIt
 export const quickAddItemSchema = z.object({
   name: z.string().min(1, 'Item name is required').max(100, 'Name must be less than 100 characters'),
   category: z.enum(categoryEnum).or(z.literal('')).optional(),
-  quantity: z.number().positive('Quantity must be positive').optional(),
+  quantity: z.number().positive('Quantity must be positive').optional().or(z.literal('')),
   unit: z.enum(unitEnum).or(z.literal('')).optional(),
 })
 
