@@ -29,7 +29,14 @@ jobs:
       - name: Run database migrations
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npm run db:push
+        # db:migrate (drizzle-kit migrate) applies the committed migration files
+        # in order, tracked in drizzle.__drizzle_migrations. Unlike db:push it is
+        # non-interactive, never truncates, and — critically — exits non-zero on
+        # failure so a broken migration turns the run red instead of silently
+        # passing. Prod's journal is baselined at 0010, so this runs only new
+        # migrations. Requires the DATABASE_URL secret to use sslmode=no-verify
+        # (the DB's SSL cert is self-signed; 'require' would fail verification).
+        run: npm run db:migrate
 
       - name: Migration completed
         if: success()
