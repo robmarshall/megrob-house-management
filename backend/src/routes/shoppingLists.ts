@@ -1,11 +1,15 @@
 import { Hono } from 'hono';
-import { eq, and, desc, or, isNull, sql, type SQL } from 'drizzle-orm';
+import { eq, and, desc, or, isNull } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { shoppingLists } from '../db/schema.js';
 import { authMiddleware, getUserId } from '../middleware/auth.js';
 import { validateBody, getValidatedBody } from '../middleware/validation.js';
 import { logger } from '../lib/logger.js';
 import { getUserHouseholdId } from '../lib/household.js';
+import {
+  listShoppingLists,
+  listAccessCondition,
+} from '../services/shoppingListService.js';
 import {
   createShoppingListSchema,
   updateShoppingListSchema,
@@ -17,22 +21,6 @@ const app = new Hono();
 
 // Apply auth middleware to all routes
 app.use('*', authMiddleware);
-
-/**
- * Build a WHERE condition that scopes shopping lists to the user's household
- * or to the user's own lists if they don't belong to a household.
- */
-function listAccessCondition(userId: string, householdId: number | null): SQL {
-  if (householdId) {
-    // User belongs to a household: see all household lists + their own non-household lists
-    return or(
-      eq(shoppingLists.householdId, householdId),
-      and(eq(shoppingLists.createdBy, userId), isNull(shoppingLists.householdId))
-    )!;
-  }
-  // No household: only see own lists
-  return eq(shoppingLists.createdBy, userId);
-}
 
 /**
  * GET /api/shopping-lists
@@ -50,36 +38,9 @@ app.get('/', async (c) => {
     return c.json({ error: 'Invalid pageSize parameter: must be between 1 and 100' }, 400);
   }
 
-  const offset = (page - 1) * pageSize;
-
   try {
-    const householdId = await getUserHouseholdId(userId);
-    const accessFilter = listAccessCondition(userId, householdId);
-
-    // Get total count with filters applied
-    const countResult = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(shoppingLists)
-      .where(accessFilter);
-    const total = countResult[0]?.count || 0;
-    const totalPages = Math.ceil(total / pageSize);
-
-    // Get paginated data
-    const data = await db
-      .select()
-      .from(shoppingLists)
-      .where(accessFilter)
-      .orderBy(desc(shoppingLists.updatedAt))
-      .limit(pageSize)
-      .offset(offset);
-
-    return c.json({
-      data,
-      total,
-      page,
-      pageSize,
-      totalPages,
-    });
+    const result = await listShoppingLists(userId, { page, pageSize });
+    return c.json(result);
   } catch (error) {
     logger.error({ err: error }, "Error fetching shopping lists");
     return c.json({ error: 'Failed to fetch shopping lists' }, 500);
