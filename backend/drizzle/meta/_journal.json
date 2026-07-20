@@ -19,42 +19,42 @@
     {
       "idx": 2,
       "version": "7",
-      "when": 1735430400000,
+      "when": 1766952432739,
       "tag": "0002_user_favorites",
       "breakpoints": true
     },
     {
       "idx": 3,
       "version": "7",
-      "when": 1735516800000,
+      "when": 1766952432740,
       "tag": "0003_add_indexes",
       "breakpoints": true
     },
     {
       "idx": 4,
       "version": "7",
-      "when": 1738972800000,
+      "when": 1766952432741,
       "tag": "0004_recipe_categories_unique",
       "breakpoints": true
     },
     {
       "idx": 5,
       "version": "7",
-      "when": 1739059200000,
+      "when": 1766952432742,
       "tag": "0005_drop_is_favorite",
       "breakpoints": true
     },
     {
       "idx": 6,
       "version": "7",
-      "when": 1739145600000,
+      "when": 1766952432743,
       "tag": "0006_household_sharing",
       "breakpoints": true
     },
     {
       "idx": 7,
       "version": "7",
-      "when": 1739232000000,
+      "when": 1766952432744,
       "tag": "0007_recipe_image_url",
       "breakpoints": true
     },
