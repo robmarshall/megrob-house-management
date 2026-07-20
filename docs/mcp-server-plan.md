@@ -122,10 +122,14 @@ assistant, not just the wire.
 ## 5. Phases
 
 ### Phase 0 — OAuth schema migration (own PR, deployed first)
-- [ ] Generate the OIDC-provider tables into the Better Auth schema
-      (`@better-auth/cli generate`), reconcile with `db/auth-schema.ts`
-- [ ] `npm run db:generate` → new Drizzle migration
+- [x] Add the OIDC-provider tables to `db/auth-schema.ts` (shapes dumped directly
+      from the mcp plugin's schema declaration in the installed better-auth@1.4.18;
+      export names match the plugin's model names for adapter lookup)
+- [x] `npm run db:generate` → migration `0011_lovely_mimic.sql` (new tables only,
+      no drift on existing tables; full chain 0000–0011 verified against a clean
+      postgres:17-alpine container; 341 backend tests pass)
 - [ ] Ship through the GitHub Actions migrate workflow (`deploy-migrations.yml`)
+      — runs automatically on merge to main
 - [ ] Verify tables exist in prod via Coolify DB terminal
 - ⚠️ Prod migration journal is baselined at 0010 after the db:push incident — no
   ad-hoc migration paths, CI only.
