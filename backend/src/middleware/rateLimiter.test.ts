@@ -1,5 +1,29 @@
 import { describe, it, expect } from 'vitest';
-import { resolveClientIp } from './rateLimiter';
+import { resolveClientIp, createKeyedRateLimiter } from './rateLimiter';
+
+describe('createKeyedRateLimiter', () => {
+  it('allows up to maxRequests per key, then denies with retry info', () => {
+    const check = createKeyedRateLimiter(2, 60_000);
+    expect(check('user-a').allowed).toBe(true);
+    expect(check('user-a').allowed).toBe(true);
+
+    const denied = check('user-a');
+    expect(denied.allowed).toBe(false);
+    expect(denied.retryAfterSeconds).toBeGreaterThan(0);
+
+    // Separate keys have separate buckets
+    expect(check('user-b').allowed).toBe(true);
+  });
+
+  it('resets the bucket after the window expires', async () => {
+    const check = createKeyedRateLimiter(1, 100);
+    expect(check('user-c').allowed).toBe(true);
+    expect(check('user-c').allowed).toBe(false);
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(check('user-c').allowed).toBe(true);
+  });
+});
 
 describe('resolveClientIp', () => {
   const socket = '10.0.0.1';

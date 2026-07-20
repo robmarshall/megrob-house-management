@@ -21,40 +21,18 @@ import {
 } from '../lib/validation.js';
 import { enqueueRecipeImport } from '../lib/queue.js';
 import { addOrMergeItems, type AddItemInput } from '../services/shoppingListItemService.js';
-import { replaceRecipeRelations } from '../services/recipeRelations.js';
+import {
+  verifyRecipeAccess,
+  searchRecipes,
+  getRecipeDetail,
+  createRecipe,
+  updateRecipe,
+} from '../services/recipeService.js';
 
 const app = new Hono();
 
 // Apply auth middleware to all routes
 app.use('*', authMiddleware);
-
-/**
- * Helper to verify recipe access (household or personal ownership)
- * Returns the recipe if the user has access, null otherwise.
- * A user has access if:
- *   - The recipe belongs to their household, OR
- *   - The recipe is a personal recipe (no household) created by them
- */
-async function verifyRecipeAccess(recipeId: number, userId: string) {
-  const householdId = await getUserHouseholdId(userId);
-
-  let accessFilter: SQL;
-  if (householdId) {
-    accessFilter = or(
-      eq(recipes.householdId, householdId),
-      and(eq(recipes.createdBy, userId), isNull(recipes.householdId))
-    )!;
-  } else {
-    accessFilter = eq(recipes.createdBy, userId);
-  }
-
-  const [recipe] = await db
-    .select()
-    .from(recipes)
-    .where(and(eq(recipes.id, recipeId), accessFilter));
-
-  return recipe ?? null;
-}
 
 /**
  * Helper to verify recipe ownership (creator only)
@@ -116,185 +94,20 @@ app.get('/', async (c) => {
   const difficulty = c.req.query('difficulty');
 
   try {
-    const householdId = await getUserHouseholdId(userId);
-
-    // Build WHERE conditions dynamically
-    const conditions: SQL[] = [];
-
-    // Scope to household (or personal recipes if no household)
-    if (householdId) {
-      conditions.push(
-        or(
-          eq(recipes.householdId, householdId),
-          and(eq(recipes.createdBy, userId), isNull(recipes.householdId))
-        )!
-      );
-    } else {
-      conditions.push(eq(recipes.createdBy, userId));
-    }
-
-    // Status filter (default to 'ready' if not specified)
-    if (!status) {
-      conditions.push(eq(recipes.status, 'ready'));
-    } else if (status !== 'all') {
-      conditions.push(eq(recipes.status, status));
-    }
-
-    // Cuisine filter
-    if (cuisine) {
-      conditions.push(ilike(recipes.cuisine, cuisine));
-    }
-
-    // Difficulty filter
-    if (difficulty) {
-      conditions.push(ilike(recipes.difficulty, difficulty));
-    }
-
-    // Search filter (name, description, or ingredient name)
-    if (search) {
-      const searchPattern = `%${search}%`;
-      const ingredientSearchSubquery = db
-        .select({ recipeId: recipeIngredients.recipeId })
-        .from(recipeIngredients)
-        .where(and(
-          eq(recipeIngredients.recipeId, recipes.id),
-          ilike(recipeIngredients.name, searchPattern)
-        ));
-
-      conditions.push(
-        or(
-          ilike(recipes.name, searchPattern),
-          ilike(recipes.description, searchPattern),
-          exists(ingredientSearchSubquery)
-        )!
-      );
-    }
-
-    // Favorites filter (per-user)
-    if (favorite === 'true') {
-      const favoritesSubquery = db
-        .select({ recipeId: userFavorites.recipeId })
-        .from(userFavorites)
-        .where(and(
-          eq(userFavorites.recipeId, recipes.id),
-          eq(userFavorites.userId, userId)
-        ));
-      conditions.push(exists(favoritesSubquery));
-    }
-
-    // Meal type filter (any of the specified types)
-    if (mealType) {
-      const mealTypes = mealType.split(',').map((t) => t.trim().toLowerCase());
-      const mealTypeSubquery = db
-        .select({ recipeId: recipeCategories.recipeId })
-        .from(recipeCategories)
-        .where(and(
-          eq(recipeCategories.recipeId, recipes.id),
-          eq(recipeCategories.categoryType, 'meal_type'),
-          inArray(sql`LOWER(${recipeCategories.categoryValue})`, mealTypes)
-        ));
-      conditions.push(exists(mealTypeSubquery));
-    }
-
-    // Dietary filter (must have ALL specified dietary options)
-    if (dietary) {
-      const dietaryOptions = dietary.split(',').map((d) => d.trim().toLowerCase());
-      for (const diet of dietaryOptions) {
-        const dietarySubquery = db
-          .select({ recipeId: recipeCategories.recipeId })
-          .from(recipeCategories)
-          .where(and(
-            eq(recipeCategories.recipeId, recipes.id),
-            eq(recipeCategories.categoryType, 'dietary'),
-            ilike(recipeCategories.categoryValue, diet)
-          ));
-        conditions.push(exists(dietarySubquery));
-      }
-    }
-
-    // Allergen-free filter (must NOT have any of the specified allergens)
-    if (allergenFree) {
-      const allergensToExclude = allergenFree.split(',').map((a) => a.trim().toLowerCase());
-      const allergenSubquery = db
-        .select({ recipeId: recipeCategories.recipeId })
-        .from(recipeCategories)
-        .where(and(
-          eq(recipeCategories.recipeId, recipes.id),
-          eq(recipeCategories.categoryType, 'allergen'),
-          inArray(sql`LOWER(${recipeCategories.categoryValue})`, allergensToExclude)
-        ));
-      conditions.push(notExists(allergenSubquery));
-    }
-
-    // Build the WHERE clause
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-
-    // Get total count with filters applied
-    const countResult = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(recipes)
-      .where(whereClause);
-    const total = countResult[0]?.count || 0;
-    const totalPages = Math.ceil(total / pageSize);
-
-    // Get paginated data
-    const data = await db
-      .select()
-      .from(recipes)
-      .where(whereClause)
-      .orderBy(desc(recipes.updatedAt))
-      .limit(pageSize)
-      .offset(offset);
-
-    if (data.length === 0) {
-      return c.json({
-        data: [],
-        total,
-        page,
-        pageSize,
-        totalPages,
-      });
-    }
-
-    // Get user's favorites for the returned recipes
-    const recipeIds = data.map((r) => r.id);
-    const userFavoritesList = await db
-      .select({ recipeId: userFavorites.recipeId })
-      .from(userFavorites)
-      .where(and(
-        eq(userFavorites.userId, userId),
-        inArray(userFavorites.recipeId, recipeIds)
-      ));
-    const userFavoriteIds = new Set(userFavoritesList.map((f) => f.recipeId));
-
-    // Get categories only for the returned recipes
-    const categoriesForRecipes = await db
-      .select()
-      .from(recipeCategories)
-      .where(inArray(recipeCategories.recipeId, recipeIds));
-
-    const categoriesByRecipe = new Map<number, typeof categoriesForRecipes>();
-    for (const cat of categoriesForRecipes) {
-      if (!categoriesByRecipe.has(cat.recipeId)) {
-        categoriesByRecipe.set(cat.recipeId, []);
-      }
-      categoriesByRecipe.get(cat.recipeId)!.push(cat);
-    }
-
-    // Attach categories and user-specific favorite status to each recipe
-    const dataWithCategories = data.map((recipe) => ({
-      ...recipe,
-      isFavorite: userFavoriteIds.has(recipe.id),
-      categories: categoriesByRecipe.get(recipe.id) || [],
-    }));
-
-    return c.json({
-      data: dataWithCategories,
-      total,
+    const result = await searchRecipes(userId, {
       page,
       pageSize,
-      totalPages,
+      search,
+      favorite: favorite === 'true',
+      status,
+      mealTypes: mealType ? mealType.split(',') : undefined,
+      dietary: dietary ? dietary.split(',') : undefined,
+      allergenFree: allergenFree ? allergenFree.split(',') : undefined,
+      cuisine,
+      difficulty,
     });
+
+    return c.json(result);
   } catch (error) {
     logger.error({ err: error }, "Error fetching recipes");
     return c.json({ error: 'Failed to fetch recipes' }, 500);
@@ -425,37 +238,13 @@ app.get('/:id', async (c) => {
   }
 
   try {
-    const recipe = await verifyRecipeAccess(id, userId);
+    const recipe = await getRecipeDetail(userId, id);
 
     if (!recipe) {
       return c.json({ error: 'Recipe not found' }, 404);
     }
 
-    // Check if user has favorited this recipe
-    const [userFavorite] = await db
-      .select()
-      .from(userFavorites)
-      .where(and(eq(userFavorites.userId, userId), eq(userFavorites.recipeId, id)));
-
-    // Get ingredients
-    const ingredients = await db
-      .select()
-      .from(recipeIngredients)
-      .where(eq(recipeIngredients.recipeId, id))
-      .orderBy(asc(recipeIngredients.position));
-
-    // Get categories
-    const categories = await db
-      .select()
-      .from(recipeCategories)
-      .where(eq(recipeCategories.recipeId, id));
-
-    return c.json({
-      ...recipe,
-      isFavorite: !!userFavorite, // Per-user favorite status
-      ingredients,
-      categories,
-    });
+    return c.json(recipe);
   } catch (error) {
     logger.error({ err: error }, "Error fetching recipe");
     return c.json({ error: 'Failed to fetch recipe' }, 500);
@@ -471,49 +260,7 @@ app.post('/', validateBody(createRecipeSchema), async (c) => {
   const body = getValidatedBody<CreateRecipeInput>(c);
 
   try {
-    const {
-      name,
-      description,
-      servings,
-      prepTimeMinutes,
-      cookTimeMinutes,
-      instructions,
-      difficulty,
-      cuisine,
-      notes,
-      ingredients,
-      categories,
-    } = body;
-
-    const householdId = await getUserHouseholdId(userId);
-
-    // Create the recipe and its child rows atomically so a failure inserting
-    // ingredients/categories cannot leave a recipe with partial child rows.
-    const newRecipe = await db.transaction(async (tx) => {
-      const [created] = await tx
-        .insert(recipes)
-        .values({
-          name,
-          description: description || null,
-          householdId,
-          servings: servings || 4,
-          prepTimeMinutes: prepTimeMinutes || null,
-          cookTimeMinutes: cookTimeMinutes || null,
-          instructions: typeof instructions === 'string' ? instructions : JSON.stringify(instructions),
-          difficulty: difficulty || null,
-          cuisine: cuisine || null,
-          notes: notes || null,
-          status: 'ready',
-          createdBy: userId,
-          updatedBy: userId,
-        })
-        .returning();
-
-      await replaceRecipeRelations(tx, created.id, { ingredients, categories });
-
-      return created;
-    });
-
+    const newRecipe = await createRecipe(userId, body);
     return c.json(newRecipe, 201);
   } catch (error) {
     logger.error({ err: error }, "Error creating recipe");
@@ -538,57 +285,18 @@ app.patch('/:id', validateBody(updateRecipeSchema), async (c) => {
   }
 
   try {
-    // Shared-edit: any household member can edit any household recipe (intentional policy)
-    const existingRecipe = await verifyRecipeAccess(id, userId);
+    // Shared-edit: any household member can edit any household recipe
+    // (intentional policy; the service enforces access + atomic child-row
+    // replacement).
+    const updatedRecipe = await updateRecipe(
+      userId,
+      id,
+      getValidatedBody<UpdateRecipeInput>(c)
+    );
 
-    if (!existingRecipe) {
+    if (!updatedRecipe) {
       return c.json({ error: 'Recipe not found' }, 404);
     }
-
-    const {
-      name,
-      description,
-      servings,
-      prepTimeMinutes,
-      cookTimeMinutes,
-      instructions,
-      difficulty,
-      cuisine,
-      notes,
-      rating,
-      ingredients,
-      categories,
-    } = getValidatedBody<UpdateRecipeInput>(c);
-
-    // Update the recipe and replace its child rows atomically so a failure
-    // after deleting ingredients/categories cannot leave the recipe with zero
-    // child rows (the data-loss bug this transaction closes).
-    const updatedRecipe = await db.transaction(async (tx) => {
-      const [updated] = await tx
-        .update(recipes)
-        .set({
-          name: name !== undefined ? name : existingRecipe.name,
-          description: description !== undefined ? description : existingRecipe.description,
-          servings: servings !== undefined ? servings : existingRecipe.servings,
-          prepTimeMinutes: prepTimeMinutes !== undefined ? prepTimeMinutes : existingRecipe.prepTimeMinutes,
-          cookTimeMinutes: cookTimeMinutes !== undefined ? cookTimeMinutes : existingRecipe.cookTimeMinutes,
-          instructions: instructions !== undefined
-            ? (typeof instructions === 'string' ? instructions : JSON.stringify(instructions))
-            : existingRecipe.instructions,
-          difficulty: difficulty !== undefined ? difficulty : existingRecipe.difficulty,
-          cuisine: cuisine !== undefined ? cuisine : existingRecipe.cuisine,
-          notes: notes !== undefined ? notes : existingRecipe.notes,
-          rating: rating !== undefined ? rating : existingRecipe.rating,
-          updatedBy: userId,
-          updatedAt: new Date(),
-        })
-        .where(eq(recipes.id, id))
-        .returning();
-
-      await replaceRecipeRelations(tx, id, { ingredients, categories });
-
-      return updated;
-    });
 
     return c.json(updatedRecipe);
   } catch (error) {

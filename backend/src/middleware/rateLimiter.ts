@@ -71,6 +71,50 @@ export function resolveClientIp(
  * @param maxRequests - Maximum requests allowed within the window
  * @param windowMs - Time window in milliseconds
  */
+export interface RateLimitDecision {
+  allowed: boolean;
+  retryAfterSeconds?: number;
+}
+
+/**
+ * In-memory rate limiter keyed by an arbitrary string (e.g. a userId) instead
+ * of the client IP. Used for the MCP endpoint, where all traffic arrives from
+ * Anthropic's shared egress IPs and per-IP limiting would throttle every
+ * connected user as one client.
+ */
+export function createKeyedRateLimiter(maxRequests: number, windowMs: number) {
+  const store = new Map<string, RateLimitEntry>();
+
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of store) {
+      if (now >= entry.resetAt) {
+        store.delete(key);
+      }
+    }
+  }, windowMs * 2).unref();
+
+  return function check(key: string): RateLimitDecision {
+    const now = Date.now();
+    const entry = store.get(key);
+
+    if (!entry || now >= entry.resetAt) {
+      store.set(key, { count: 1, resetAt: now + windowMs });
+      return { allowed: true };
+    }
+
+    if (entry.count >= maxRequests) {
+      return {
+        allowed: false,
+        retryAfterSeconds: Math.ceil((entry.resetAt - now) / 1000),
+      };
+    }
+
+    entry.count++;
+    return { allowed: true };
+  };
+}
+
 export function rateLimiter(maxRequests: number, windowMs: number) {
   const store = new Map<string, RateLimitEntry>();
 

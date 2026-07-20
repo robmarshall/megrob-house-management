@@ -150,7 +150,10 @@ assistant, not just the wire.
       authorize→login redirect (curl against dev server), plus a DB-backed
       integration suite (`routes/mcp.test.ts`) covering token auth and the tool
       call end-to-end through the transport
-- [ ] Deploy and connect from claude.ai for real
+- [x] Deploy and connect from claude.ai for real — connector "Megrob House"
+      added 2026-07-20; DCR + authorize auto-approved via live session, no login
+      page needed; `list_shopping_lists` verified returning real prod data.
+      Coolify proxies `/.well-known/*` fine; no `trustedOrigins` change needed.
 - [x] **Spike answers (from reading the 1.4.18 source):**
   - Consent: auto-approved when no `consentPage` is configured (even
     `prompt=consent` falls through) → no consent UI needed. Adding the
@@ -164,13 +167,20 @@ assistant, not just the wire.
     `/api/mcp` route enforces expiry itself (covered by a test).
 
 ### Phase 2 — Shopping list tools
-- [ ] Extract services for get-items / update-item / remove-item
-- [ ] Implement the 5 shopping-list tools
-- [ ] Per-user rate limiting on `/api/mcp` (see risks — not per-IP)
-- [ ] Tag MCP-originated writes in the request logger (`via: "mcp"`) for auditability
+- [x] Extract services for get-items / update-item / remove-item
+      (`shoppingListItemService.ts`; routes refactored to share them)
+- [x] Implement the 5 shopping-list tools (get_shopping_list,
+      add_shopping_list_items w/ merge, update_shopping_list_item,
+      remove_shopping_list_item + existing list_shopping_lists)
+- [x] Per-user rate limiting on `/api/mcp` (`createKeyedRateLimiter`, 60/min
+      per userId — not per-IP)
+- [x] Every MCP tool call logged with `via: "mcp"` + userId + tool name
 
 ### Phase 3 — Recipe tools
-- [ ] Extract recipe services; implement the 4 recipe tools
+- [x] Extract recipe services (`recipeService.ts`: verifyRecipeAccess,
+      searchRecipes, getRecipeDetail, createRecipe, updateRecipe; routes
+      refactored to share them); implement search_recipes, get_recipe,
+      create_recipe, update_recipe
 
 ### Phase 4 — Meal plans + composite
 - [ ] The 3 meal-plan tools + `add_recipe_to_shopping_list`
