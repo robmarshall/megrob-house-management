@@ -2,8 +2,15 @@ import { Hono, type Context } from 'hono';
 import { StreamableHTTPTransport } from '@hono/mcp';
 import { auth } from '../lib/auth.js';
 import { createMcpServer } from '../mcp/server.js';
+import { createKeyedRateLimiter } from '../middleware/rateLimiter.js';
 
 const app = new Hono();
+
+// Per-USER limit (not per-IP): all claude.ai traffic shares Anthropic egress
+// IPs, so an IP bucket would throttle every connected user as one client.
+// 60 requests/min is generous for tool-call traffic while still capping a
+// runaway agent loop.
+const checkMcpRateLimit = createKeyedRateLimiter(60, 60_000);
 
 /**
  * 401 challenge per the MCP auth spec: WWW-Authenticate points the client at
@@ -40,6 +47,19 @@ app.all('/', async (c) => {
     new Date(token.accessTokenExpiresAt) <= new Date()
   ) {
     return unauthorized(c);
+  }
+
+  const rate = checkMcpRateLimit(token.userId);
+  if (!rate.allowed) {
+    c.header('Retry-After', String(rate.retryAfterSeconds ?? 60));
+    return c.json(
+      {
+        jsonrpc: '2.0',
+        error: { code: -32000, message: 'Rate limit exceeded. Retry shortly.' },
+        id: null,
+      },
+      429
+    );
   }
 
   const server = createMcpServer(token.userId);

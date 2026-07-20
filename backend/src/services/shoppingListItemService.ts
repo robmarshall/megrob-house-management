@@ -4,13 +4,14 @@
  */
 
 import { db } from '../db/index.js';
-import { shoppingListItems } from '../db/schema.js';
-import { eq, asc, sql } from 'drizzle-orm';
+import { shoppingListItems, shoppingLists } from '../db/schema.js';
+import { eq, and, asc, sql } from 'drizzle-orm';
 import {
   findMatchingItem,
   combineNotes,
   type MatchableItem,
 } from '../lib/itemMatcher.js';
+import { verifyShoppingListAccess } from '../lib/shoppingListAccess.js';
 
 // Namespace constant for Postgres advisory locks used to serialize
 // add-or-merge operations per shopping list. 0x5348 == 'SH' (arbitrary).
@@ -168,4 +169,151 @@ export async function addOrMergeItems(
   }
 
   return results;
+}
+
+/**
+ * Normalize a shopping list item for API/tool responses:
+ * converts quantity from PostgreSQL numeric (string) to number.
+ */
+export function normalizeItem<T extends { quantity: string | null }>(
+  item: T
+): T & { quantity: number } {
+  return {
+    ...item,
+    quantity: item.quantity ? parseFloat(item.quantity) : 1,
+  };
+}
+
+type ShoppingListRow = typeof shoppingLists.$inferSelect;
+type ShoppingListItemRow = typeof shoppingListItems.$inferSelect;
+
+export interface GetItemsResult {
+  list: ShoppingListRow;
+  data: ShoppingListItemRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+/**
+ * Paginated items for one shopping list. Access is verified against the user
+ * (household or personal ownership); returns null when the list doesn't exist
+ * or the user can't see it. Shared by the REST route and the MCP tool.
+ */
+export async function getShoppingListItems(
+  userId: string,
+  listId: number,
+  { page = 1, pageSize = 50 }: { page?: number; pageSize?: number } = {}
+): Promise<GetItemsResult | null> {
+  const list = await verifyShoppingListAccess(listId, userId);
+  if (!list) return null;
+
+  const offset = (page - 1) * pageSize;
+
+  const countResult = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(shoppingListItems)
+    .where(eq(shoppingListItems.listId, listId));
+  const total = countResult[0]?.count || 0;
+  const totalPages = Math.ceil(total / pageSize);
+
+  const data = await db
+    .select()
+    .from(shoppingListItems)
+    .where(eq(shoppingListItems.listId, listId))
+    .orderBy(asc(shoppingListItems.position), asc(shoppingListItems.createdAt))
+    .limit(pageSize)
+    .offset(offset);
+
+  return { list, data, total, page, pageSize, totalPages };
+}
+
+export interface UpdateItemInput {
+  name?: string;
+  category?: string;
+  quantity?: number;
+  unit?: string;
+  notes?: string;
+  checked?: boolean;
+  position?: number;
+}
+
+export type ItemMutationResult =
+  | { ok: true; item: ShoppingListItemRow }
+  | { ok: false; reason: 'list_not_found' | 'item_not_found' };
+
+/**
+ * Partial update of one item. Only fields passed as non-undefined change;
+ * checking/unchecking also stamps/clears checkedAt + checkedBy.
+ */
+export async function updateShoppingListItem(
+  userId: string,
+  listId: number,
+  itemId: number,
+  input: UpdateItemInput
+): Promise<ItemMutationResult> {
+  const list = await verifyShoppingListAccess(listId, userId);
+  if (!list) return { ok: false, reason: 'list_not_found' };
+
+  const [existingItem] = await db
+    .select()
+    .from(shoppingListItems)
+    .where(
+      and(eq(shoppingListItems.id, itemId), eq(shoppingListItems.listId, listId))
+    );
+  if (!existingItem) return { ok: false, reason: 'item_not_found' };
+
+  const { name, category, quantity, unit, notes, checked, position } = input;
+
+  const [updatedItem] = await db
+    .update(shoppingListItems)
+    .set({
+      name: name !== undefined ? name : existingItem.name,
+      category: category !== undefined ? category : existingItem.category,
+      quantity:
+        quantity !== undefined ? quantity.toString() : existingItem.quantity,
+      unit: unit !== undefined ? unit : existingItem.unit,
+      notes: notes !== undefined ? notes : existingItem.notes,
+      checked: checked !== undefined ? checked : existingItem.checked,
+      checkedAt:
+        checked === true
+          ? new Date()
+          : checked === false
+          ? null
+          : existingItem.checkedAt,
+      checkedBy:
+        checked === true ? userId : checked === false ? null : existingItem.checkedBy,
+      position: position !== undefined ? position : existingItem.position,
+      updatedBy: userId,
+      updatedAt: new Date(),
+    })
+    .where(eq(shoppingListItems.id, itemId))
+    .returning();
+
+  return { ok: true, item: updatedItem };
+}
+
+/**
+ * Delete one item from a list the user can access.
+ */
+export async function removeShoppingListItem(
+  userId: string,
+  listId: number,
+  itemId: number
+): Promise<ItemMutationResult> {
+  const list = await verifyShoppingListAccess(listId, userId);
+  if (!list) return { ok: false, reason: 'list_not_found' };
+
+  const [existingItem] = await db
+    .select()
+    .from(shoppingListItems)
+    .where(
+      and(eq(shoppingListItems.id, itemId), eq(shoppingListItems.listId, listId))
+    );
+  if (!existingItem) return { ok: false, reason: 'item_not_found' };
+
+  await db.delete(shoppingListItems).where(eq(shoppingListItems.id, itemId));
+
+  return { ok: true, item: existingItem };
 }
