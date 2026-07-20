@@ -2,6 +2,10 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import dotenv from "dotenv";
+import {
+  oAuthDiscoveryMetadata,
+  oAuthProtectedResourceMetadata,
+} from "better-auth/plugins";
 import { auth } from "./lib/auth.js";
 import { logger } from "./lib/logger.js";
 import { getMissingEnvVars, EMAIL_ENV_VARS } from "./lib/env.js";
@@ -13,6 +17,7 @@ import shoppingListItemsRoutes from "./routes/shoppingListItems.js";
 import recipesRoutes from "./routes/recipes.js";
 import householdsRoutes from "./routes/households.js";
 import mealPlansRoutes from "./routes/mealPlans.js";
+import mcpRoutes from "./routes/mcp.js";
 
 dotenv.config();
 
@@ -75,6 +80,25 @@ app.get("/health", (c) => {
   return c.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// OAuth discovery documents for MCP clients (public, no auth). Served at the
+// origin root per RFC 8414/9728; the wildcard variants cover path-suffixed
+// probes like /.well-known/oauth-protected-resource/api/mcp that claude.ai
+// issues for path-scoped resources.
+const discoveryHandler = oAuthDiscoveryMetadata(auth);
+const protectedResourceHandler = oAuthProtectedResourceMetadata(auth);
+app.get("/.well-known/oauth-authorization-server", (c) =>
+  discoveryHandler(c.req.raw)
+);
+app.get("/.well-known/oauth-authorization-server/*", (c) =>
+  discoveryHandler(c.req.raw)
+);
+app.get("/.well-known/oauth-protected-resource", (c) =>
+  protectedResourceHandler(c.req.raw)
+);
+app.get("/.well-known/oauth-protected-resource/*", (c) =>
+  protectedResourceHandler(c.req.raw)
+);
+
 // Rate limiting for auth endpoints (applied before auth handler)
 // Login: 5 attempts per minute per IP
 app.use("/api/auth/sign-in/*", rateLimiter(5, 60_000));
@@ -99,6 +123,8 @@ app.route("/api/shopping-lists", shoppingListsRoutes);
 app.route("/api/shopping-lists", shoppingListItemsRoutes);
 app.route("/api/recipes", recipesRoutes);
 app.route("/api/meal-plans", mealPlansRoutes);
+// MCP endpoint (bearer-token auth inside the route, not authMiddleware)
+app.route("/api/mcp", mcpRoutes);
 
 const port = parseInt(process.env.PORT || "3000");
 

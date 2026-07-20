@@ -128,26 +128,40 @@ assistant, not just the wire.
 - [x] `npm run db:generate` → migration `0011_lovely_mimic.sql` (new tables only,
       no drift on existing tables; full chain 0000–0011 verified against a clean
       postgres:17-alpine container; 341 backend tests pass)
-- [ ] Ship through the GitHub Actions migrate workflow (`deploy-migrations.yml`)
-      — runs automatically on merge to main
-- [ ] Verify tables exist in prod via Coolify DB terminal
+- [x] Ship through the GitHub Actions migrate workflow (`deploy-migrations.yml`)
+      — PR #1 merged 2026-07-20, workflow run #16 green
+- [x] Verify tables exist in prod via Coolify DB terminal — all three tables
+      present, journal row 12 recorded
 - ⚠️ Prod migration journal is baselined at 0010 after the db:push incident — no
   ad-hoc migration paths, CI only.
 
 ### Phase 1 — Spike the pipe (smallest possible surface)
-- [ ] Add `better-auth` mcp plugin (`loginPage` → frontend login route)
-- [ ] Mount `/.well-known/oauth-authorization-server` and
-      `/.well-known/oauth-protected-resource` at the Hono root
-- [ ] Mount `/api/mcp` via `@hono/mcp` + MCP SDK, stateless mode, one read-only tool:
-      `list_shopping_lists`
-- [ ] Frontend: login page honors a redirect-back param so the OAuth flow resumes
-- [ ] Local E2E via tunnel (cloudflared/ngrok, `BETTER_AUTH_URL` = tunnel URL),
-      then deploy and connect from claude.ai for real
-- [ ] **Spike answers these open questions:**
-  - Does the plugin require a consent screen, or auto-consent? (Docs are silent;
-    dist references consent state.) Determines extra frontend scope.
-  - Does the claude.ai callback need anything added to `trustedOrigins`?
-  - Does the Coolify proxy pass `/.well-known/*` through? (Check before building.)
+- [x] Add `better-auth` mcp plugin (`loginPage` → `${FRONTEND_URL}/login`)
+- [x] Mount `/.well-known/oauth-authorization-server` and
+      `/.well-known/oauth-protected-resource` at the Hono root, including
+      RFC 9728 path-suffixed variants (`.../api/mcp`)
+- [x] Mount `/api/mcp` via `@hono/mcp` + MCP SDK, stateless mode, one read-only tool:
+      `list_shopping_lists` (service extracted to `services/shoppingListService.ts`)
+- [x] Frontend: LoginForm resumes the OAuth flow — top-level navigation back to
+      the authorize endpoint when OAuth params are in the login URL, with a
+      session re-check on error (the plugin's after-hook can hijack the sign-in
+      XHR into a cross-origin redirect)
+- [x] Local smoke: discovery docs, 401 challenge with `WWW-Authenticate`,
+      authorize→login redirect (curl against dev server), plus a DB-backed
+      integration suite (`routes/mcp.test.ts`) covering token auth and the tool
+      call end-to-end through the transport
+- [ ] Deploy and connect from claude.ai for real
+- [x] **Spike answers (from reading the 1.4.18 source):**
+  - Consent: auto-approved when no `consentPage` is configured (even
+    `prompt=consent` falls through) → no consent UI needed. Adding the
+    connector in claude.ai is the consent act.
+  - `trustedOrigins`: redirect URIs are validated against the DCR-registered
+    client, not `trustedOrigins`; no change needed locally. Confirm on the
+    first real claude.ai connect.
+  - Coolify `/.well-known/*` passthrough: still to confirm at deploy.
+  - **Found + mitigated:** `getMcpSession` in 1.4.18 never checks
+    `accessTokenExpiresAt` — expired tokens would still authenticate. Our
+    `/api/mcp` route enforces expiry itself (covered by a test).
 
 ### Phase 2 — Shopping list tools
 - [ ] Extract services for get-items / update-item / remove-item

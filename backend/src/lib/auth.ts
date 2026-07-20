@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { mcp } from "better-auth/plugins";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "../db/index.js";
 import { sendPasswordResetEmail } from "./email.js";
@@ -30,6 +31,15 @@ export const auth = betterAuth({
     },
   },
   trustedOrigins: [process.env.FRONTEND_URL!],
+  plugins: [
+    // OAuth provider for MCP clients (claude.ai custom connector). Unauthenticated
+    // authorize requests are redirected to the frontend login page with the OAuth
+    // query preserved; LoginForm resumes the flow after sign-in. No consentPage is
+    // configured, so authorization is auto-approved for the logged-in user.
+    mcp({
+      loginPage: `${process.env.FRONTEND_URL}/login`,
+    }),
+  ],
 });
 
 // Export type for use in middleware
