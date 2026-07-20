@@ -5,7 +5,7 @@ import { households, householdMembers, householdInvitations, user } from '../db/
 import { authMiddleware, getUserId } from '../middleware/auth.js';
 import { validateBody, getValidatedBody } from '../middleware/validation.js';
 import { logger } from '../lib/logger.js';
-import { getUserHouseholdId } from '../lib/household.js';
+import { getUserHouseholdId, adoptPersonalData, reclaimPersonalData } from '../lib/household.js';
 import {
   createHouseholdSchema,
   inviteMemberSchema,
@@ -122,6 +122,9 @@ app.post('/', validateBody(createHouseholdSchema), async (c) => {
           userId,
           role: 'owner',
         });
+
+      // Bring the creator's existing personal data into the new household
+      await adoptPersonalData(tx, userId, newHousehold.id);
 
       return newHousehold;
     });
@@ -369,6 +372,9 @@ app.post('/join/:invitationId', async (c) => {
         .update(householdInvitations)
         .set({ status: 'accepted' })
         .where(eq(householdInvitations.id, invitationId));
+
+      // Bring the new member's existing personal data into the household
+      await adoptPersonalData(tx, userId, invitation.householdId);
     });
 
     return c.json({ message: 'Successfully joined household' });
@@ -472,12 +478,17 @@ app.delete('/members/:memberId', async (c) => {
       return c.json({ error: 'User is not a member of this household' }, 404);
     }
 
-    await db
-      .delete(householdMembers)
-      .where(and(
-        eq(householdMembers.householdId, householdId),
-        eq(householdMembers.userId, targetUserId)
-      ));
+    await db.transaction(async (tx) => {
+      // The removed member keeps the data they created
+      await reclaimPersonalData(tx, targetUserId, householdId);
+
+      await tx
+        .delete(householdMembers)
+        .where(and(
+          eq(householdMembers.householdId, householdId),
+          eq(householdMembers.userId, targetUserId)
+        ));
+    });
 
     return c.json({ message: 'Member removed successfully' });
   } catch (error) {
@@ -523,6 +534,11 @@ app.post('/leave', async (c) => {
 
       // Owner is the only member - delete the household
       await db.transaction(async (tx) => {
+        // Return the owner's data to personal scope BEFORE the household
+        // delete: household_id FKs cascade, so anything still attached to the
+        // household would be deleted with it.
+        await reclaimPersonalData(tx, userId, householdId);
+
         await tx
           .delete(householdMembers)
           .where(eq(householdMembers.userId, userId));
@@ -534,13 +550,17 @@ app.post('/leave', async (c) => {
           .where(eq(households.id, householdId));
       });
     } else {
-      // Regular member - just remove membership
-      await db
-        .delete(householdMembers)
-        .where(and(
-          eq(householdMembers.householdId, householdId),
-          eq(householdMembers.userId, userId)
-        ));
+      // Regular member - remove membership and take their own data with them
+      await db.transaction(async (tx) => {
+        await reclaimPersonalData(tx, userId, householdId);
+
+        await tx
+          .delete(householdMembers)
+          .where(and(
+            eq(householdMembers.householdId, householdId),
+            eq(householdMembers.userId, userId)
+          ));
+      });
     }
 
     return c.json({ message: 'Successfully left household' });
