@@ -5,6 +5,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api/client';
+import { collectionPredicate } from '@/lib/api/queryKeys';
 import { toast } from '@/lib/toast';
 import type {
   MealPlan,
@@ -197,10 +198,10 @@ export function useMealPlanData() {
     onSuccess: () => {
       invalidateMealPlans(queryClient);
       toast.success('Shopping list created from meal plan');
-      // Also invalidate shopping lists cache
+      // Also invalidate shopping lists cache, including per-list item
+      // queries ('shopping-lists/:id/items') so list detail pages refresh.
       queryClient.invalidateQueries({
-        predicate: (query) =>
-          Array.isArray(query.queryKey) && query.queryKey[0] === 'shopping-lists',
+        predicate: collectionPredicate('shopping-lists'),
       });
     },
     onError: (error: Error) => {

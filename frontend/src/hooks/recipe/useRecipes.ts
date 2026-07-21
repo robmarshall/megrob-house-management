@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useData } from '../useData';
 import { usePaginatedData } from '../usePaginatedData';
 import { apiGet, apiPost } from '@/lib/api/client';
+import { collectionPredicate } from '@/lib/api/queryKeys';
 import { toast } from '@/lib/toast';
 import type { PaginationOptions } from '@/types/api';
 import type { Recipe, ImportRecipeInput, RecipeStatus } from '@/types/recipe';
@@ -174,12 +175,11 @@ export function useRecipeData() {
     },
     onSuccess: () => {
       toast.success('Ingredients added to shopping list');
-      // Invalidate shopping lists cache
+      // Invalidate shopping lists cache, including per-list item queries
+      // ('shopping-lists/:id/items') so the list detail page shows the
+      // newly added ingredients immediately.
       queryClient.invalidateQueries({
-        predicate: (query) => {
-          const key = query.queryKey;
-          return Array.isArray(key) && key[0] === 'shopping-lists';
-        },
+        predicate: collectionPredicate('shopping-lists'),
       });
     },
     onError: (error: Error) => {
