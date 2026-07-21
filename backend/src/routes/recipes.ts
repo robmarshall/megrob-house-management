@@ -13,11 +13,13 @@ import {
   importRecipeSchema,
   createFeedbackSchema,
   addToShoppingListSchema,
+  shareRecipeSchema,
   type CreateRecipeInput,
   type UpdateRecipeInput,
   type ImportRecipeInput,
   type CreateFeedbackInput,
   type AddToShoppingListInput,
+  type ShareRecipeInput,
 } from '../lib/validation.js';
 import { enqueueRecipeImport } from '../lib/queue.js';
 import { addOrMergeItems, type AddItemInput } from '../services/shoppingListItemService.js';
@@ -28,6 +30,7 @@ import {
   getRecipeDetail,
   createRecipe,
   updateRecipe,
+  setRecipeSharing,
 } from '../services/recipeService.js';
 
 const app = new Hono();
@@ -333,6 +336,35 @@ app.delete('/:id', async (c) => {
   } catch (error) {
     logger.error({ err: error }, "Error deleting recipe");
     return c.json({ error: 'Failed to delete recipe' }, 500);
+  }
+});
+
+/**
+ * POST /api/recipes/:id/share
+ * Enable/disable public sharing for a recipe.
+ * Shared-edit policy: any user with access to the recipe may toggle sharing.
+ * Returns { isPublic, publicId } — the frontend builds the share URL from publicId.
+ */
+app.post('/:id/share', validateBody(shareRecipeSchema), async (c) => {
+  const userId = getUserId(c);
+  const id = parseInt(c.req.param('id'));
+
+  if (isNaN(id)) {
+    return c.json({ error: 'Invalid recipe ID' }, 400);
+  }
+
+  try {
+    const { isPublic } = getValidatedBody<ShareRecipeInput>(c);
+    const result = await setRecipeSharing(userId, id, isPublic);
+
+    if (!result) {
+      return c.json({ error: 'Recipe not found' }, 404);
+    }
+
+    return c.json(result);
+  } catch (error) {
+    logger.error({ err: error }, "Error updating recipe sharing");
+    return c.json({ error: 'Failed to update recipe sharing' }, 500);
   }
 });
 

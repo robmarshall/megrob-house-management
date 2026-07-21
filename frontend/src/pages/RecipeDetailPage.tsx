@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router";
-import { ArrowLeftIcon, StarIcon, ShoppingCartIcon, PlusIcon, PrinterIcon, PlayIcon } from "@heroicons/react/24/outline";
+import { ArrowLeftIcon, StarIcon, ShoppingCartIcon, PlusIcon, PlayIcon, PencilIcon, ShareIcon } from "@heroicons/react/24/outline";
 import { StarIcon as StarIconSolid } from "@heroicons/react/24/solid";
 import { MainLayout } from "@/components/templates/MainLayout";
 import { Button } from "@/components/atoms/Button";
@@ -15,6 +15,7 @@ import { AddFeedbackBottomSheet } from "@/components/molecules/AddFeedbackBottom
 import { FeedbackTimeline } from "@/components/molecules/FeedbackTimeline";
 import AddToShoppingListBottomSheet from "@/components/molecules/AddToShoppingListBottomSheet";
 import { ConfirmDeleteBottomSheet } from "@/components/molecules/ConfirmDeleteBottomSheet";
+import { ShareRecipeBottomSheet } from "@/components/molecules/ShareRecipeBottomSheet";
 import { useRecipe, useRecipeData } from "@/hooks/recipe/useRecipes";
 import { useRecipeFeedback, useRecipeFeedbackMutations } from "@/hooks/recipe/useRecipeFeedback";
 import { useAuth } from "@/hooks/useAuth";
@@ -28,11 +29,12 @@ export function RecipeDetailPage() {
   const [currentServings, setCurrentServings] = useState<number | null>(null);
   const [isShoppingListOpen, setIsShoppingListOpen] = useState(false);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeletingRecipe, setIsDeletingRecipe] = useState(false);
 
   const { data: recipe, isLoading } = useRecipe(recipeId);
-  const { delete: deleteRecipe, toggleFavorite, edit: editRecipe } = useRecipeData();
+  const { delete: deleteRecipe, toggleFavorite, edit: editRecipe, setSharing, isSettingSharing } = useRecipeData();
   const { data: feedback } = useRecipeFeedback(recipeId);
   const { addFeedback, deleteFeedback, isAdding, isDeleting } = useRecipeFeedbackMutations(recipeId);
 
@@ -75,6 +77,10 @@ export function RecipeDetailPage() {
   const handleRatingChange = async (rating: number) => {
     if (!recipe) return;
     await editRecipe(recipeId, { rating });
+  };
+
+  const handleToggleSharing = async (isPublic: boolean) => {
+    await setSharing(recipeId, isPublic);
   };
 
   const parseInstructions = (instructions: string): string[] => {
@@ -190,17 +196,65 @@ export function RecipeDetailPage() {
               <p className="mt-2 text-gray-600">{recipe.description}</p>
             )}
           </div>
-          <button
-            onClick={handleToggleFavorite}
-            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-            aria-label={recipe.isFavorite ? "Remove from favorites" : "Add to favorites"}
-          >
-            {recipe.isFavorite ? (
-              <StarIconSolid className="w-6 h-6 text-yellow-500" />
-            ) : (
-              <StarIcon className="w-6 h-6 text-gray-400" />
-            )}
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleToggleFavorite}
+              className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+              aria-label={recipe.isFavorite ? "Remove from favorites" : "Add to favorites"}
+            >
+              {recipe.isFavorite ? (
+                <StarIconSolid className="w-6 h-6 text-yellow-500" />
+              ) : (
+                <StarIcon className="w-6 h-6 text-gray-400" />
+              )}
+            </button>
+            <button
+              onClick={() => setIsShareOpen(true)}
+              className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+              aria-label="Share recipe"
+            >
+              <ShareIcon
+                className={
+                  recipe.isPublic
+                    ? "w-6 h-6 text-primary-600"
+                    : "w-6 h-6 text-gray-400"
+                }
+              />
+            </button>
+            <button
+              onClick={() => navigate(`/recipes/${recipeId}/edit`)}
+              className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+              aria-label="Edit recipe"
+            >
+              <PencilIcon className="w-6 h-6 text-gray-400" />
+            </button>
+          </div>
+        </div>
+
+        {/* Primary actions */}
+        <div className="flex flex-wrap gap-3 mt-4">
+          {instructions.length > 0 && (
+            <Button
+              variant="primary"
+              onClick={() =>
+                navigate(
+                  `/recipes/${recipeId}/cook?servings=${currentServings ?? recipe.servings}`
+                )
+              }
+            >
+              <PlayIcon className="w-5 h-5 mr-2" />
+              Start Cooking
+            </Button>
+          )}
+          {recipe.ingredients && recipe.ingredients.length > 0 && (
+            <Button
+              variant="secondary"
+              onClick={() => setIsShoppingListOpen(true)}
+            >
+              <ShoppingCartIcon className="w-5 h-5 mr-2" />
+              Add to Shopping List
+            </Button>
+          )}
         </div>
 
         {/* Meta info */}
@@ -372,41 +426,6 @@ export function RecipeDetailPage() {
 
       {/* Actions */}
       <div className="mt-8 flex flex-wrap gap-4 print:hidden">
-        {instructions.length > 0 && (
-          <Button
-            variant="primary"
-            onClick={() =>
-              navigate(
-                `/recipes/${recipeId}/cook?servings=${currentServings ?? recipe.servings}`
-              )
-            }
-          >
-            <PlayIcon className="w-5 h-5 mr-2" />
-            Start Cooking
-          </Button>
-        )}
-        {recipe.ingredients && recipe.ingredients.length > 0 && (
-          <Button
-            variant="secondary"
-            onClick={() => setIsShoppingListOpen(true)}
-          >
-            <ShoppingCartIcon className="w-5 h-5 mr-2" />
-            Add to Shopping List
-          </Button>
-        )}
-        <Button
-          variant="secondary"
-          onClick={() => window.print()}
-        >
-          <PrinterIcon className="w-5 h-5 mr-2" />
-          Print
-        </Button>
-        <Button
-          variant="secondary"
-          onClick={() => navigate(`/recipes/${recipeId}/edit`)}
-        >
-          Edit Recipe
-        </Button>
         <Button
           variant="secondary"
           onClick={handleDelete}
@@ -428,6 +447,17 @@ export function RecipeDetailPage() {
           currentServings={currentServings ?? recipe.servings ?? 4}
         />
       )}
+
+      {/* Share Bottom Sheet */}
+      <ShareRecipeBottomSheet
+        isOpen={isShareOpen}
+        onClose={() => setIsShareOpen(false)}
+        recipeName={recipe.name}
+        isPublic={recipe.isPublic ?? false}
+        publicId={recipe.publicId ?? null}
+        onToggle={handleToggleSharing}
+        isLoading={isSettingSharing}
+      />
 
       {/* Add Feedback Bottom Sheet */}
       <AddFeedbackBottomSheet

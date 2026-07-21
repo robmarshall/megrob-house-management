@@ -23,6 +23,7 @@ export function AddRecipePage() {
         difficulty: data.difficulty,
         cuisine: data.cuisine,
         notes: data.notes,
+        imageUrl: data.imageUrl,
         ingredients: data.ingredients.map((ing) => ({
           name: ing.name,
           quantity: typeof ing.quantity === "number" ? ing.quantity : undefined,

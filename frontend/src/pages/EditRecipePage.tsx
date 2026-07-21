@@ -27,6 +27,8 @@ export function EditRecipePage() {
         difficulty: data.difficulty,
         cuisine: data.cuisine,
         notes: data.notes,
+        // null (not undefined) so clearing the field removes the image
+        imageUrl: data.imageUrl || null,
         ingredients: data.ingredients.map((ing) => ({
           name: ing.name,
           quantity: typeof ing.quantity === "number" ? ing.quantity : undefined,

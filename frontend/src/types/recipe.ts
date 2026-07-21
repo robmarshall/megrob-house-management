@@ -38,6 +38,8 @@ export interface Recipe {
   notes?: string | null;
   rating?: number | null; // 1-5
   imageUrl?: string | null; // Recipe image URL (scraped from og:image or recipe structured data)
+  isPublic?: boolean; // Recipe visible via public share link
+  publicId?: string | null; // Unguessable UUID for the public share URL
   isFavorite?: boolean; // Computed per-user from userFavorites, not stored on recipe
   createdAt: string;
   updatedAt: string;
@@ -152,6 +154,45 @@ export interface CreateRecipeCategoryInput {
  */
 export interface ImportRecipeInput {
   url: string;
+}
+
+/**
+ * Response from the share toggle endpoint
+ */
+export interface ShareRecipeResult {
+  isPublic: boolean;
+  publicId: string | null;
+}
+
+/**
+ * Publicly shared recipe (sanitized, unauthenticated view).
+ * Matches the backend PublicRecipeView shape — no ids of users/households.
+ */
+export interface PublicRecipe {
+  name: string;
+  description: string | null;
+  servings: number | null;
+  prepTimeMinutes: number | null;
+  cookTimeMinutes: number | null;
+  instructions: string; // JSON array of steps
+  difficulty: RecipeDifficulty | null;
+  cuisine: string | null;
+  notes: string | null;
+  imageUrl: string | null;
+  sourceUrl: string | null;
+  ingredients: Array<{
+    id: number;
+    name: string;
+    quantity: string | null;
+    unit: string | null;
+    notes: string | null;
+    position: number;
+  }>;
+  categories: Array<{
+    id: number;
+    categoryType: RecipeCategoryType;
+    categoryValue: string;
+  }>;
 }
 
 /**

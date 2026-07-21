@@ -10,7 +10,7 @@ import { apiGet, apiPost } from '@/lib/api/client';
 import { collectionPredicate } from '@/lib/api/queryKeys';
 import { toast } from '@/lib/toast';
 import type { PaginationOptions } from '@/types/api';
-import type { Recipe, ImportRecipeInput, RecipeStatus } from '@/types/recipe';
+import type { Recipe, ImportRecipeInput, RecipeStatus, ShareRecipeResult } from '@/types/recipe';
 
 /**
  * Extended pagination options for recipes
@@ -187,6 +187,26 @@ export function useRecipeData() {
     },
   });
 
+  // Toggle public sharing (dedicated POST endpoint; returns { isPublic, publicId })
+  const shareMutation = useMutation({
+    mutationFn: async (params: { recipeId: number; isPublic: boolean }) => {
+      return apiPost<ShareRecipeResult>(`/api/recipes/${params.recipeId}/share`, {
+        isPublic: params.isPublic,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && key[0] === 'recipes';
+        },
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to update sharing');
+    },
+  });
+
   // Toggle favorite mutation (uses dedicated POST endpoint instead of PATCH)
   const toggleFavoriteMutation = useMutation({
     mutationFn: async (recipeId: number) => {
@@ -214,5 +234,8 @@ export function useRecipeData() {
     isAddingToShoppingList: addToShoppingListMutation.isPending,
     toggleFavorite: (recipeId: number) => toggleFavoriteMutation.mutateAsync(recipeId),
     isTogglingFavorite: toggleFavoriteMutation.isPending,
+    setSharing: (recipeId: number, isPublic: boolean) =>
+      shareMutation.mutateAsync({ recipeId, isPublic }),
+    isSettingSharing: shareMutation.isPending,
   };
 }

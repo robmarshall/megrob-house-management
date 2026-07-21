@@ -104,8 +104,8 @@ const categoryTypeEnum = ['meal_type', 'dietary', 'allergen'] as const
 export const recipeIngredientSchema = z.object({
   name: z.string().min(1, 'Ingredient name is required').max(200, 'Ingredient name must be 200 characters or less'),
   quantity: z.number().positive().optional().or(z.literal('')),
-  unit: z.string().max(20, 'Unit must be 20 characters or less').optional(),
-  notes: z.string().max(200, 'Notes must be 200 characters or less').optional(),
+  unit: z.string().max(50, 'Unit must be 50 characters or less').optional(),
+  notes: z.string().max(500, 'Notes must be 500 characters or less').optional(),
 })
 
 export type RecipeIngredientFormData = z.infer<typeof recipeIngredientSchema>
@@ -133,6 +133,7 @@ export const createRecipeSchema = z.object({
   difficulty: z.enum(difficultyEnum).optional(),
   cuisine: z.string().max(50).optional(),
   notes: z.string().max(2000, 'Notes must be less than 2000 characters').optional(),
+  imageUrl: z.string().url('Must be a valid URL (e.g. https://example.com/photo.jpg)').max(2000, 'Image URL must be less than 2000 characters').optional().or(z.literal('')),
   ingredients: z.array(recipeIngredientSchema).min(1, 'At least one ingredient is required'),
   instructions: z.array(recipeInstructionSchema).min(1, 'At least one instruction step is required'),
   categories: z.array(recipeCategorySchema).optional(),

@@ -24,13 +24,13 @@ describe('recipeIngredientSchema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('rejects a unit longer than 20 characters', () => {
-    const result = recipeIngredientSchema.safeParse({ name: 'Flour', unit: 'a'.repeat(21) })
+  it('rejects a unit longer than 50 characters', () => {
+    const result = recipeIngredientSchema.safeParse({ name: 'Flour', unit: 'a'.repeat(51) })
     expect(result.success).toBe(false)
   })
 
-  it('rejects notes longer than 200 characters', () => {
-    const result = recipeIngredientSchema.safeParse({ name: 'Flour', notes: 'a'.repeat(201) })
+  it('rejects notes longer than 500 characters', () => {
+    const result = recipeIngredientSchema.safeParse({ name: 'Flour', notes: 'a'.repeat(501) })
     expect(result.success).toBe(false)
   })
 

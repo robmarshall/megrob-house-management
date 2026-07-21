@@ -29,8 +29,8 @@ export const updateShoppingListItemSchema = createShoppingListItemSchema.partial
 const recipeIngredientSchema = z.object({
   name: z.string().min(1, 'Ingredient name is required').max(200),
   quantity: z.number().positive().optional(),
-  unit: z.string().max(20).optional(),
-  notes: z.string().max(200).optional(),
+  unit: z.string().max(50).optional(),
+  notes: z.string().max(500).optional(),
 });
 
 // Recipe Category schema (for nested validation)
@@ -53,6 +53,7 @@ export const createRecipeSchema = z.object({
   difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
   cuisine: z.string().max(50).optional(),
   notes: z.string().max(2000).optional(),
+  imageUrl: z.string().url('Invalid image URL').max(2000).nullable().optional(),
   ingredients: z.array(recipeIngredientSchema).optional(),
   categories: z.array(recipeCategorySchema).optional(),
 });
@@ -64,6 +65,11 @@ export const updateRecipeSchema = createRecipeSchema.partial().extend({
 // Recipe Import schema
 export const importRecipeSchema = z.object({
   url: z.string().url('Invalid URL format'),
+});
+
+// Recipe Share schema
+export const shareRecipeSchema = z.object({
+  isPublic: z.boolean(),
 });
 
 // Recipe Feedback schema
@@ -180,6 +186,7 @@ export type UpdateShoppingListItemInput = z.infer<typeof updateShoppingListItemS
 export type CreateRecipeInput = z.infer<typeof createRecipeSchema>;
 export type UpdateRecipeInput = z.infer<typeof updateRecipeSchema>;
 export type ImportRecipeInput = z.infer<typeof importRecipeSchema>;
+export type ShareRecipeInput = z.infer<typeof shareRecipeSchema>;
 export type CreateFeedbackInput = z.infer<typeof createFeedbackSchema>;
 export type AddToShoppingListInput = z.infer<typeof addToShoppingListSchema>;
 export type CreateHouseholdInput = z.infer<typeof createHouseholdSchema>;

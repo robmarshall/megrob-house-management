@@ -127,6 +127,8 @@ export const recipes = pgTable('recipes', {
   notes: text('notes'),
   rating: integer('rating'), // 1-5
   imageUrl: text('image_url'), // Recipe image URL (scraped from og:image or recipe structured data)
+  isPublic: boolean('is_public').default(false).notNull(), // Recipe visible via public share link
+  publicId: text('public_id').unique(), // Unguessable UUID for the public share URL; generated on first share
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   createdBy: text('created_by')

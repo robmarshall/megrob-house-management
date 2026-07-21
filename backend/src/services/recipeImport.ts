@@ -21,6 +21,15 @@ import { enqueueNutritionEnrichSafe, type RecipeImportJob } from '../lib/queue.j
  * - Otherwise updates the recipe to `ready` with the scraped data, ingredients,
  *   and auto-detected allergen/dietary categories, atomically in a transaction.
  */
+/**
+ * Clamp scraped text to the max length accepted by the recipe validation
+ * schemas, so imported recipes can always be re-saved through the edit form.
+ */
+function clamp(value: string | null | undefined, maxLength: number): string | null {
+  if (!value) return null;
+  return value.length > maxLength ? value.slice(0, maxLength) : value;
+}
+
 export async function processRecipeImport({ recipeId, url, userId }: RecipeImportJob): Promise<void> {
   logger.info({ recipeId, url }, 'Processing recipe import');
 
@@ -62,8 +71,8 @@ export async function processRecipeImport({ recipeId, url, userId }: RecipeImpor
     await tx
       .update(recipes)
       .set({
-        name: scraped.name,
-        description: scraped.description || null,
+        name: clamp(scraped.name, 200) || scraped.name,
+        description: clamp(scraped.description, 1000),
         servings: scraped.servings || 4,
         prepTimeMinutes: parseDuration(scraped.prepTime),
         cookTimeMinutes: parseDuration(scraped.cookTime),
@@ -82,10 +91,10 @@ export async function processRecipeImport({ recipeId, url, userId }: RecipeImpor
       await tx.insert(recipeIngredients).values(
         parsedIngredients.map((ing, index) => ({
           recipeId,
-          name: ing.name,
+          name: clamp(ing.name, 200) || ing.name,
           quantity: ing.quantity?.toString() || null,
-          unit: ing.unit || null,
-          notes: ing.notes || null,
+          unit: clamp(ing.unit, 50),
+          notes: clamp(ing.notes, 500),
           position: index,
         }))
       );

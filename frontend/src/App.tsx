@@ -16,6 +16,7 @@ import { RecipeDetailPage } from '@/pages/RecipeDetailPage'
 import { AddRecipePage } from '@/pages/AddRecipePage'
 import { EditRecipePage } from '@/pages/EditRecipePage'
 import { CookingModePage } from '@/pages/CookingModePage'
+import { SharedRecipePage } from '@/pages/SharedRecipePage'
 import { HouseholdPage } from '@/pages/HouseholdPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { MealPlanPage } from '@/pages/MealPlanPage'
@@ -30,6 +31,8 @@ function App() {
             <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
+            {/* Public share links — intentionally not behind ProtectedRoute */}
+            <Route path="/share/recipes/:publicId" element={<SharedRecipePage />} />
             <Route
               path="/"
               element={

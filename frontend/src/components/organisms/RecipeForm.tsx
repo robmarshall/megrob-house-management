@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   useForm,
   FormProvider,
@@ -22,6 +23,7 @@ import {
 } from "@/lib/schemas";
 import type { Recipe, RecipeCategoryType } from "@/types/recipe";
 import { cn } from "@/lib/utils";
+import { toast } from "@/lib/toast";
 
 interface RecipeFormProps {
   initialData?: Partial<Recipe>;
@@ -96,6 +98,7 @@ export function RecipeForm({
       difficulty: (initialData?.difficulty as "easy" | "medium" | "hard") || undefined,
       cuisine: initialData?.cuisine || "",
       notes: initialData?.notes || "",
+      imageUrl: initialData?.imageUrl || "",
       ingredients: initialData?.ingredients?.map((ing) => ({
         name: ing.name,
         quantity: ing.quantity ? parseFloat(ing.quantity) : undefined,
@@ -141,16 +144,29 @@ export function RecipeForm({
       instructions: data.instructions
         .map((inst) => inst.step)
         .filter((s) => s.trim()),
+      imageUrl: data.imageUrl || undefined,
     };
     await onSubmit(cleanedData);
   };
 
+  // Validation errors can live on fields with no visible input (e.g. an
+  // ingredient's notes from an imported recipe) — always give audible feedback
+  // so a failed save is never silent.
+  const handleInvalidSubmit = () => {
+    toast.error("Some fields have errors. Please fix the highlighted fields and try again.");
+  };
+
   const isSubmitting = methods.formState.isSubmitting || isLoading;
+  const imageUrlValue = methods.watch("imageUrl");
+  const [imagePreviewFailed, setImagePreviewFailed] = useState(false);
+  useEffect(() => {
+    setImagePreviewFailed(false);
+  }, [imageUrlValue]);
 
   return (
     <FormProvider {...methods}>
       <form
-        onSubmit={methods.handleSubmit(handleFormSubmit)}
+        onSubmit={methods.handleSubmit(handleFormSubmit, handleInvalidSubmit)}
         className="space-y-6"
       >
         {/* Basic Info */}
@@ -282,6 +298,25 @@ export function RecipeForm({
                 </option>
               ))}
             </Select>
+
+            <Input
+              name="imageUrl"
+              label="Image URL"
+              type="url"
+              placeholder="https://example.com/photo.jpg"
+              disabled={isSubmitting}
+            />
+            {imageUrlValue && !imagePreviewFailed && (
+              <div className="rounded-lg overflow-hidden border border-gray-200">
+                <img
+                  key={imageUrlValue}
+                  src={imageUrlValue}
+                  alt="Recipe preview"
+                  className="w-full h-48 object-cover"
+                  onError={() => setImagePreviewFailed(true)}
+                />
+              </div>
+            )}
           </div>
         </Card>
 
@@ -332,6 +367,8 @@ export function RecipeForm({
                         error={
                           ingredientError?.name?.message ??
                           ingredientError?.quantity?.message ??
+                          ingredientError?.unit?.message ??
+                          ingredientError?.notes?.message ??
                           fieldState.error?.message
                         }
                         disabled={isSubmitting}

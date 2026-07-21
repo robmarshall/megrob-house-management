@@ -369,6 +369,7 @@ export interface CreateRecipeServiceInput {
   difficulty?: string;
   cuisine?: string;
   notes?: string;
+  imageUrl?: string | null;
   ingredients?: RecipeIngredientInput[];
   categories?: RecipeCategoryInput[];
 }
@@ -390,6 +391,7 @@ export async function createRecipe(
     difficulty,
     cuisine,
     notes,
+    imageUrl,
     ingredients,
     categories,
   } = input;
@@ -413,6 +415,7 @@ export async function createRecipe(
         difficulty: difficulty || null,
         cuisine: cuisine || null,
         notes: notes || null,
+        imageUrl: imageUrl || null,
         status: 'ready',
         createdBy: userId,
         updatedBy: userId,
@@ -459,6 +462,7 @@ export async function updateRecipe(
     difficulty,
     cuisine,
     notes,
+    imageUrl,
     rating,
     ingredients,
     categories,
@@ -490,6 +494,7 @@ export async function updateRecipe(
           difficulty !== undefined ? difficulty : existingRecipe.difficulty,
         cuisine: cuisine !== undefined ? cuisine : existingRecipe.cuisine,
         notes: notes !== undefined ? notes : existingRecipe.notes,
+        imageUrl: imageUrl !== undefined ? imageUrl : existingRecipe.imageUrl,
         rating: rating !== undefined ? rating : existingRecipe.rating,
         updatedBy: userId,
         updatedAt: new Date(),
@@ -508,4 +513,110 @@ export async function updateRecipe(
   }
 
   return updated;
+}
+
+/**
+ * Enable or disable public sharing for a recipe.
+ * Follows the shared-edit policy: any user with access may toggle sharing.
+ * A stable publicId (UUID) is generated the first time sharing is enabled and
+ * kept afterwards, so re-sharing restores the same URL.
+ * Returns null when the recipe doesn't exist or the user can't see it.
+ */
+export async function setRecipeSharing(
+  userId: string,
+  recipeId: number,
+  isPublic: boolean
+): Promise<{ isPublic: boolean; publicId: string | null } | null> {
+  const existingRecipe = await verifyRecipeAccess(recipeId, userId);
+  if (!existingRecipe) return null;
+
+  const publicId =
+    existingRecipe.publicId ?? (isPublic ? crypto.randomUUID() : null);
+
+  const [row] = await db
+    .update(recipes)
+    .set({
+      isPublic,
+      publicId,
+      updatedBy: userId,
+      updatedAt: new Date(),
+    })
+    .where(eq(recipes.id, recipeId))
+    .returning();
+
+  return { isPublic: row.isPublic, publicId: row.publicId };
+}
+
+/** Publicly visible subset of a recipe (no user/household identifiers). */
+export interface PublicRecipeView {
+  name: string;
+  description: string | null;
+  servings: number | null;
+  prepTimeMinutes: number | null;
+  cookTimeMinutes: number | null;
+  instructions: string;
+  difficulty: string | null;
+  cuisine: string | null;
+  notes: string | null;
+  imageUrl: string | null;
+  sourceUrl: string | null;
+  ingredients: Pick<
+    RecipeIngredientRow,
+    'id' | 'name' | 'quantity' | 'unit' | 'notes' | 'position'
+  >[];
+  categories: Pick<RecipeCategoryRow, 'id' | 'categoryType' | 'categoryValue'>[];
+}
+
+/**
+ * Fetch a publicly shared recipe by its share id. No authentication —
+ * only returns recipes explicitly marked public, and strips all user,
+ * household, and internal-id fields.
+ */
+export async function getPublicRecipe(
+  publicId: string
+): Promise<PublicRecipeView | null> {
+  const [recipe] = await db
+    .select()
+    .from(recipes)
+    .where(and(eq(recipes.publicId, publicId), eq(recipes.isPublic, true)));
+
+  if (!recipe || recipe.status !== 'ready') return null;
+
+  const ingredients = await db
+    .select({
+      id: recipeIngredients.id,
+      name: recipeIngredients.name,
+      quantity: recipeIngredients.quantity,
+      unit: recipeIngredients.unit,
+      notes: recipeIngredients.notes,
+      position: recipeIngredients.position,
+    })
+    .from(recipeIngredients)
+    .where(eq(recipeIngredients.recipeId, recipe.id))
+    .orderBy(asc(recipeIngredients.position));
+
+  const categories = await db
+    .select({
+      id: recipeCategories.id,
+      categoryType: recipeCategories.categoryType,
+      categoryValue: recipeCategories.categoryValue,
+    })
+    .from(recipeCategories)
+    .where(eq(recipeCategories.recipeId, recipe.id));
+
+  return {
+    name: recipe.name,
+    description: recipe.description,
+    servings: recipe.servings,
+    prepTimeMinutes: recipe.prepTimeMinutes,
+    cookTimeMinutes: recipe.cookTimeMinutes,
+    instructions: recipe.instructions,
+    difficulty: recipe.difficulty,
+    cuisine: recipe.cuisine,
+    notes: recipe.notes,
+    imageUrl: recipe.imageUrl,
+    sourceUrl: recipe.sourceUrl,
+    ingredients,
+    categories,
+  };
 }

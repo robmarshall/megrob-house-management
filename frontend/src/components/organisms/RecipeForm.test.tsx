@@ -141,3 +141,57 @@ describe("RecipeForm servings number input", () => {
     expect(submittedData.servings).toBe(6);
   });
 });
+
+/**
+ * Imported recipes can carry ingredient unit/notes values that fail validation
+ * on fields with no dedicated visible input. Before the fix, those errors were
+ * swallowed entirely: Save did nothing, showed nothing. These tests cover the
+ * surfaced error message (and the toast fires via handleInvalidSubmit).
+ */
+describe("RecipeForm imported-ingredient validation errors", () => {
+  it("surfaces an over-length ingredient notes error instead of failing silently", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    const initialData = makeInitialData("Chicken");
+    initialData.ingredients![0].notes = "x".repeat(501);
+
+    render(
+      <RecipeForm
+        initialData={initialData}
+        onSubmit={onSubmit}
+        onCancel={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Create Recipe" }));
+
+    expect(
+      await screen.findByText("Notes must be 500 characters or less")
+    ).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("surfaces an over-length ingredient unit error instead of failing silently", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    const initialData = makeInitialData("Chicken");
+    initialData.ingredients![0].unit = "y".repeat(51);
+
+    render(
+      <RecipeForm
+        initialData={initialData}
+        onSubmit={onSubmit}
+        onCancel={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Create Recipe" }));
+
+    expect(
+      await screen.findByText("Unit must be 50 characters or less")
+    ).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+});
