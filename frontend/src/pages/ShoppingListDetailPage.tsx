@@ -24,10 +24,16 @@ export function ShoppingListDetailPage() {
   const {
     data: items,
     isLoading: itemsLoading,
+    error: itemsError,
     page,
     totalPages,
     goToPage,
-  } = useShoppingListItems(listId, { pageSize: 200 });
+    refetch: refetchItems,
+  } = useShoppingListItems(listId, {
+    // The backend rejects pageSize > 100 with a 400, so this must stay within
+    // that cap; lists longer than one page fall back to the pagination controls.
+    pageSize: 100,
+  });
   const {
     create: createItem,
     edit: editItem,
@@ -148,6 +154,31 @@ export function ShoppingListDetailPage() {
               className="text-primary-600 hover:text-primary-700 font-medium"
             >
               ← Back to Lists
+            </button>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // A failed items fetch must not render as an empty list — that hides real
+  // data and reads as "my items are gone". Surface it with a retry instead.
+  if (itemsError) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Couldn't load items
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Something went wrong loading the items for this list.
+            </p>
+            <button
+              onClick={() => refetchItems()}
+              className="text-primary-600 hover:text-primary-700 font-medium"
+            >
+              Try again
             </button>
           </div>
         </div>

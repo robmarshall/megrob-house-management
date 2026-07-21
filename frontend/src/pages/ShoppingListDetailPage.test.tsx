@@ -53,14 +53,18 @@ const editList = vi.fn();
 const deleteList = vi.fn();
 
 let mockTotalPages = 2;
+let mockItemsError: Error | null = null;
+const refetchItems = vi.fn();
 
 const useShoppingListItems = vi.fn((listId?: number, options?: unknown) => {
   void listId;
   void options;
   return {
-    data: items,
+    data: mockItemsError ? [] : items,
     isLoading: false,
-    error: null,
+    get error() {
+      return mockItemsError;
+    },
     page: 1,
     get totalPages() {
       return mockTotalPages;
@@ -68,6 +72,7 @@ const useShoppingListItems = vi.fn((listId?: number, options?: unknown) => {
     goToPage,
     nextPage: vi.fn(),
     prevPage: vi.fn(),
+    refetch: refetchItems,
   };
 });
 
@@ -111,9 +116,11 @@ describe('ShoppingListDetailPage', () => {
   beforeEach(() => {
     useShoppingListItems.mockClear();
     goToPage.mockClear();
+    refetchItems.mockClear();
+    mockItemsError = null;
   });
 
-  it('fetches items with a pageSize large enough to avoid silently truncating a list', () => {
+  it('fetches items with a large pageSize that stays within the backend cap of 100', () => {
     mockTotalPages = 2;
 
     render(
@@ -126,7 +133,28 @@ describe('ShoppingListDetailPage', () => {
     const [calledListId, calledOptions] = useShoppingListItems.mock.calls[0];
     expect(calledListId).toBe(1);
     expect(calledOptions).toBeDefined();
-    expect((calledOptions as { pageSize: number }).pageSize).toBeGreaterThanOrEqual(100);
+    const pageSize = (calledOptions as { pageSize: number }).pageSize;
+    // Large enough to avoid silently truncating a typical list, but no larger
+    // than the backend's max — a pageSize over 100 gets a 400 response and the
+    // whole list rendered as empty.
+    expect(pageSize).toBeGreaterThanOrEqual(50);
+    expect(pageSize).toBeLessThanOrEqual(100);
+  });
+
+  it('shows an error state instead of an empty list when the items fetch fails', () => {
+    mockItemsError = new Error('Invalid pageSize parameter');
+
+    render(
+      <MemoryRouter>
+        <ShoppingListDetailPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText("Couldn't load items")).toBeInTheDocument();
+    expect(screen.queryByText('Milk')).not.toBeInTheDocument();
+
+    screen.getByText('Try again').click();
+    expect(refetchItems).toHaveBeenCalledTimes(1);
   });
 
   it('renders pagination controls when there is more than one page', () => {
