@@ -8,6 +8,11 @@ import { Card } from '@/components/atoms/Card'
 import { IconButton } from '@/components/atoms/IconButton'
 import { ConfirmDeleteBottomSheet } from '@/components/molecules/ConfirmDeleteBottomSheet'
 import { useMealPlan, useMealPlanData } from '@/hooks/mealPlan/useMealPlans'
+import { useHouseholdNutritionTargets } from '@/hooks/nutrition/useNutritionProfile'
+import {
+  DayNutritionSummary,
+  WeekNutritionSummary,
+} from '@/components/molecules/MealPlanNutritionSummary'
 import AddMealEntryBottomSheet from '@/components/molecules/AddMealEntryBottomSheet'
 import GenerateShoppingListBottomSheet from '@/components/molecules/GenerateShoppingListBottomSheet'
 import type { MealType, MealPlanEntry, CreateMealPlanEntryInput } from '@/types/mealPlan'
@@ -165,6 +170,7 @@ export function MealPlanPage() {
 
   // Meal plan data
   const { data: mealPlan, isLoading } = useMealPlan(toLocalISODate(weekStart))
+  const { data: householdTargets } = useHouseholdNutritionTargets()
   const {
     createPlan,
     addEntry,
@@ -325,6 +331,10 @@ export function MealPlanPage() {
         />
       ) : (
         <div className="space-y-4">
+          <WeekNutritionSummary
+            entries={mealPlan.entries}
+            members={householdTargets}
+          />
           {[0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => (
             <Card key={dayOfWeek} padding="md">
               <h3 className="font-semibold text-gray-900 mb-3 text-sm uppercase tracking-wide">
@@ -352,6 +362,12 @@ export function MealPlanPage() {
                   )
                 })}
               </div>
+              <DayNutritionSummary
+                entries={mealPlan.entries.filter(
+                  (e) => e.dayOfWeek === dayOfWeek
+                )}
+                members={householdTargets}
+              />
             </Card>
           ))}
         </div>

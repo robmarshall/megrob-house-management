@@ -18,6 +18,15 @@ export const DAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday
 
 export const DAY_SHORT_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+/** Per-serving nutrition of an entry's linked recipe (ready enrichments only). */
+export interface MealPlanEntryNutrition {
+  caloriesKcal: number | null;
+  proteinG: number | null;
+  carbsG: number | null;
+  fatG: number | null;
+  estimated: boolean;
+}
+
 export interface MealPlanEntry {
   id: number;
   mealPlanId: number;
@@ -29,6 +38,8 @@ export interface MealPlanEntry {
   customText?: string | null;
   position: number;
   createdAt: string;
+  /** Null for custom-text entries and recipes not yet enriched */
+  nutrition?: MealPlanEntryNutrition | null;
 }
 
 export interface MealPlan {

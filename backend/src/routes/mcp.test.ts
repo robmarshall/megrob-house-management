@@ -7,6 +7,8 @@ import {
   shoppingListItems,
   recipes,
   recipeIngredients,
+  recipeNutrition,
+  nutritionProfiles,
   mealPlans,
   oauthApplication,
   oauthAccessToken,
@@ -533,5 +535,76 @@ describe('meal plan tools', () => {
     );
     expect(remaining.plan.entries).toHaveLength(1);
     expect(remaining.plan.entries[0].customText).toBe('Leftovers');
+  });
+});
+
+describe('nutrition tools', () => {
+  it('get_nutrition_targets returns derived targets, never raw measurements', async () => {
+    await db.insert(nutritionProfiles).values({
+      userId: OWNER,
+      heightCm: 180,
+      weightKg: '80',
+      dateOfBirth: '1990-07-01',
+      sex: 'male',
+      activityLevel: 'moderate',
+      goal: 'maintain',
+    });
+
+    const payload = parsePayload(await callTool('get_nutrition_targets', {}));
+    expect(payload.members).toHaveLength(1);
+
+    const [member] = payload.members;
+    expect(member.name).toBe('MCP Owner');
+    expect(member.isSelf).toBe(true);
+    expect(member.targets.caloriesKcal).toBeGreaterThan(2000);
+    expect(member.targets.proteinG).toBe(128); // 1.6 g/kg * 80
+
+    // Privacy: raw profile fields must never appear in the tool output
+    const raw = JSON.stringify(payload);
+    expect(raw).not.toContain('heightCm');
+    expect(raw).not.toContain('weightKg');
+    expect(raw).not.toContain('dateOfBirth');
+    expect(raw).not.toContain('1990');
+  });
+
+  it('get_meal_plan entries include per-serving nutrition once enriched', async () => {
+    await db.insert(recipeNutrition).values({
+      recipeId: ownerRecipeId,
+      status: 'ready',
+      caloriesKcal: '205.0',
+      proteinG: '13.4',
+      carbsG: '36.8',
+      fatG: '0.8',
+      estimated: true,
+      matchedCount: 2,
+      totalCount: 2,
+    });
+
+    const added = parsePayload(
+      await callTool('add_meal_plan_entry', {
+        week: '2026-03-02',
+        dayOfWeek: 5,
+        mealType: 'dinner',
+        recipeId: ownerRecipeId,
+      })
+    );
+
+    const payload = parsePayload(
+      await callTool('get_meal_plan', { week: '2026-03-02' })
+    );
+    const entry = payload.plan.entries.find((e: any) => e.id === added.entry.id);
+    expect(entry.nutrition).toEqual({
+      caloriesKcal: 205,
+      proteinG: 13.4,
+      carbsG: 36.8,
+      fatG: 0.8,
+      estimated: true,
+    });
+
+    // Custom-text entries carry no nutrition
+    const leftovers = payload.plan.entries.find(
+      (e: any) => e.customText === 'Leftovers'
+    );
+    expect(leftovers.nutrition).toBeNull();
   });
 });

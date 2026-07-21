@@ -29,6 +29,7 @@ import {
   mealPlanToShoppingList,
   type MealPlanEntryWithRecipe,
 } from '../services/mealPlanService.js';
+import { getHouseholdNutritionTargets } from '../services/nutritionProfileService.js';
 import { verifyShoppingListAccess } from '../lib/shoppingListAccess.js';
 import {
   SHOPPING_CATEGORY_SLUGS,
@@ -117,8 +118,8 @@ function parseInstructions(instructions: string): string | string[] {
 
 /** Trimmed entry shape returned by meal-plan tools. */
 function toolEntry(entry: MealPlanEntryWithRecipe) {
-  const { id, dayOfWeek, mealType, recipeId, recipeName, customText, position } = entry;
-  return { id, dayOfWeek, mealType, recipeId, recipeName, customText, position };
+  const { id, dayOfWeek, mealType, recipeId, recipeName, customText, position, nutrition } = entry;
+  return { id, dayOfWeek, mealType, recipeId, recipeName, customText, position, nutrition };
 }
 
 const ENTRY_ERROR_MESSAGES = {
@@ -508,9 +509,12 @@ export function createMcpServer(userId: string): McpServer {
       title: 'Get the meal plan for a week',
       description:
         "Get the user's meal plan for one week, with its entries (day, meal " +
-        'type, linked recipe or custom text). Returns { plan: null } when no ' +
-        'plan exists for that week yet — add_meal_plan_entry will create one. ' +
-        'Entry ids are used with the update/remove entry tools.',
+        'type, linked recipe or custom text). Recipe entries include ' +
+        'per-serving nutrition (calories/protein/carbs/fat) when computed — ' +
+        'combine with get_nutrition_targets to plan macro-aware weeks. ' +
+        'Returns { plan: null } when no plan exists for that week yet — ' +
+        'add_meal_plan_entry will create one. Entry ids are used with the ' +
+        'update/remove entry tools.',
       inputSchema: { week: weekSchema },
     },
     async ({ week }) => {
@@ -673,6 +677,43 @@ export function createMcpServer(userId: string): McpServer {
         mergedCount: result.mergedCount,
         totalIngredients: result.totalIngredients,
         totalItemsOnList: result.items.length,
+      });
+    }
+  );
+
+  // --------------------------------------------------------------- nutrition
+
+  registerLoggedTool(
+    'get_nutrition_targets',
+    {
+      title: 'Get household nutrition targets',
+      description:
+        'Daily nutrition targets (calories, protein, carbs, fat, fibre, ' +
+        "salt) for each member of the user's household, derived from their " +
+        'nutrition profiles. Members without a profile have targets: null. ' +
+        'Never includes raw measurements. Use with the per-serving nutrition ' +
+        'in get_meal_plan/get_recipe to plan weeks that hit targets — the ' +
+        'household convention is that every member eats one serving of each ' +
+        'planned meal.',
+      inputSchema: {},
+    },
+    async () => {
+      const members = await getHouseholdNutritionTargets(userId);
+      return jsonResult({
+        members: members.map((member) => ({
+          name: member.name,
+          isSelf: member.isSelf,
+          targets: member.targets
+            ? {
+                caloriesKcal: member.targets.caloriesKcal,
+                proteinG: member.targets.proteinG,
+                carbsG: member.targets.carbsG,
+                fatG: member.targets.fatG,
+                fiberG: member.targets.fiberG,
+                saltG: member.targets.saltG,
+              }
+            : null,
+        })),
       });
     }
   );

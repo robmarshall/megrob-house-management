@@ -11,6 +11,7 @@ import {
   mealPlanEntries,
   recipes,
   recipeIngredients,
+  recipeNutrition,
   shoppingLists,
   shoppingListItems,
 } from '../db/schema.js';
@@ -24,9 +25,20 @@ type MealPlanEntryRow = typeof mealPlanEntries.$inferSelect;
 type ShoppingListRow = typeof shoppingLists.$inferSelect;
 type ShoppingListItemRow = typeof shoppingListItems.$inferSelect;
 
+/** Per-serving nutrition of an entry's linked recipe (ready rows only). */
+export interface EntryNutrition {
+  caloriesKcal: number | null;
+  proteinG: number | null;
+  carbsG: number | null;
+  fatG: number | null;
+  estimated: boolean;
+}
+
 export interface MealPlanEntryWithRecipe extends MealPlanEntryRow {
   recipeName: string | null;
   recipeImageUrl: string | null;
+  /** Null for custom-text entries and recipes not yet enriched */
+  nutrition: EntryNutrition | null;
 }
 
 export interface MealPlanWithEntries extends MealPlanRow {
@@ -93,11 +105,14 @@ export async function verifyRecipeAccess(recipeId: number, userId: string) {
   return recipe ?? null;
 }
 
-/** Entries for one plan, joined with recipe name/image, in display order. */
+/**
+ * Entries for one plan, joined with recipe name/image and per-serving
+ * nutrition (when the recipe has a completed enrichment), in display order.
+ */
 export async function getMealPlanEntries(
   mealPlanId: number
 ): Promise<MealPlanEntryWithRecipe[]> {
-  return db
+  const rows = await db
     .select({
       id: mealPlanEntries.id,
       mealPlanId: mealPlanEntries.mealPlanId,
@@ -109,11 +124,45 @@ export async function getMealPlanEntries(
       createdAt: mealPlanEntries.createdAt,
       recipeName: recipes.name,
       recipeImageUrl: recipes.imageUrl,
+      nutritionStatus: recipeNutrition.status,
+      nutritionCalories: recipeNutrition.caloriesKcal,
+      nutritionProtein: recipeNutrition.proteinG,
+      nutritionCarbs: recipeNutrition.carbsG,
+      nutritionFat: recipeNutrition.fatG,
+      nutritionEstimated: recipeNutrition.estimated,
     })
     .from(mealPlanEntries)
     .leftJoin(recipes, eq(mealPlanEntries.recipeId, recipes.id))
+    .leftJoin(recipeNutrition, eq(mealPlanEntries.recipeId, recipeNutrition.recipeId))
     .where(eq(mealPlanEntries.mealPlanId, mealPlanId))
     .orderBy(asc(mealPlanEntries.dayOfWeek), asc(mealPlanEntries.position));
+
+  const toNum = (value: string | null) =>
+    value === null ? null : parseFloat(value);
+
+  return rows.map(
+    ({
+      nutritionStatus,
+      nutritionCalories,
+      nutritionProtein,
+      nutritionCarbs,
+      nutritionFat,
+      nutritionEstimated,
+      ...entry
+    }) => ({
+      ...entry,
+      nutrition:
+        nutritionStatus === 'ready'
+          ? {
+              caloriesKcal: toNum(nutritionCalories),
+              proteinG: toNum(nutritionProtein),
+              carbsG: toNum(nutritionCarbs),
+              fatG: toNum(nutritionFat),
+              estimated: nutritionEstimated ?? false,
+            }
+          : null,
+    })
+  );
 }
 
 /** Recipe name/image for one entry, when a recipe is linked. */
@@ -134,7 +183,10 @@ async function withRecipeInfo(
     }
   }
 
-  return { ...entry, recipeName, recipeImageUrl };
+  // Nutrition is deliberately not fetched here: this shape is used for
+  // just-mutated single entries, where the caller re-fetches the full plan
+  // (with nutrition) to render.
+  return { ...entry, recipeName, recipeImageUrl, nutrition: null };
 }
 
 /**
@@ -363,7 +415,12 @@ export async function removeEntry(
 
   return {
     ok: true,
-    entry: { ...existingEntry, recipeName: null, recipeImageUrl: null },
+    entry: {
+      ...existingEntry,
+      recipeName: null,
+      recipeImageUrl: null,
+      nutrition: null,
+    },
   };
 }
 
