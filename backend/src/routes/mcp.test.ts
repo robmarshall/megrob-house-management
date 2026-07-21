@@ -7,6 +7,7 @@ import {
   shoppingListItems,
   recipes,
   recipeIngredients,
+  mealPlans,
   oauthApplication,
   oauthAccessToken,
 } from '../db/schema.js';
@@ -92,7 +93,7 @@ function parsePayload(result: any) {
 
 async function cleanup() {
   await db.execute(
-    sql`TRUNCATE TABLE ${oauthAccessToken}, ${oauthApplication}, ${recipes}, ${shoppingLists}, ${user} RESTART IDENTITY CASCADE`
+    sql`TRUNCATE TABLE ${oauthAccessToken}, ${oauthApplication}, ${mealPlans}, ${recipes}, ${shoppingLists}, ${user} RESTART IDENTITY CASCADE`
   );
 }
 
@@ -397,5 +398,140 @@ describe('recipe tools', () => {
     expect(detail.name).toBe(`${RUN} lentil curry`);
     // Ingredients untouched because they were not provided
     expect(detail.ingredients).toHaveLength(2);
+  });
+});
+
+describe('meal plan tools', () => {
+  const WEEK = '2026-03-02'; // a Monday
+  let mealPlanId: number;
+  let entryId: number;
+
+  it('are advertised via tools/list', async () => {
+    const res = await mcpRequest(
+      { jsonrpc: '2.0', id: ++rpcId, method: 'tools/list', params: {} },
+      VALID_TOKEN
+    );
+    const rpc = await readJsonRpc(res);
+    const names = rpc.result.tools.map((t: any) => t.name);
+    for (const name of [
+      'get_meal_plan',
+      'add_meal_plan_entry',
+      'update_meal_plan_entry',
+      'remove_meal_plan_entry',
+      'meal_plan_to_shopping_list',
+    ]) {
+      expect(names).toContain(name);
+    }
+  });
+
+  it('add_meal_plan_entry creates the plan on first use, reuses it after', async () => {
+    const first = parsePayload(
+      await callTool('add_meal_plan_entry', {
+        week: WEEK,
+        dayOfWeek: 0,
+        mealType: 'dinner',
+        recipeId: ownerRecipeId,
+      })
+    );
+    expect(first.planCreated).toBe(true);
+    expect(first.entry.recipeName).toBe(`${RUN} lentil curry`);
+    mealPlanId = first.mealPlanId;
+    entryId = first.entry.id;
+
+    const second = parsePayload(
+      await callTool('add_meal_plan_entry', {
+        week: WEEK,
+        dayOfWeek: 2,
+        mealType: 'dinner',
+        customText: 'Leftovers',
+      })
+    );
+    expect(second.planCreated).toBe(false);
+    expect(second.mealPlanId).toBe(mealPlanId);
+  });
+
+  it("add_meal_plan_entry refuses another user's recipe", async () => {
+    const result = await callTool('add_meal_plan_entry', {
+      week: WEEK,
+      dayOfWeek: 1,
+      mealType: 'dinner',
+      recipeId: otherRecipeId,
+    });
+    expect(result.isError).toBe(true);
+  });
+
+  it('add_meal_plan_entry requires a recipe or custom text', async () => {
+    const result = await callTool('add_meal_plan_entry', {
+      week: WEEK,
+      dayOfWeek: 1,
+      mealType: 'lunch',
+    });
+    expect(result.isError).toBe(true);
+  });
+
+  it('get_meal_plan returns the entries, and null for unplanned weeks', async () => {
+    const payload = parsePayload(await callTool('get_meal_plan', { week: WEEK }));
+    expect(payload.plan.id).toBe(mealPlanId);
+    expect(payload.plan.entries).toHaveLength(2);
+    const dinner = payload.plan.entries.find((e: any) => e.id === entryId);
+    expect(dinner.recipeName).toBe(`${RUN} lentil curry`);
+    expect(dinner.dayOfWeek).toBe(0);
+
+    const empty = parsePayload(
+      await callTool('get_meal_plan', { week: '2026-06-01' })
+    );
+    expect(empty.plan).toBeNull();
+  });
+
+  it("get_meal_plan cannot see another user's plan", async () => {
+    await db.insert(mealPlans).values({
+      weekStartDate: '2026-03-09',
+      createdBy: OTHER,
+      updatedBy: OTHER,
+    });
+    const payload = parsePayload(
+      await callTool('get_meal_plan', { week: '2026-03-09' })
+    );
+    expect(payload.plan).toBeNull();
+  });
+
+  it('update_meal_plan_entry moves a meal to another day', async () => {
+    const payload = parsePayload(
+      await callTool('update_meal_plan_entry', {
+        mealPlanId,
+        entryId,
+        dayOfWeek: 4,
+      })
+    );
+    expect(payload.entry.dayOfWeek).toBe(4);
+    // Recipe link untouched because it was not provided
+    expect(payload.entry.recipeName).toBe(`${RUN} lentil curry`);
+  });
+
+  it("meal_plan_to_shopping_list creates a list with the plan's ingredients", async () => {
+    const payload = parsePayload(
+      await callTool('meal_plan_to_shopping_list', {
+        mealPlanId,
+        newListName: `${RUN} week shop`,
+      })
+    );
+    expect(payload.list.name).toBe(`${RUN} week shop`);
+    // The one linked recipe has two ingredients: red lentils + onion
+    expect(payload.totalIngredients).toBe(2);
+    expect(payload.addedCount).toBe(2);
+    expect(payload.mergedCount).toBe(0);
+  });
+
+  it('remove_meal_plan_entry deletes the entry', async () => {
+    const payload = parsePayload(
+      await callTool('remove_meal_plan_entry', { mealPlanId, entryId })
+    );
+    expect(payload.removed.id).toBe(entryId);
+
+    const remaining = parsePayload(
+      await callTool('get_meal_plan', { week: WEEK })
+    );
+    expect(remaining.plan.entries).toHaveLength(1);
+    expect(remaining.plan.entries[0].customText).toBe('Leftovers');
   });
 });
