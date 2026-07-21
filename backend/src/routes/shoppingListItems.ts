@@ -11,6 +11,10 @@ import {
   removeShoppingListItem,
   normalizeItem,
 } from "../services/shoppingListItemService.js";
+import {
+  resolveItemCategories,
+  rememberItemCategory,
+} from "../services/categoryService.js";
 import { validateBody, getValidatedBody } from "../middleware/validation.js";
 import { logger } from "../lib/logger.js";
 import { verifyShoppingListAccess } from "../lib/shoppingListAccess.js";
@@ -87,17 +91,28 @@ app.post("/:listId/items", validateBody(createShoppingListItemSchema), async (c)
 
     const { name, category, quantity, unit, notes, position } = getValidatedBody<CreateShoppingListItemInput>(c);
 
-    const result = await addOrMergeItem({
-      listId,
-      name,
-      category,
-      quantity,
-      unit,
-      notes,
-      position,
-      createdBy: userId,
-      updatedBy: userId,
-    });
+    if (category) {
+      // The user picked a category explicitly — learn it for future adds.
+      await rememberItemCategory(userId, name, category);
+    }
+
+    // Auto-categorize when the user didn't pick one (learned memory, then
+    // keyword dictionary, then uncategorized).
+    const [input] = await resolveItemCategories(userId, [
+      {
+        listId,
+        name,
+        category,
+        quantity,
+        unit,
+        notes,
+        position,
+        createdBy: userId,
+        updatedBy: userId,
+      },
+    ]);
+
+    const result = await addOrMergeItem(input);
 
     return c.json(
       {
@@ -129,6 +144,12 @@ app.patch("/:listId/items/:itemId", validateBody(updateShoppingListItemSchema), 
   try {
     const input = getValidatedBody<UpdateShoppingListItemInput>(c);
     const result = await updateShoppingListItem(userId, listId, itemId, input);
+
+    if (result.ok && input.category) {
+      // Manual category corrections are the strongest signal — remember them
+      // so future adds of this item are categorized the same way.
+      await rememberItemCategory(userId, result.item.name, input.category);
+    }
 
     if (!result.ok) {
       return c.json(

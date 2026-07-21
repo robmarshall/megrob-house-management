@@ -21,6 +21,7 @@ import {
 } from '../lib/validation.js';
 import { enqueueRecipeImport } from '../lib/queue.js';
 import { addOrMergeItems, type AddItemInput } from '../services/shoppingListItemService.js';
+import { resolveItemCategories } from '../services/categoryService.js';
 import {
   verifyRecipeAccess,
   searchRecipes,
@@ -486,8 +487,11 @@ app.post('/:id/to-shopping-list', validateBody(addToShoppingListSchema), async (
       };
     });
 
-    // Add items with automatic merging of duplicates
-    const results = await addOrMergeItems(itemInputs);
+    // Auto-categorize (learned memory, then keyword dictionary), then add
+    // items with automatic merging of duplicates
+    const results = await addOrMergeItems(
+      await resolveItemCategories(userId, itemInputs)
+    );
     const mergedCount = results.filter((r) => r.merged).length;
     const insertedCount = results.filter((r) => !r.merged).length;
 
