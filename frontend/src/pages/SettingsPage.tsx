@@ -6,6 +6,7 @@ import { MainLayout } from '@/components/templates/MainLayout'
 import { Input } from '@/components/atoms/Input'
 import { Button } from '@/components/atoms/Button'
 import { ErrorMessage } from '@/components/atoms/ErrorMessage'
+import { NutritionProfileSection } from '@/components/organisms/NutritionProfileSection'
 import { toast } from '@/lib/toast'
 import {
   updateProfileSchema,
@@ -207,6 +208,7 @@ export function SettingsPage() {
         <h1 className="text-2xl font-bold text-gray-900 mb-8">Settings</h1>
         <div className="space-y-8">
           <ProfileSection />
+          <NutritionProfileSection />
           <ChangePasswordSection />
           <AppSettingsSection />
         </div>

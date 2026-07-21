@@ -20,6 +20,13 @@ vi.mock('@/hooks/useAuth', () => ({
   }),
 }))
 
+// NutritionProfileSection uses TanStack Query hooks; mock them so the page
+// renders without a QueryClientProvider.
+vi.mock('@/hooks/nutrition/useNutritionProfile', () => ({
+  useNutritionProfile: () => ({ data: null, isLoading: false, error: null }),
+  useSaveNutritionProfile: () => ({ save: vi.fn(), isSaving: false }),
+}))
+
 function spyOnStorageSetItem() {
   return vi.spyOn(Storage.prototype, 'setItem')
 }

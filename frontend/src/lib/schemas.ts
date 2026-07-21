@@ -176,3 +176,57 @@ export const changePasswordSchema = z.object({
 })
 
 export type ChangePasswordFormData = z.infer<typeof changePasswordSchema>
+
+// Nutrition Profile Schema
+
+export const nutritionProfileSchema = z.object({
+  heightCm: z
+    .number()
+    .int('Height must be a whole number')
+    .min(80, 'Height must be at least 80 cm')
+    .max(250, 'Height must be 250 cm or less')
+    .nullable(),
+  weightKg: z
+    .number()
+    .min(20, 'Weight must be at least 20 kg')
+    .max(350, 'Weight must be 350 kg or less')
+    .nullable(),
+  dateOfBirth: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date')
+    .refine((value) => new Date(value) < new Date(), {
+      message: 'Date of birth must be in the past',
+    })
+    .nullable(),
+  sex: z.enum(['male', 'female']).nullish(),
+  activityLevel: z
+    .enum(['sedentary', 'light', 'moderate', 'active', 'very_active'])
+    .nullish(),
+  goal: z.enum(['lose', 'maintain', 'gain']),
+  overrideCaloriesKcal: z
+    .number()
+    .int('Calories must be a whole number')
+    .min(500, 'Calories must be at least 500')
+    .max(10000, 'Calories must be 10000 or less')
+    .nullable(),
+  overrideProteinG: z
+    .number()
+    .int('Protein must be a whole number')
+    .min(0)
+    .max(500, 'Protein must be 500 g or less')
+    .nullable(),
+  overrideCarbsG: z
+    .number()
+    .int('Carbs must be a whole number')
+    .min(0)
+    .max(1000, 'Carbs must be 1000 g or less')
+    .nullable(),
+  overrideFatG: z
+    .number()
+    .int('Fat must be a whole number')
+    .min(0)
+    .max(500, 'Fat must be 500 g or less')
+    .nullable(),
+})
+
+export type NutritionProfileFormData = z.infer<typeof nutritionProfileSchema>

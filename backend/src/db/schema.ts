@@ -209,6 +209,63 @@ export const userFavorites = pgTable('user_favorites', {
 ]);
 
 /**
+ * Item Category Memory Table
+ * Learned "item name -> shopping category" preferences, scoped to a household
+ * (or to a single user when they have no household). Written when a user
+ * explicitly picks or corrects an item's category; read to auto-categorize
+ * future adds before falling back to the built-in keyword dictionary.
+ */
+export const itemCategoryMemory = pgTable('item_category_memory', {
+  id: serial('id').primaryKey(),
+  householdId: integer('household_id')
+    .references(() => households.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  normalizedName: text('normalized_name').notNull(), // via normalizeItemName()
+  category: text('category').notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+  // One entry per name per household, or per user for personal (no-household)
+  // scope — same partial-index pattern as meal_plans.
+  uniqueIndex('idx_item_category_memory_household')
+    .on(table.householdId, table.normalizedName)
+    .where(sql`${table.householdId} is not null`),
+  uniqueIndex('idx_item_category_memory_user')
+    .on(table.userId, table.normalizedName)
+    .where(sql`${table.householdId} is null`),
+]);
+
+/**
+ * Nutrition Profiles Table
+ * Per-user body metrics + activity/goal used to compute daily nutrition
+ * targets. Raw fields (height/weight/DOB/sex) are private to the owning
+ * user — household members only ever see derived targets
+ * (see nutritionProfileService).
+ */
+export const nutritionProfiles = pgTable('nutrition_profiles', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  heightCm: integer('height_cm'),
+  weightKg: numeric('weight_kg'),
+  dateOfBirth: date('date_of_birth'),
+  sex: text('sex'), // 'male' | 'female' — only used as BMR formula input
+  activityLevel: text('activity_level'), // 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active'
+  goal: text('goal').default('maintain').notNull(), // 'lose' | 'maintain' | 'gain'
+  // Manual per-field overrides; take precedence over formula-derived values
+  overrideCaloriesKcal: integer('override_calories_kcal'),
+  overrideProteinG: integer('override_protein_g'),
+  overrideCarbsG: integer('override_carbs_g'),
+  overrideFatG: integer('override_fat_g'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+  unique('nutrition_profiles_user_unique').on(table.userId),
+]);
+
+/**
  * Meal Plans Table
  * Weekly meal plans scoped to household or personal
  */

@@ -26,6 +26,7 @@ export interface InputProps {
     | "pattern"
     | "min"
     | "max"
+    | "setValueAs"
   >;
 }
 
@@ -68,10 +69,13 @@ export const Input = forwardRef(function Input(
       ? "This field is required"
       : false;
 
+  // Cast: RegisterOptions is a union whose arms make pattern/setValueAs
+  // mutually exclusive; our Pick flattens that, so the composed object needs
+  // re-widening even though any actual rules value satisfies one arm.
   const { ref: rhfRef, ...rhfRest } = register(name, {
     required: requiredMessage,
     ...rules,
-  });
+  } as RegisterOptions);
 
   const baseClasses = cn(
     "block w-full rounded-md border-0 px-3 py-2 mt-2",

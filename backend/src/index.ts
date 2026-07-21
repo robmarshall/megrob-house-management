@@ -17,6 +17,7 @@ import shoppingListItemsRoutes from "./routes/shoppingListItems.js";
 import recipesRoutes from "./routes/recipes.js";
 import householdsRoutes from "./routes/households.js";
 import mealPlansRoutes from "./routes/mealPlans.js";
+import nutritionRoutes from "./routes/nutrition.js";
 import mcpRoutes from "./routes/mcp.js";
 
 dotenv.config();
@@ -123,6 +124,7 @@ app.route("/api/shopping-lists", shoppingListsRoutes);
 app.route("/api/shopping-lists", shoppingListItemsRoutes);
 app.route("/api/recipes", recipesRoutes);
 app.route("/api/meal-plans", mealPlansRoutes);
+app.route("/api/nutrition", nutritionRoutes);
 // MCP endpoint (bearer-token auth inside the route, not authMiddleware)
 app.route("/api/mcp", mcpRoutes);
 

@@ -149,6 +149,29 @@ export const mealPlanToShoppingListSchema = z.object({
   { message: 'Either shoppingListId or newListName is required' }
 );
 
+export const upsertNutritionProfileSchema = z.object({
+  heightCm: z.number().int().min(80).max(250).nullable().optional(),
+  weightKg: z.number().min(20).max(350).nullable().optional(),
+  dateOfBirth: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD format')
+    .refine((value) => new Date(value) < new Date(), {
+      message: 'Date of birth must be in the past',
+    })
+    .nullable()
+    .optional(),
+  sex: z.enum(['male', 'female']).nullable().optional(),
+  activityLevel: z
+    .enum(['sedentary', 'light', 'moderate', 'active', 'very_active'])
+    .nullable()
+    .optional(),
+  goal: z.enum(['lose', 'maintain', 'gain']).optional(),
+  overrideCaloriesKcal: z.number().int().min(500).max(10000).nullable().optional(),
+  overrideProteinG: z.number().int().min(0).max(500).nullable().optional(),
+  overrideCarbsG: z.number().int().min(0).max(1000).nullable().optional(),
+  overrideFatG: z.number().int().min(0).max(500).nullable().optional(),
+});
+
 // Type exports for use in route handlers
 export type CreateShoppingListInput = z.infer<typeof createShoppingListSchema>;
 export type UpdateShoppingListInput = z.infer<typeof updateShoppingListSchema>;
@@ -167,3 +190,4 @@ export type CreateMealPlanEntryInput = z.infer<typeof createMealPlanEntrySchema>
 export type UpdateMealPlanEntryInput = z.infer<typeof updateMealPlanEntrySchema>;
 export type CopyMealPlanInput = z.infer<typeof copyMealPlanSchema>;
 export type MealPlanToShoppingListInput = z.infer<typeof mealPlanToShoppingListSchema>;
+export type UpsertNutritionProfileInput = z.infer<typeof upsertNutritionProfileSchema>;
