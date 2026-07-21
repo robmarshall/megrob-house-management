@@ -5,7 +5,7 @@ import { logger } from '../lib/logger.js';
 import { scrapeRecipe, parseDuration } from '../lib/recipeScraper.js';
 import { parseIngredient } from '../lib/ingredientParser.js';
 import { detectAllergens, detectDietary } from '../lib/allergenDetector.js';
-import type { RecipeImportJob } from '../lib/queue.js';
+import { enqueueNutritionEnrichSafe, type RecipeImportJob } from '../lib/queue.js';
 
 /**
  * Process a recipe-import job: scrape the source URL, parse ingredients, detect
@@ -101,6 +101,9 @@ export async function processRecipeImport({ recipeId, url, userId }: RecipeImpor
       await tx.insert(recipeCategories).values(categoryValues);
     }
   });
+
+  // Freshly imported ingredients -> compute nutrition in a follow-up job
+  await enqueueNutritionEnrichSafe({ recipeId });
 
   logger.info({ recipeId, name: scraped.name }, 'Successfully imported recipe');
 }

@@ -17,9 +17,11 @@ import {
   recipes,
   recipeIngredients,
   recipeCategories,
+  recipeNutrition,
   userFavorites,
 } from '../db/schema.js';
 import { getUserHouseholdId } from '../lib/household.js';
+import { enqueueNutritionEnrichSafe } from '../lib/queue.js';
 import { replaceRecipeRelations } from './recipeRelations.js';
 import type {
   RecipeIngredientInput,
@@ -274,10 +276,26 @@ export async function searchRecipes(
   return { data: dataWithCategories, total, page, pageSize, totalPages };
 }
 
+export interface RecipeNutritionView {
+  status: string;
+  caloriesKcal: number | null;
+  proteinG: number | null;
+  carbsG: number | null;
+  fatG: number | null;
+  fiberG: number | null;
+  sugarG: number | null;
+  saltG: number | null;
+  estimated: boolean;
+  matchedCount: number;
+  totalCount: number;
+}
+
 export interface RecipeDetail extends RecipeRow {
   isFavorite: boolean;
   ingredients: RecipeIngredientRow[];
   categories: RecipeCategoryRow[];
+  /** Per-serving nutrition; null until the enrichment job first runs */
+  nutrition: RecipeNutritionView | null;
 }
 
 /**
@@ -309,7 +327,36 @@ export async function getRecipeDetail(
     .from(recipeCategories)
     .where(eq(recipeCategories.recipeId, recipeId));
 
-  return { ...recipe, isFavorite: !!userFavorite, ingredients, categories };
+  const [nutritionRow] = await db
+    .select()
+    .from(recipeNutrition)
+    .where(eq(recipeNutrition.recipeId, recipeId));
+
+  // Lazy backfill: recipes that predate the nutrition feature get enriched
+  // the first time someone views them (singleton key dedupes re-triggers).
+  if (!nutritionRow && recipe.status === 'ready' && ingredients.length > 0) {
+    void enqueueNutritionEnrichSafe({ recipeId });
+  }
+
+  const toNum = (value: string | null) =>
+    value === null ? null : parseFloat(value);
+  const nutrition = nutritionRow
+    ? {
+        status: nutritionRow.status,
+        caloriesKcal: toNum(nutritionRow.caloriesKcal),
+        proteinG: toNum(nutritionRow.proteinG),
+        carbsG: toNum(nutritionRow.carbsG),
+        fatG: toNum(nutritionRow.fatG),
+        fiberG: toNum(nutritionRow.fiberG),
+        sugarG: toNum(nutritionRow.sugarG),
+        saltG: toNum(nutritionRow.saltG),
+        estimated: nutritionRow.estimated,
+        matchedCount: nutritionRow.matchedCount,
+        totalCount: nutritionRow.totalCount,
+      }
+    : null;
+
+  return { ...recipe, isFavorite: !!userFavorite, ingredients, categories, nutrition };
 }
 
 export interface CreateRecipeServiceInput {
@@ -349,8 +396,8 @@ export async function createRecipe(
 
   const householdId = await getUserHouseholdId(userId);
 
-  return db.transaction(async (tx) => {
-    const [created] = await tx
+  const created = await db.transaction(async (tx) => {
+    const [row] = await tx
       .insert(recipes)
       .values({
         name,
@@ -372,10 +419,16 @@ export async function createRecipe(
       })
       .returning();
 
-    await replaceRecipeRelations(tx, created.id, { ingredients, categories });
+    await replaceRecipeRelations(tx, row.id, { ingredients, categories });
 
-    return created;
+    return row;
   });
+
+  if (ingredients && ingredients.length > 0) {
+    void enqueueNutritionEnrichSafe({ recipeId: created.id });
+  }
+
+  return created;
 }
 
 export interface UpdateRecipeServiceInput
@@ -411,8 +464,8 @@ export async function updateRecipe(
     categories,
   } = input;
 
-  return db.transaction(async (tx) => {
-    const [updated] = await tx
+  const updated = await db.transaction(async (tx) => {
+    const [row] = await tx
       .update(recipes)
       .set({
         name: name !== undefined ? name : existingRecipe.name,
@@ -446,6 +499,13 @@ export async function updateRecipe(
 
     await replaceRecipeRelations(tx, recipeId, { ingredients, categories });
 
-    return updated;
+    return row;
   });
+
+  // Ingredient or servings changes invalidate the per-serving nutrition
+  if (ingredients !== undefined || servings !== undefined) {
+    void enqueueNutritionEnrichSafe({ recipeId });
+  }
+
+  return updated;
 }

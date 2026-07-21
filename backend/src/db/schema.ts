@@ -171,6 +171,64 @@ export const recipeCategories = pgTable('recipe_categories', {
 ]);
 
 /**
+ * Recipe Nutrition Table
+ * Per-serving nutrition computed asynchronously by the nutrition-enrich
+ * worker job from the recipe's ingredients. One row per recipe.
+ */
+export const recipeNutrition = pgTable('recipe_nutrition', {
+  id: serial('id').primaryKey(),
+  recipeId: integer('recipe_id')
+    .notNull()
+    .references(() => recipes.id, { onDelete: 'cascade' }),
+  status: text('status').default('pending').notNull(), // 'pending' | 'ready' | 'failed'
+  // All values per serving
+  caloriesKcal: numeric('calories_kcal'),
+  proteinG: numeric('protein_g'),
+  carbsG: numeric('carbs_g'),
+  fatG: numeric('fat_g'),
+  fiberG: numeric('fiber_g'),
+  sugarG: numeric('sugar_g'),
+  saltG: numeric('salt_g'),
+  estimated: boolean('estimated').default(false).notNull(), // any LLM-estimated component
+  matchedCount: integer('matched_count').default(0).notNull(), // ingredients resolved
+  totalCount: integer('total_count').default(0).notNull(), // ingredients total
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+  unique('recipe_nutrition_recipe_unique').on(table.recipeId),
+]);
+
+/**
+ * Ingredient Food Cache Table
+ * Resolved nutrition facts per normalized ingredient name + unit, shared
+ * across all households (food facts are not user data). Each distinct
+ * ingredient string is resolved (Open Food Facts or LLM) at most once.
+ */
+export const ingredientFoodCache = pgTable('ingredient_food_cache', {
+  id: serial('id').primaryKey(),
+  normalizedName: text('normalized_name').notNull(),
+  // Canonical unit context: 'g' for all mass units, else the canonical
+  // unit ('cups', 'tbsp', 'item', ...) since grams-per-unit depends on it
+  unit: text('unit').notNull(),
+  source: text('source').notNull(), // 'off' | 'llm'
+  gramsPerUnit: numeric('grams_per_unit').notNull(),
+  // Per 100 g of the food
+  caloriesPer100g: numeric('calories_per_100g'),
+  proteinPer100g: numeric('protein_per_100g'),
+  carbsPer100g: numeric('carbs_per_100g'),
+  fatPer100g: numeric('fat_per_100g'),
+  fiberPer100g: numeric('fiber_per_100g'),
+  sugarPer100g: numeric('sugar_per_100g'),
+  saltPer100g: numeric('salt_per_100g'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  unique('ingredient_food_cache_name_unit_unique').on(
+    table.normalizedName,
+    table.unit
+  ),
+]);
+
+/**
  * Recipe Feedback Table
  * Stores user feedback (like/dislike with notes) for iterative recipe improvement
  */

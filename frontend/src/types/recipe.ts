@@ -46,6 +46,26 @@ export interface Recipe {
   // Included when fetching single recipe
   ingredients?: RecipeIngredient[];
   categories?: RecipeCategory[];
+  nutrition?: RecipeNutrition | null;
+}
+
+/**
+ * Recipe Nutrition
+ * Per-serving values computed asynchronously by the enrichment worker.
+ * Null on the recipe until the first enrichment run completes.
+ */
+export interface RecipeNutrition {
+  status: 'pending' | 'ready' | 'failed';
+  caloriesKcal: number | null;
+  proteinG: number | null;
+  carbsG: number | null;
+  fatG: number | null;
+  fiberG: number | null;
+  sugarG: number | null;
+  saltG: number | null;
+  estimated: boolean;
+  matchedCount: number;
+  totalCount: number;
 }
 
 /**

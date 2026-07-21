@@ -10,6 +10,7 @@ import { StarRating } from "@/components/atoms/StarRating";
 import { TimeBadge } from "@/components/atoms/TimeBadge";
 import { ServingScaler, scaleQuantity } from "@/components/molecules/ServingScaler";
 import { FeedbackButton } from "@/components/molecules/FeedbackButton";
+import { NutritionPanel } from "@/components/molecules/NutritionPanel";
 import { AddFeedbackBottomSheet } from "@/components/molecules/AddFeedbackBottomSheet";
 import { FeedbackTimeline } from "@/components/molecules/FeedbackTimeline";
 import AddToShoppingListBottomSheet from "@/components/molecules/AddToShoppingListBottomSheet";
@@ -324,6 +325,9 @@ export function RecipeDetailPage() {
           </div>
         </Card>
       </div>
+
+      {/* Nutrition (per serving, computed asynchronously) */}
+      <NutritionPanel nutrition={recipe.nutrition} />
 
       {/* Notes */}
       {recipe.notes && (

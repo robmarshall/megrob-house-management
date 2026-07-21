@@ -7,11 +7,19 @@ dotenv.config();
 /** Name of the queue that carries recipe-import jobs. */
 export const RECIPE_IMPORT_QUEUE = 'recipe-import';
 
+/** Name of the queue that carries nutrition-enrichment jobs. */
+export const NUTRITION_ENRICH_QUEUE = 'nutrition-enrich';
+
 /** Payload for a recipe-import job. */
 export interface RecipeImportJob {
   recipeId: number;
   url: string;
   userId: string;
+}
+
+/** Payload for a nutrition-enrichment job. */
+export interface NutritionEnrichJob {
+  recipeId: number;
 }
 
 let boss: PgBoss | null = null;
@@ -42,6 +50,7 @@ export async function getQueue(): Promise<PgBoss> {
     instance.on('error', (err: Error) => logger.error({ err }, 'pg-boss error'));
     await instance.start();
     await instance.createQueue(RECIPE_IMPORT_QUEUE);
+    await instance.createQueue(NUTRITION_ENRICH_QUEUE);
     boss = instance;
     starting = null;
     return instance;
@@ -63,6 +72,35 @@ export async function enqueueRecipeImport(job: RecipeImportJob): Promise<string 
     retryDelay: 5,
     retryBackoff: true,
   });
+}
+
+/**
+ * Enqueue a nutrition-enrichment job. Fire-and-forget from write paths: a
+ * singleton key coalesces duplicate triggers for the same recipe while a job
+ * is queued, and failures must never break the request that triggered them —
+ * callers use enqueueNutritionEnrichSafe unless they want the error.
+ */
+export async function enqueueNutritionEnrich(
+  job: NutritionEnrichJob
+): Promise<string | null> {
+  const queue = await getQueue();
+  return queue.send(NUTRITION_ENRICH_QUEUE, job, {
+    singletonKey: `nutrition-enrich-${job.recipeId}`,
+    retryLimit: 2,
+    retryDelay: 30,
+    retryBackoff: true,
+  });
+}
+
+/** enqueueNutritionEnrich that logs instead of throwing (for read paths). */
+export async function enqueueNutritionEnrichSafe(
+  job: NutritionEnrichJob
+): Promise<void> {
+  try {
+    await enqueueNutritionEnrich(job);
+  } catch (err) {
+    logger.error({ err, recipeId: job.recipeId }, 'Failed to enqueue nutrition enrich');
+  }
 }
 
 /** Stop the shared pg-boss instance (used for graceful shutdown). */

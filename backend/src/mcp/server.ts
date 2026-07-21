@@ -436,6 +436,8 @@ export function createMcpServer(userId: string): McpServer {
           type: cat.categoryType,
           value: cat.categoryValue,
         })),
+        // Per-serving, computed asynchronously; null until first enrichment
+        nutrition: recipe.nutrition,
       });
     }
   );
