@@ -5,14 +5,18 @@ import { Hono } from 'hono';
 import {
   getQueue,
   stopQueue,
+  registerSnozoneSchedules,
   RECIPE_IMPORT_QUEUE,
   NUTRITION_ENRICH_QUEUE,
+  SNOZONE_POLL_QUEUE,
   type RecipeImportJob,
   type NutritionEnrichJob,
+  type SnozonePollJob,
 } from './lib/queue.js';
 import { processRecipeImport } from './services/recipeImport.js';
 import { enrichRecipeNutrition } from './services/nutritionEnrichmentService.js';
 import { isFoodEstimatorConfigured } from './services/foodEstimator.js';
+import { runSnozoneCollection } from './services/snozoneCollector.js';
 import {
   assessWorkerHealth,
   healthHttpStatus,
@@ -35,7 +39,17 @@ dotenv.config();
  */
 
 /** Queues this process is responsible for; the health check asserts all are live. */
-const OWNED_QUEUES = [RECIPE_IMPORT_QUEUE, NUTRITION_ENRICH_QUEUE];
+const OWNED_QUEUES = [RECIPE_IMPORT_QUEUE, NUTRITION_ENRICH_QUEUE, SNOZONE_POLL_QUEUE];
+
+/**
+ * Upper bound on the random delay before a scheduled Snozone poll starts.
+ *
+ * Cron fires these on exact :00/:30 boundaries forever. Spreading the actual
+ * requests over the following couple of minutes keeps the traffic from being
+ * the most machine-legible thing on the site (PLAN.md §11); 120s is well inside
+ * the 30-minute period, so runs still never overlap.
+ */
+const SNOZONE_JITTER_MS = 120_000;
 
 const startedAt = Date.now();
 
@@ -128,6 +142,22 @@ async function main() {
       await enrichRecipeNutrition(job.data.recipeId);
     }
   });
+
+  await boss.work<SnozonePollJob>(SNOZONE_POLL_QUEUE, async (jobs: Job<SnozonePollJob>[]) => {
+    for (const job of jobs) {
+      const jitter = Math.floor(Math.random() * SNOZONE_JITTER_MS);
+      logger.debug({ mode: job.data.mode, jitterMs: jitter }, 'Snozone poll starting');
+      await new Promise((r) => setTimeout(r, jitter));
+      await runSnozoneCollection({
+        mode: job.data.mode,
+        productRowId: job.data.productRowId,
+      });
+    }
+  });
+
+  // Registered after work() so a schedule can never fire into a process that is
+  // not yet consuming its own queue.
+  await registerSnozoneSchedules();
 
   // Started only after work() has registered, so the health check never reports
   // "no worker registered" for a process that is merely still booting.

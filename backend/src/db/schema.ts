@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, numeric, boolean, unique, uniqueIndex, date } from 'drizzle-orm/pg-core';
+import { pgTable, serial, bigserial, text, timestamp, integer, numeric, boolean, unique, uniqueIndex, index, primaryKey, date } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { user } from './auth-schema';
 
@@ -371,3 +371,151 @@ export const mealPlanEntries = pgTable('meal_plan_entries', {
   position: integer('position').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+/* -------------------------------------------------------------------------- */
+/* Snozone availability collector                                             */
+/*                                                                            */
+/* Longitudinal record of slot availability at the Snozone slope, polled every */
+/* 30 minutes. Its purpose is to answer two questions a single snapshot cannot: */
+/* when people book, and which days and times are busy across a season.        */
+/*                                                                            */
+/* The data is NOT backfillable — Snozone exposes no history — so these tables */
+/* are append-mostly and the raw observations are never rewritten. Everything  */
+/* else is derivable from them.                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Snozone Products Table
+ * What to poll. A row rather than config so a second product or location is an
+ * insert, not a migration. `active` is the kill switch.
+ */
+export const snozoneProducts = pgTable('snozone_products', {
+  id: serial('id').primaryKey(),
+  label: text('label').notNull(),
+  locationId: integer('location_id').notNull(),
+  categoryId: integer('category_id').notNull(),
+  productId: integer('product_id').notNull(),
+  qty: integer('qty').notNull().default(1),
+  // urlencoded body POSTed to buildSessionGroup.php to select the product.
+  primeBody: text('prime_body').notNull(),
+  sessionMinutes: integer('session_minutes').notNull().default(60),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  unique('snozone_products_unique').on(table.locationId, table.productId, table.qty),
+]);
+
+/**
+ * Snozone Poll Runs Table
+ * One row per scheduled collection run.
+ *
+ * This table is what makes "unchanged" distinguishable from "not observed",
+ * which is the entire basis of the diff analysis: observations are written only
+ * on change, so without a record of when we looked, a gap is ambiguous.
+ */
+export const snozonePollRuns = pgTable('snozone_poll_runs', {
+  id: serial('id').primaryKey(),
+  productRowId: integer('product_row_id')
+    .notNull()
+    .references(() => snozoneProducts.id, { onDelete: 'cascade' }),
+  mode: text('mode').notNull(), // 'window' | 'horizon'
+  startedAt: timestamp('started_at', { withTimezone: true }).defaultNow().notNull(),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  // 'running' | 'ok' | 'blocked' | 'unprimed' | 'error'
+  status: text('status').notNull().default('running'),
+  datesPolled: text('dates_polled').array(),
+  datesSkipped: text('dates_skipped').array(),
+  horizonLength: integer('horizon_length'),
+  slotsSeen: integer('slots_seen'),
+  changesWritten: integer('changes_written'),
+  httpCalls: integer('http_calls'),
+  error: text('error'),
+}, (table) => [
+  index('snozone_poll_runs_started_idx').on(table.startedAt),
+]);
+
+/**
+ * Snozone Slot Observations Table
+ * The raw record. Written ONLY when a tracked value changed since the previous
+ * observation of that (product, session_date, slot_time).
+ *
+ * `prevSeenAt` is the load-bearing column. With change-only storage the previous
+ * stored row may be hours old, which would smear a booking across a wide window;
+ * this records the last run that actually polled the slot and saw no change,
+ * pinning every observed change to a <=30 minute bracket.
+ *
+ * Note `slotTime` is venue-local 'HH:MM' text and `sessionDate` a plain date:
+ * they are deliberately NOT collapsed into a UTC instant, so BST cannot corrupt
+ * the time-of-day analysis.
+ */
+export const snozoneSlotObservations = pgTable('snozone_slot_observations', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  runId: integer('run_id')
+    .notNull()
+    .references(() => snozonePollRuns.id),
+  productRowId: integer('product_row_id')
+    .notNull()
+    .references(() => snozoneProducts.id, { onDelete: 'cascade' }),
+  sessionDate: date('session_date').notNull(),
+  slotTime: text('slot_time').notNull(),
+  observedAt: timestamp('observed_at', { withTimezone: true }).notNull(),
+  prevSeenAt: timestamp('prev_seen_at', { withTimezone: true }),
+  // totalPeopleInSession: sessions STARTING here. Diffing this is the booking
+  // signal; one booking also bumps from_prior on the next twelve slots, so
+  // diffing on_slope counts each booking thirteen times.
+  starting: integer('starting').notNull(),
+  fromPrior: integer('from_prior').notNull(),
+  // starting + from_prior: headcount on the slope. The busyness signal.
+  onSlope: integer('on_slope').notNull(),
+  qtyAvailable: integer('qty_available').notNull(),
+  totalQty: integer('total_qty').notNull(),
+  available: boolean('available').notNull(),
+  soldOut: boolean('sold_out').notNull(),
+  blocked: boolean('blocked').notNull(),
+  lowAvailability: boolean('low_availability').notNull(),
+  callToBook: boolean('call_to_book').notNull(),
+  reason: text('reason'),
+  price: numeric('price', { precision: 8, scale: 2 }),
+  slotType: text('slot_type'),
+  experience: text('experience'),
+  // Was the slot already past its start time when observed? Such readings are
+  // corrupted (qty_available zeroed, from_prior not decrementing) and must be
+  // excluded from every occupancy figure.
+  expiredWhenSeen: boolean('expired_when_seen').notNull().default(false),
+}, (table) => [
+  index('snozone_obs_slot_idx').on(
+    table.productRowId, table.sessionDate, table.slotTime, table.observedAt
+  ),
+  index('snozone_obs_observed_idx').on(table.observedAt),
+]);
+
+/**
+ * Snozone Slot Finals Table
+ * The last trustworthy reading per slot per past date, recomputed nightly.
+ *
+ * Small (121 slots x 365 days is ~44k rows/year) and immune to the expiry
+ * corruption, so it is the base table for all day-of-week and seasonal
+ * analytics. Always rederivable from the observations.
+ */
+export const snozoneSlotFinals = pgTable('snozone_slot_finals', {
+  productRowId: integer('product_row_id')
+    .notNull()
+    .references(() => snozoneProducts.id, { onDelete: 'cascade' }),
+  sessionDate: date('session_date').notNull(),
+  slotTime: text('slot_time').notNull(),
+  finalOnSlope: integer('final_on_slope').notNull(),
+  finalStarting: integer('final_starting').notNull(),
+  totalQty: integer('total_qty').notNull(),
+  peakOnSlope: integer('peak_on_slope').notNull(),
+  // Occupancy already present the first time this date was ever observed, i.e.
+  // bookings made before it entered our polling horizon. Makes the truncation
+  // measurable instead of invisible.
+  firstSeenOnSlope: integer('first_seen_on_slope').notNull(),
+  firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).notNull(),
+  slotType: text('slot_type'),
+  price: numeric('price', { precision: 8, scale: 2 }),
+  observationCount: integer('observation_count').notNull(),
+  computedAt: timestamp('computed_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.productRowId, table.sessionDate, table.slotTime] }),
+]);

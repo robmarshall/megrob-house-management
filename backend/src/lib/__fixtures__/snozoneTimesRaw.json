@@ -1,0 +1,264 @@
+{
+  "_comment": "Trimmed RAW getBookingTimesGroup captures (2026-08-25, Yorkshire, prodid 818). Untouched upstream field names and values; only the slot selection is curated. today=* are all past their booking cutoff and show the expiry corruption described in brief.md 10.2a; tomorrow=* are live and bookable.",
+  "today": {
+    "10:00": {
+      "available": 0,
+      "qtyavailable": 0,
+      "totalqty": "80",
+      "type": "Summer Off Peak",
+      "typeid": 3,
+      "typeColour": "D4D94A",
+      "price": "34.99",
+      "experienceid": 1,
+      "experienceids": [
+        1
+      ],
+      "experiencename": "Main Ski Slope",
+      "chosenactivityid": null,
+      "totalPeopleInSession": 28,
+      "peopleFromPriorSession": 39,
+      "bookunits": 1,
+      "totalunits": "67.00",
+      "totalunitsleft": 13,
+      "calltobook": false,
+      "breakdown": {
+        "CCCCCC": 41,
+        "FFFF00": 39
+      },
+      "isBlockedOut": false,
+      "isSoldOut": true,
+      "unavailableForSeasonPass": false,
+      "lessthan5available": false,
+      "hidden": null,
+      "yieldisfull": 0,
+      "yieldwarning": "",
+      "reason": "Only 0 minutes left in session",
+      "averageAge": 0,
+      "averageAgeCanBook": 1,
+      "timeOffsetBlocked": 0,
+      "timelabel": "",
+      "fullprice": 34.99,
+      "prodid": "818",
+      "totalSplitOverallPrice": [
+        34.99
+      ],
+      "totalOverallPrice": "34.99"
+    },
+    "10:20": {
+      "available": 0,
+      "qtyavailable": 0,
+      "totalqty": "80",
+      "type": "Summer Off Peak",
+      "typeid": 3,
+      "typeColour": "D4D94A",
+      "price": "34.99",
+      "experienceid": 1,
+      "experienceids": [
+        1
+      ],
+      "experiencename": "Main Ski Slope",
+      "chosenactivityid": null,
+      "totalPeopleInSession": 1,
+      "peopleFromPriorSession": 73,
+      "bookunits": 1,
+      "totalunits": "40.00",
+      "totalunitsleft": 40,
+      "calltobook": false,
+      "breakdown": {
+        "CCCCCC": 7,
+        "FFFF00": 73
+      },
+      "isBlockedOut": true,
+      "isSoldOut": false,
+      "unavailableForSeasonPass": false,
+      "lessthan5available": false,
+      "hidden": null,
+      "yieldisfull": 0,
+      "yieldwarning": "",
+      "reason": "Only 0 minutes left in session",
+      "averageAge": 0,
+      "averageAgeCanBook": 1,
+      "timeOffsetBlocked": 0,
+      "timelabel": "",
+      "fullprice": 34.99,
+      "prodid": "818",
+      "totalSplitOverallPrice": [
+        34.99
+      ],
+      "totalOverallPrice": "34.99"
+    },
+    "10:30": {
+      "available": 0,
+      "qtyavailable": 0,
+      "totalqty": "80",
+      "type": "Summer Off Peak",
+      "typeid": 3,
+      "typeColour": "D4D94A",
+      "price": "34.99",
+      "experienceid": 1,
+      "experienceids": [
+        1
+      ],
+      "experiencename": "Main Ski Slope",
+      "chosenactivityid": null,
+      "totalPeopleInSession": 13,
+      "peopleFromPriorSession": 73,
+      "bookunits": 1,
+      "totalunits": "52.00",
+      "totalunitsleft": 28,
+      "calltobook": false,
+      "breakdown": {
+        "CCCCCC": 7,
+        "FFFF00": 73
+      },
+      "isBlockedOut": false,
+      "isSoldOut": true,
+      "unavailableForSeasonPass": false,
+      "lessthan5available": false,
+      "hidden": null,
+      "yieldisfull": 0,
+      "yieldwarning": "",
+      "reason": "Only 0 minutes left in session",
+      "averageAge": 0,
+      "averageAgeCanBook": 1,
+      "timeOffsetBlocked": 0,
+      "timelabel": "",
+      "fullprice": 34.99,
+      "prodid": "818",
+      "totalSplitOverallPrice": [
+        34.99
+      ],
+      "totalOverallPrice": "34.99"
+    },
+    "10:05": {
+      "available": 0,
+      "qtyavailable": 0,
+      "totalqty": "80",
+      "type": "Summer Off Peak",
+      "typeid": 3,
+      "typeColour": "D4D94A",
+      "price": "34.99",
+      "experienceid": 1,
+      "experienceids": [
+        1
+      ],
+      "experiencename": "Main Ski Slope",
+      "chosenactivityid": null,
+      "totalPeopleInSession": 3,
+      "peopleFromPriorSession": 66,
+      "bookunits": 1,
+      "totalunits": "42.00",
+      "totalunitsleft": 38,
+      "calltobook": false,
+      "breakdown": {
+        "CCCCCC": 14,
+        "FFFF00": 66
+      },
+      "isBlockedOut": false,
+      "isSoldOut": true,
+      "unavailableForSeasonPass": false,
+      "lessthan5available": false,
+      "hidden": null,
+      "yieldisfull": 0,
+      "yieldwarning": "",
+      "reason": "Only 0 minutes left in session",
+      "averageAge": 0,
+      "averageAgeCanBook": 1,
+      "timeOffsetBlocked": 0,
+      "timelabel": "",
+      "fullprice": 34.99,
+      "prodid": "818",
+      "totalSplitOverallPrice": [
+        34.99
+      ],
+      "totalOverallPrice": "34.99"
+    }
+  },
+  "tomorrow": {
+    "10:00": {
+      "available": 1,
+      "qtyavailable": 66,
+      "totalqty": "80",
+      "type": "Summer Off Peak",
+      "typeid": "3",
+      "typeColour": "D4D94A",
+      "price": "34.99",
+      "experienceid": 1,
+      "experienceids": [
+        1
+      ],
+      "experiencename": "Main Ski Slope",
+      "chosenactivityid": null,
+      "totalPeopleInSession": 14,
+      "peopleFromPriorSession": 0,
+      "bookunits": 1,
+      "totalunits": "14.00",
+      "totalunitsleft": 66,
+      "calltobook": false,
+      "breakdown": {
+        "a1c8ec": 14
+      },
+      "isBlockedOut": false,
+      "isSoldOut": false,
+      "unavailableForSeasonPass": false,
+      "lessthan5available": false,
+      "hidden": null,
+      "yieldisfull": null,
+      "yieldwarning": "",
+      "reason": "",
+      "averageAge": 0,
+      "averageAgeCanBook": 1,
+      "timeOffsetBlocked": 0,
+      "timelabel": "",
+      "fullprice": 34.99,
+      "prodid": "818",
+      "totalSplitOverallPrice": [
+        34.99
+      ],
+      "totalOverallPrice": "34.99"
+    },
+    "19:00": {
+      "available": 1,
+      "qtyavailable": 32,
+      "totalqty": "80",
+      "type": "Summer Off Peak",
+      "typeid": "3",
+      "typeColour": "D4D94A",
+      "price": "34.99",
+      "experienceid": 1,
+      "experienceids": [
+        1
+      ],
+      "experiencename": "Main Ski Slope",
+      "chosenactivityid": null,
+      "totalPeopleInSession": 7,
+      "peopleFromPriorSession": 41,
+      "bookunits": 1,
+      "totalunits": "46.00",
+      "totalunitsleft": 34,
+      "calltobook": false,
+      "breakdown": {
+        "CCCCCC": 7,
+        "FFFF00": 41
+      },
+      "isBlockedOut": false,
+      "isSoldOut": false,
+      "unavailableForSeasonPass": false,
+      "lessthan5available": false,
+      "hidden": null,
+      "yieldisfull": null,
+      "yieldwarning": "",
+      "reason": "",
+      "averageAge": 0,
+      "averageAgeCanBook": 1,
+      "timeOffsetBlocked": 0,
+      "timelabel": "",
+      "fullprice": 34.99,
+      "prodid": "818",
+      "totalSplitOverallPrice": [
+        34.99
+      ],
+      "totalOverallPrice": "34.99"
+    }
+  }
+}
