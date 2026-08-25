@@ -203,9 +203,11 @@ assistant, not just the wire.
 ## 7. Out of scope (for now)
 
 - Whole-list / whole-recipe delete tools
-- Recipe **import** via MCP — imports queue through pg-boss, and the worker process
-  is not wired up as a Coolify resource in prod; revisit if/when the worker is deployed
-  (deployment steps are now written up in `docs/worker-deployment.md` — once that
-  resource exists this item is unblocked)
+- ~~Recipe **import** via MCP — imports queue through pg-boss, and the worker process
+  is not wired up as a Coolify resource in prod; revisit if/when the worker is deployed~~
+  **Stale as of 2026-08-25: the worker IS deployed** (Coolify app `megrob-worker`,
+  branch `main`, start command `npm run worker:start`) and its logs show recipe
+  imports and nutrition enrichment completing. This item is unblocked. See
+  `docs/worker-deployment.md`.
 - API-key auth path (rejected in favor of OAuth; tool layer wouldn't change if revisited)
 - MCP resources/prompts (tools only, initially)

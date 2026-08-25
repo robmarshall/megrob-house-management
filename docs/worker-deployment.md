@@ -1,93 +1,101 @@
 # Deploying the pg-boss worker to Coolify
 
-## Why this exists
+## Current state
 
-The backend has two processes. `dist/index.js` is the Hono API; `dist/worker.js`
-consumes queued jobs. **Only the API is currently deployed** — see
-`docs/mcp-server-plan.md:206-207`, which scopes recipe-import-via-MCP out
-precisely because *"the worker process is not wired up as a Coolify resource in
-prod"*.
+**The worker is deployed and working.** Verified directly in Coolify on
+2026-08-25 (`megrob.uk` → `production` → `megrob-worker`).
 
-The consequence is bigger than one deferred MCP tool. Anything that reaches
-`enqueue*()` in production writes a row into the pg-boss tables that nothing
-ever picks up:
+`docs/mcp-server-plan.md:206-207` says the opposite — that the worker "is not
+wired up as a Coolify resource in prod". **That note is stale.** It was written
+before the resource existed, and taking it at face value leads to the wrong
+conclusion that recipe import and nutrition enrichment are inert in production.
+They are not; the worker logs show both completing.
 
-- **Recipe import** — `enqueueRecipeImport()` queues and never runs.
-- **Nutrition enrichment** — `enqueueNutritionEnrichSafe()` queues and never runs.
-- **Anything scheduled** — `boss.schedule()` registers a cron entry, but the cron
-  monitor lives in the process that called `boss.start()`. No worker means no
-  monitor, and a schedule that fires for nobody.
+Verified running config:
 
-None of these surface as errors. The API returns 200, the job row sits in
-`pgboss.job`, and the work silently never happens.
+| Setting | Value |
+|---|---|
+| Application | `megrob-worker` (project `megrob.uk`, env `production`) |
+| Repository / branch | `robmarshall/megrob-house-management` / `main` @ `HEAD` |
+| Build Pack | Nixpacks |
+| Base Directory | `/backend` |
+| Install / Build / Start | `npm install` / `npm run build` / `npm run worker:start` |
+| Env | `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `FRONTEND_URL`, `PORT`, `DEEPSEEK_API_KEY`, `NIXPACKS_NODE_VERSION` |
 
-## Shape of the deployment
+Worker logs confirm it is consuming, not merely running:
 
-One extra Coolify **Application**, from the same repository and the same build
-as the API, differing only in start command. Not a separate repo, not a separate
-image.
+```
+{"queues":["recipe-import","nutrition-enrich"],"msg":"Worker started"}
+{"recipeId":6,"name":"Oreo cheesecake","msg":"Successfully imported recipe"}
+{"matchedCount":6,"totalCount":6,"estimated":true,"msg":"Nutrition enrichment complete"}
+```
 
-| | API (existing) | Worker (new) |
-|---|---|---|
-| Base directory | `backend` | `backend` |
-| Build command | `npm run build` | `npm run build` |
-| Start command | `npm start` | `npm run worker:start` |
-| Port exposed | 3000 | 3001 (health only, internal) |
-| Public domain | `api.megrob.uk` | **none** |
-| Health check path | `/health` | `/health` |
+So `boss.schedule()` **will** fire in production, and anything reaching
+`enqueue*()` is processed.
 
-`npm run build` (`tsup src/index.ts src/worker.ts`) already emits both entry
-points, so no build change is needed.
+## The gap that remains
 
-## Steps
+Coolify reports the worker as **"Running (unknown)"** with a warning, because
+its health check is **disabled**. "Running" here means only that the container
+process has not exited.
 
-1. **New resource** → Application → same Git repository and branch (`main`) as
-   the existing backend.
+That is the weak spot. The failure mode for a queue consumer is not the process
+dying — Coolify would restart that — it is the process staying alive while no
+longer consuming, because pg-boss lost the database or the work loop unwound.
+Nothing in the current setup can tell the difference, and the symptom is jobs
+silently accumulating unprocessed. For the Snozone collector, which depends on
+`boss.schedule()`, that would mean silently collecting nothing while the
+dashboard shows green.
 
-2. **Build settings**
-   - Base Directory: `backend`
-   - Build Command: `npm run build`
-   - Start Command: `npm run worker:start`
-   - Nixpacks, matching the API. Note the existing convention from
-     `mcp-server-plan.md:197`: Coolify builds `backend/` in isolation and
-     re-resolves caret ranges, so **new dependencies must be pinned to exact
-     versions**. This change adds no new dependencies — `@hono/node-server` and
-     `hono` were already backend dependencies.
+This document covers closing that gap.
 
-3. **No public domain.** The worker must not be reachable from the internet. The
-   health endpoint carries queue names, worker states and error timings; that is
-   internal diagnostics, not something to expose. Leave Domains empty so Coolify
-   does not attach it to the proxy.
+## Steps to close it
 
-4. **Environment variables.** The worker needs far less than the API — it
-   validates only `DATABASE_URL` at boot, deliberately, so it cannot fail to
-   start over an unset `FRONTEND_URL` that could not affect it.
+Order matters. The health endpoint ships in application code, so it must be
+**deployed before the check is enabled** — otherwise Coolify probes a port
+nothing is listening on, marks the container unhealthy, and restart-loops a
+worker that was working fine.
 
-   Required:
-   - `DATABASE_URL` — **the same value as the API**, including
-     `sslmode=no-verify` (the DB cert is self-signed; see
-     `.github/workflows/deploy-migrations.yml`).
+1. **Merge the health endpoint to `main`.** The worker deploys from
+   `main` @ `HEAD`, so nothing reaches production until the branch lands. This
+   adds no new dependencies — `hono` and `@hono/node-server` were already
+   backend dependencies, which matters given the convention in
+   `mcp-server-plan.md:197` (Coolify builds `backend/` in isolation and
+   re-resolves caret ranges, so new deps must be pinned exactly).
 
-   Recommended:
-   - `NODE_ENV=production` — switches the logger off `pino-pretty` to JSON.
-   - `WORKER_HEALTH_PORT=3001`
+2. **Add `WORKER_HEALTH_PORT=3001`** to the worker's environment variables.
+   Strictly optional — 3001 is the default — but explicit beats implicit for a
+   value the platform health check has to match. Do **not** reuse `PORT`, which
+   is already set for the API's sake.
 
-   Optional, only if the relevant feature is wanted:
-   - `DEEPSEEK_API_KEY` — without it the worker still starts and logs a warning,
-     but nutrition enrichment resolves ingredients by cache and Open Food Facts
-     only.
-   - `PGBOSS_SCHEMA` — only if the API sets it; the two **must** match or they
-     will use different queues and never see each other's jobs.
+3. **Deploy / redeploy the worker.** Confirm from the logs that it comes up:
+   `Worker health endpoint listening` alongside the existing `Worker started`.
 
-5. **Health check**
-   - Path: `/health`
-   - Port: `3001`
-   - Interval: 30s, Timeout: 5s, Retries: 3
-   - Start period: at least 60s — the worker's own startup grace is 60s, and a
-     shorter platform start period will kill it mid-boot on a cold database
-     (pg-boss runs its schema migrations on first start).
+4. **Verify the endpoint before wiring the platform to it** (see §Verifying).
+   If this step does not return 200, stop — enabling the check now would take a
+   healthy worker offline.
 
-6. **Deploy**, then verify with §"Verifying" below.
+5. **Enable the health check**, with these values rather than the defaults:
+
+   | Field | Default | Set to | Why |
+   |---|---|---|---|
+   | Path | `/health` | `/health` | correct already |
+   | Port | *(empty → 80)* | **3001** | nothing serves 80 |
+   | Interval | 5s | **30s** | 5s is needless probe traffic |
+   | Timeout | 5s | 5s | fine |
+   | Retries | 10 | **3** | 10 × 30s = 5 min to notice |
+   | Start Period | 5s | **60s** | see below |
+
+   The start period must be at least 60s: the worker's own startup grace is 60s,
+   and pg-boss runs its schema migrations on a cold start. A 5s start period will
+   kill it mid-boot.
+
+6. **Consider removing the public domain.** The worker currently has
+   `http://m0gs0gwgkw0scg40k4swso0k.168.231.79.120.sslip.io` attached. Nothing
+   listens on the proxied port today so it is dead, but once the health server is
+   running, that domain risks exposing queue names, worker states and error
+   timings publicly. The health check probes `localhost` from inside the
+   container and does not need the domain. Recommend clearing Domains.
 
 ## The health check
 
@@ -165,8 +173,8 @@ why it is off the default path.
 ### End-to-end check
 
 The health endpoint proves the worker is polling. To prove it is *processing*,
-import a recipe by URL in the app and watch the worker logs. Before this
-deployment that request would queue and nothing would happen.
+import a recipe by URL in the app and watch the worker logs for
+`Successfully imported recipe`.
 
 ## Local development
 
@@ -182,7 +190,8 @@ a host. Defaults (3000 / 3001) already do.
 
 ## Follow-on
 
-With the worker deployed, `boss.schedule()` becomes usable in production. That
-is the prerequisite for the Snozone collector — see `PLAN.md` in the
-`snozone-booking` repo, work item A2 — and it also revives the recipe-import and
-nutrition-enrichment queues that are inert today.
+`boss.schedule()` is already usable in production, since the worker is running.
+That prerequisite for the Snozone collector (`PLAN.md` in the `snozone-booking`
+repo) is therefore **already satisfied** — what the health check adds is the
+ability to notice when the collector stops collecting, which for a job whose
+data cannot be backfilled is worth having before it starts rather than after.
