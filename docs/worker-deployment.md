@@ -51,6 +51,23 @@ This document covers closing that gap.
 
 ## Steps to close it
 
+> **Done — 2026-08-25.** All steps below were carried out. The worker now reports
+> **`Running (healthy)`** in Coolify. Kept as the record of what was changed, and
+> as the procedure if it ever has to be redone.
+>
+> ```
+> Healthcheck URL (inside the container): GET: http://localhost:3001/health
+> Waiting for the start period (60 seconds) before starting healthcheck.
+> "healthy"  →  New container is healthy.  →  Rolling update completed.
+> ```
+>
+> Docker's own probe log showed `ExitCode: 0` at 22:21:21 and 22:21:51 — 30s
+> apart, matching the configured interval. Step 6 (removing the public domain)
+> was **not** done and is not needed: Coolify proxies that domain to the app's
+> configured port, not 3001, so the endpoint is not publicly reachable. Verified
+> by an external request returning 502 while the endpoint was serving fine
+> inside the container.
+
 Order matters. The health endpoint ships in application code, so it must be
 **deployed before the check is enabled** — otherwise Coolify probes a port
 nothing is listening on, marks the container unhealthy, and restart-loops a
@@ -90,12 +107,14 @@ worker that was working fine.
    and pg-boss runs its schema migrations on a cold start. A 5s start period will
    kill it mid-boot.
 
-6. **Consider removing the public domain.** The worker currently has
-   `http://m0gs0gwgkw0scg40k4swso0k.168.231.79.120.sslip.io` attached. Nothing
-   listens on the proxied port today so it is dead, but once the health server is
-   running, that domain risks exposing queue names, worker states and error
-   timings publicly. The health check probes `localhost` from inside the
-   container and does not need the domain. Recommend clearing Domains.
+6. ~~**Consider removing the public domain.**~~ **Not needed.** The worker has
+   `http://m0gs0gwgkw0scg40k4swso0k.168.231.79.120.sslip.io` attached, and the
+   concern was that it would expose queue names and worker states once something
+   was listening. It does not: Coolify proxies that domain to the application's
+   configured port, not to 3001, so an external request returns 502 while the
+   endpoint serves normally inside the container. The health check probes
+   `localhost` from within the container and never touches the proxy. Leave the
+   domain alone — but if the proxied port is ever pointed at 3001, revisit this.
 
 ## The health check
 
