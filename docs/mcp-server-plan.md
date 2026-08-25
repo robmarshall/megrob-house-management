@@ -205,5 +205,7 @@ assistant, not just the wire.
 - Whole-list / whole-recipe delete tools
 - Recipe **import** via MCP — imports queue through pg-boss, and the worker process
   is not wired up as a Coolify resource in prod; revisit if/when the worker is deployed
+  (deployment steps are now written up in `docs/worker-deployment.md` — once that
+  resource exists this item is unblocked)
 - API-key auth path (rejected in favor of OAuth; tool layer wouldn't change if revisited)
 - MCP resources/prompts (tools only, initially)
