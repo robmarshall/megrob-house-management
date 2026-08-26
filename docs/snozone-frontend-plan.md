@@ -158,6 +158,43 @@ It also sets the build order: the Book page is buildable and useful now; the
 Patterns page can be built as a shell with real empty states, and each chart
 switched on as its threshold is met.
 
+### 5.1 Opening hours vary by day — normalise before comparing
+
+Observed in production on 2026-08-26, across the only three dates collected so far:
+
+| Date | Day | Slots | Open |
+|---|---|---|---|
+| 2026-08-26 | Wed | 121 | 10:00–20:00 |
+| 2026-08-27 | Thu | 121 | 10:00–20:00 |
+| 2026-08-28 | Fri | **133** | 10:00–**21:00** |
+
+Friday runs an hour later: 133 − 121 = 12 extra five-minute slots, exactly one more hour.
+`PLAN.md` §14 raised this as a *seasonal* question ("does the winter timetable change opening
+hours?"). It is not seasonal — **it varies day to day, right now**, and it is the norm rather
+than the exception.
+
+This is benign for a single date's chart, whose axis scales to whatever that date offers.
+It is a trap for everything that compares dates:
+
+- **Never compare per-day totals** — daily bookings, daily peak, "how busy was Friday" —
+  without dividing by open hours. Friday will otherwise look busier simply for being longer,
+  and the day-of-week heatmap would confidently report a pattern that is partly just the
+  timetable.
+- **A heatmap cell is one of three things, not two**: busy, quiet, or *closed*. Render
+  "closed" visually distinct from "no bookings". A blank cell that means "shut" and a blank
+  cell that means "empty slope" invite opposite conclusions.
+- **Side-by-side date comparisons need a shared axis** with the non-open region explicitly
+  marked, rather than two charts of different widths silently rescaled to the same box.
+- **Fill curves are unaffected** — they plot a single slot against lead time, so opening
+  hours never enter.
+- **Assume nothing about 121 slots or 10:00–20:00.** No constant, axis or test fixture may
+  hardcode either. The database schema already assumes nothing; the charts must match.
+
+Related, and checked rather than assumed: the collector's §12.2 validation rejects a reading
+whose slot count collapses below half the previous. A legitimate 133 → 121 change is a 9%
+drop, comfortably clear of that threshold, so ordinary timetable variation will not be
+mistaken for a broken response.
+
 ---
 
 ## 6. Charting: hand-rolled, zero new dependencies
