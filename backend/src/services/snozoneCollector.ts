@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
   snozoneProducts,
@@ -180,28 +180,55 @@ async function loadLastStates(
 }
 
 /**
+ * How far back to look for the previous poll of a date. Comfortably beyond the
+ * ~31-day bookable horizon, so any date we could be polling was either polled
+ * inside this window or never polled at all. That makes the bound exact rather
+ * than a heuristic, while keeping the scan small.
+ */
+const PREV_POLL_LOOKBACK_DAYS = 45;
+
+/**
  * When each date was last successfully polled.
  *
  * This is what `prev_seen_at` is set from, and it is per-date rather than
  * per-slot because every slot of a date is fetched in the same call. Only
  * status='ok' runs count: a rejected run looked, but not usefully.
+ *
+ * Reduced in JS from one bounded query rather than joining against an array
+ * parameter — binding a JS array into a Postgres array cast through the query
+ * builder is what produced `malformed array literal` on the first live run.
  */
 async function loadLastPolledAt(
   productRowId: number,
-  dates: string[]
+  dates: string[],
+  now: Date
 ): Promise<Map<string, Date>> {
   if (dates.length === 0) return new Map();
-  const rows = await db.execute<{ d: string; last: Date | null }>(sql`
-    SELECT d, max(r.started_at) AS last
-    FROM unnest(${dates}::text[]) AS d
-    LEFT JOIN snozone_poll_runs r
-      ON r.product_row_id = ${productRowId}
-     AND r.status = 'ok'
-     AND d = ANY(r.dates_polled)
-    GROUP BY d
-  `);
+  const cutoff = new Date(now.getTime() - PREV_POLL_LOOKBACK_DAYS * 86_400_000);
+
+  const rows = await db
+    .select({
+      startedAt: snozonePollRuns.startedAt,
+      datesPolled: snozonePollRuns.datesPolled,
+    })
+    .from(snozonePollRuns)
+    .where(
+      and(
+        eq(snozonePollRuns.productRowId, productRowId),
+        eq(snozonePollRuns.status, 'ok'),
+        gte(snozonePollRuns.startedAt, cutoff)
+      )
+    );
+
+  const wanted = new Set(dates);
   const out = new Map<string, Date>();
-  for (const r of rows) if (r.last) out.set(r.d, new Date(r.last));
+  for (const row of rows) {
+    for (const d of row.datesPolled ?? []) {
+      if (!wanted.has(d)) continue;
+      const current = out.get(d);
+      if (!current || row.startedAt > current) out.set(d, row.startedAt);
+    }
+  }
   return out;
 }
 
@@ -211,14 +238,22 @@ async function loadLastSlotTimes(
   dates: string[]
 ): Promise<Record<string, string | null>> {
   if (dates.length === 0) return {};
-  const rows = await db.execute<{ session_date: string; last_slot: string | null }>(sql`
-    SELECT session_date, max(slot_time) AS last_slot
-    FROM snozone_slot_observations
-    WHERE product_row_id = ${productRowId} AND session_date = ANY(${dates}::date[])
-    GROUP BY session_date
-  `);
+  const rows = await db
+    .select({
+      sessionDate: snozoneSlotObservations.sessionDate,
+      lastSlot: sql<string | null>`max(${snozoneSlotObservations.slotTime})`,
+    })
+    .from(snozoneSlotObservations)
+    .where(
+      and(
+        eq(snozoneSlotObservations.productRowId, productRowId),
+        inArray(snozoneSlotObservations.sessionDate, dates)
+      )
+    )
+    .groupBy(snozoneSlotObservations.sessionDate);
+
   const out: Record<string, string | null> = {};
-  for (const r of rows) out[r.session_date] = r.last_slot;
+  for (const r of rows) out[r.sessionDate] = r.lastSlot;
   return out;
 }
 
@@ -353,7 +388,7 @@ async function collectForProduct(
     }
 
     // ---- diff and persist ------------------------------------------------
-    const lastPolled = await loadLastPolledAt(product.id, targets);
+    const lastPolled = await loadLastPolledAt(product.id, targets, now);
     const observedAt = new Date();
     let slotsSeen = 0;
     let changesWritten = 0;
