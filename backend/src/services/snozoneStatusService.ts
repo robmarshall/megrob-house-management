@@ -34,8 +34,8 @@ export interface RunRow {
 export interface ObservationStats {
   rows: number;
   distinctDates: number;
-  firstAt: Date | null;
-  lastAt: Date | null;
+  firstAt: string | null;
+  lastAt: string | null;
   rowsLast24h: number;
   changesLast24h: number;
 }
@@ -50,7 +50,7 @@ export interface DateCoverage {
   sessionDate: string;
   observations: number;
   slots: number;
-  lastObservedAt: Date;
+  lastObservedAt: string | null;
   /** Latest known headcount, ignoring post-start readings. */
   peakOnSlope: number | null;
 }
@@ -69,6 +69,21 @@ export interface SnozoneStatus {
   finals: FinalsStats;
   coverage: DateCoverage[];
   generatedAt: Date;
+}
+
+/**
+ * Coerce a timestamp from a raw SQL row and render it ISO.
+ *
+ * `db.execute()` with raw SQL passes the driver's value through, and
+ * postgres-js yields a string like '2026-08-26 08:32:05.948+00' for
+ * timestamptz. That is not a format `new Date()` parses reliably — Safari
+ * rejects it outright — so normalising here keeps the iPhone from rendering
+ * "Invalid Date". The typed query builder returns real Dates, hence both.
+ */
+function toIso(value: unknown): string | null {
+  if (value == null) return null;
+  const d = value instanceof Date ? value : new Date(String(value).replace(' ', 'T'));
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
 const RUNS_SHOWN = 12;
@@ -161,8 +176,8 @@ export async function getSnozoneStatus(): Promise<SnozoneStatus> {
     observations: {
       rows: obs?.rows ?? 0,
       distinctDates: obs?.distinct_dates ?? 0,
-      firstAt: obs?.first_at ?? null,
-      lastAt: obs?.last_at ?? null,
+      firstAt: toIso(obs?.first_at),
+      lastAt: toIso(obs?.last_at),
       rowsLast24h: obs?.rows_24h ?? 0,
       changesLast24h: obs?.changes_24h ?? 0,
     },
@@ -175,7 +190,7 @@ export async function getSnozoneStatus(): Promise<SnozoneStatus> {
       sessionDate: c.session_date,
       observations: c.observations,
       slots: c.slots,
-      lastObservedAt: c.last_observed_at,
+      lastObservedAt: toIso(c.last_observed_at),
       peakOnSlope: c.peak_on_slope,
     })),
     generatedAt: now,

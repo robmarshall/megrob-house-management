@@ -14,6 +14,20 @@ import type { RecommendSlotInput } from './snozoneRecommendService.js';
  */
 
 /** A date's most recent observation older than this counts as stale. */
+/**
+ * Coerce a timestamp from a raw SQL row.
+ *
+ * Drizzle's typed query builder hands back `Date` objects, but `db.execute()`
+ * with raw SQL passes the driver's value straight through, and postgres-js
+ * yields a STRING for timestamptz there. Assuming `Date` crashed the day
+ * endpoint in production with `r.observed_at.toISOString is not a function`.
+ * Both shapes are accepted rather than depending on which query builder a
+ * given call happens to use.
+ */
+function toDate(value: unknown): Date {
+  return value instanceof Date ? value : new Date(String(value));
+}
+
 const STALE_AFTER_MS = 90 * 60 * 1000;
 
 export interface ProductRef {
@@ -153,7 +167,7 @@ export async function getDaySnapshot(productId: number, date: string): Promise<D
     price: string | null;
     slot_type: string | null;
     experience: string | null;
-    observed_at: Date;
+    observed_at: Date | string;
     expired_when_seen: boolean;
   }>(sql`
     SELECT DISTINCT ON (slot_time)
@@ -187,7 +201,7 @@ export async function getDaySnapshot(productId: number, date: string): Promise<D
     price: r.price,
     slotType: r.slot_type,
     experience: r.experience,
-    observedAt: r.observed_at.toISOString(),
+    observedAt: toDate(r.observed_at).toISOString(),
     // Two different questions converge here. `expired_when_seen` records
     // whether the READING was taken after the slot started (so its numbers are
     // corrupted); `isSlotExpired` asks whether the slot has passed BY NOW. They
@@ -201,7 +215,8 @@ export async function getDaySnapshot(productId: number, date: string): Promise<D
 
   let latestObservedAt: Date | null = null;
   for (const r of rows) {
-    if (!latestObservedAt || r.observed_at > latestObservedAt) latestObservedAt = r.observed_at;
+    const observedAt = toDate(r.observed_at);
+    if (!latestObservedAt || observedAt > latestObservedAt) latestObservedAt = observedAt;
   }
   const isStale = !latestObservedAt || Date.now() - latestObservedAt.getTime() > STALE_AFTER_MS;
 
@@ -239,7 +254,7 @@ export interface HistoryPoint {
 export async function getDayHistory(productId: number, date: string): Promise<HistoryPoint[]> {
   const rows = await db.execute<{
     slot_time: string;
-    observed_at: Date;
+    observed_at: Date | string;
     on_slope: number;
     starting: number;
   }>(sql`
@@ -251,7 +266,7 @@ export async function getDayHistory(productId: number, date: string): Promise<Hi
 
   return rows.map((r) => ({
     slotTime: r.slot_time,
-    observedAt: r.observed_at.toISOString(),
+    observedAt: toDate(r.observed_at).toISOString(),
     onSlope: r.on_slope,
     starting: r.starting,
   }));
