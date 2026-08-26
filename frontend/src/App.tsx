@@ -20,6 +20,7 @@ import { SharedRecipePage } from '@/pages/SharedRecipePage'
 import { HouseholdPage } from '@/pages/HouseholdPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { MealPlanPage } from '@/pages/MealPlanPage'
+import { SnozonePage } from '@/pages/SnozonePage'
 import { queryClient } from '@/lib/queryClient'
 
 function App() {
@@ -110,6 +111,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <HouseholdPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/snozone"
+              element={
+                <ProtectedRoute>
+                  <SnozonePage />
                 </ProtectedRoute>
               }
             />
