@@ -21,6 +21,7 @@ import mealPlansRoutes from "./routes/mealPlans.js";
 import nutritionRoutes from "./routes/nutrition.js";
 import mcpRoutes from "./routes/mcp.js";
 import notificationSettingsRoutes from "./routes/notificationSettings.js";
+import snozoneRoutes from "./routes/snozone.js";
 
 dotenv.config();
 
@@ -132,6 +133,7 @@ app.route("/api/meal-plans", mealPlansRoutes);
 app.route("/api/nutrition", nutritionRoutes);
 // App-wide settings; admin-gated inside the route module
 app.route("/api/settings/notifications", notificationSettingsRoutes);
+app.route("/api/snozone", snozoneRoutes);
 // MCP endpoint (bearer-token auth inside the route, not authMiddleware)
 app.route("/api/mcp", mcpRoutes);
 

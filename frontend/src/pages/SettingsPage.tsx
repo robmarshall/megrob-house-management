@@ -8,6 +8,8 @@ import { Button } from '@/components/atoms/Button'
 import { ErrorMessage } from '@/components/atoms/ErrorMessage'
 import { NutritionProfileSection } from '@/components/organisms/NutritionProfileSection'
 import { TelegramNotificationsSection } from '@/components/organisms/TelegramNotificationsSection'
+import { SnozoneCollectorSection } from '@/components/organisms/SnozoneCollectorSection'
+import { useNotificationSettings } from '@/hooks/notifications/useNotificationSettings'
 import { toast } from '@/lib/toast'
 import {
   updateProfileSchema,
@@ -202,18 +204,87 @@ function AppSettingsSection() {
   )
 }
 
+type TabId = 'account' | 'notifications' | 'snozone'
+
+/**
+ * Settings, tabbed.
+ *
+ * The admin tabs are driven by whether the notification settings query
+ * resolves: it returns null on a 403, so a non-admin sees only Account and no
+ * tab strip at all. The API is the real gate — this just avoids showing tabs
+ * that would only ever render an error.
+ */
 export function SettingsPage() {
+  const [tab, setTab] = useState<TabId>('account')
+  const { data: notificationSettings } = useNotificationSettings()
+  const isAdmin = Boolean(notificationSettings)
+
+  const tabs: { id: TabId; label: string }[] = [
+    { id: 'account', label: 'Account' },
+    ...(isAdmin
+      ? ([
+          { id: 'notifications', label: 'Notifications' },
+          { id: 'snozone', label: 'Snozone' },
+        ] as { id: TabId; label: string }[])
+      : []),
+  ]
+
+  // Snozone shows tables; give it room without widening the whole page.
+  const width = tab === 'snozone' ? 'max-w-4xl' : 'max-w-2xl'
+  const active = tabs.some((t) => t.id === tab) ? tab : 'account'
+
   return (
     <MainLayout>
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-8">Settings</h1>
-        <div className="space-y-8">
-          <ProfileSection />
-          <NutritionProfileSection />
-          <ChangePasswordSection />
-          <TelegramNotificationsSection />
-          <AppSettingsSection />
-        </div>
+      <div className={`${width} mx-auto`}>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">Settings</h1>
+
+        {tabs.length > 1 && (
+          <div className="mb-8 border-b border-gray-200">
+            <nav className="-mb-px flex gap-6" aria-label="Settings sections">
+              {tabs.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTab(t.id)}
+                  aria-current={active === t.id ? 'page' : undefined}
+                  className={`border-b-2 px-1 pb-3 text-sm font-medium transition-colors ${
+                    active === t.id
+                      ? 'border-primary-600 text-primary-700'
+                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </nav>
+          </div>
+        )}
+
+        {active === 'account' && (
+          <div className="space-y-8">
+            <ProfileSection />
+            <NutritionProfileSection />
+            <ChangePasswordSection />
+            <AppSettingsSection />
+          </div>
+        )}
+
+        {active === 'notifications' && <TelegramNotificationsSection />}
+
+        {active === 'snozone' && (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Snozone availability collector
+              </h2>
+              <p className="text-sm text-gray-500">
+                Polls slot availability every 30 minutes. This data cannot be
+                backfilled, so a gap here is permanent.
+              </p>
+            </div>
+            <SnozoneCollectorSection />
+          </div>
+        )}
       </div>
     </MainLayout>
   )
