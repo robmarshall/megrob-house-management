@@ -20,6 +20,7 @@ import householdsRoutes from "./routes/households.js";
 import mealPlansRoutes from "./routes/mealPlans.js";
 import nutritionRoutes from "./routes/nutrition.js";
 import mcpRoutes from "./routes/mcp.js";
+import notificationSettingsRoutes from "./routes/notificationSettings.js";
 
 dotenv.config();
 
@@ -129,6 +130,8 @@ app.use("/api/public/recipes/*", rateLimiter(30, 60_000));
 app.route("/api/public/recipes", publicRecipesRoutes);
 app.route("/api/meal-plans", mealPlansRoutes);
 app.route("/api/nutrition", nutritionRoutes);
+// App-wide settings; admin-gated inside the route module
+app.route("/api/settings/notifications", notificationSettingsRoutes);
 // MCP endpoint (bearer-token auth inside the route, not authMiddleware)
 app.route("/api/mcp", mcpRoutes);
 

@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
   snozoneProducts,
@@ -18,6 +18,15 @@ import {
   isSlotExpired,
   type VenueNow,
 } from '../lib/snozoneWindow.js';
+import {
+  evaluateGate,
+  countConsecutiveFailures,
+  shouldAlertOnFailure,
+  shouldAlertOnRecovery,
+  type RunHistoryEntry,
+  type RunOutcome,
+} from '../lib/snozoneHealth.js';
+import { notify } from './notificationService.js';
 import { logger } from '../lib/logger.js';
 
 /**
@@ -30,7 +39,10 @@ import { logger } from '../lib/logger.js';
  */
 
 export type PollMode = 'window' | 'horizon';
-export type RunStatus = 'ok' | 'blocked' | 'unprimed' | 'error';
+export type RunStatus = 'ok' | 'blocked' | 'unprimed' | 'error' | 'skipped';
+
+/** How many recent runs to consider when deciding backoff and alerting. */
+const HISTORY_DEPTH = 40;
 
 export interface RunSummary {
   runId: number | null;
@@ -295,11 +307,90 @@ export async function runSnozoneCollection(opts: CollectOptions): Promise<RunSum
   return summaries;
 }
 
+/**
+ * Notify on a sustained failure, and again on recovery.
+ *
+ * Never throws — `notify` swallows its own errors and logs, so an alerting
+ * problem cannot take down the collection run that was trying to report one.
+ */
+async function raiseAlerts(
+  label: string,
+  status: RunStatus,
+  priorFailures: number,
+  summary: RunSummary
+): Promise<void> {
+  if (status === 'ok') {
+    if (shouldAlertOnRecovery(priorFailures)) {
+      await notify('Snozone collector recovered', [
+        `${label} is collecting again after ${priorFailures} failed runs.`,
+        `Dates polled: ${summary.datesPolled.join(', ') || 'none'}`,
+        `Changes written: ${summary.changesWritten}`,
+      ]);
+    }
+    return;
+  }
+
+  const consecutive = priorFailures + 1;
+  if (!shouldAlertOnFailure(consecutive)) return;
+
+  await notify('Snozone collector failing', [
+    `${label} has failed ${consecutive} runs in a row.`,
+    `Latest status: ${status}`,
+    `Error: ${summary.error ?? 'unknown'}`,
+    '',
+    'Collection is backing off and will keep retrying; no action may be needed.',
+    'If this persists, check whether Cloudflare is challenging the VPS',
+    '(snozone-booking/vps-egress-test.mjs reproduces the check).',
+  ]);
+}
+
+/** Recent run outcomes, most recent first, for backoff and alerting. */
+async function loadRunHistory(productRowId: number): Promise<RunHistoryEntry[]> {
+  const rows = await db
+    .select({ status: snozonePollRuns.status, startedAt: snozonePollRuns.startedAt })
+    .from(snozonePollRuns)
+    .where(eq(snozonePollRuns.productRowId, productRowId))
+    .orderBy(desc(snozonePollRuns.startedAt))
+    .limit(HISTORY_DEPTH);
+
+  // 'running' rows are in-flight and have no outcome yet.
+  return rows
+    .filter((r) => r.status !== 'running')
+    .map((r) => ({ status: r.status as RunOutcome, startedAt: r.startedAt }));
+}
+
 async function collectForProduct(
   product: typeof snozoneProducts.$inferSelect,
   mode: PollMode,
   now: Date
 ): Promise<RunSummary> {
+  const history = await loadRunHistory(product.id);
+  const priorFailures = countConsecutiveFailures(history);
+
+  // Back off after repeated failures rather than hammering a site that may be
+  // challenging us (brief.md §7). The horizon sweep is exempt: it runs once a
+  // day, so it is never the source of pressure and skipping it costs a whole
+  // day of low-resolution coverage.
+  const gate = evaluateGate(history, now);
+  if (!gate.proceed && mode === 'window') {
+    await db.insert(snozonePollRuns).values({
+      productRowId: product.id,
+      mode,
+      startedAt: now,
+      finishedAt: new Date(),
+      status: 'skipped',
+      error: gate.reason,
+    });
+    logger.warn(
+      { product: product.label, mode, consecutiveFailures: gate.consecutiveFailures },
+      `Snozone collection skipped: ${gate.reason}`
+    );
+    return {
+      runId: null, status: 'skipped', datesPolled: [], datesSkipped: [],
+      slotsSeen: 0, changesWritten: 0, httpCalls: 0, error: gate.reason,
+    };
+  }
+
   const [run] = await db
     .insert(snozonePollRuns)
     .values({ productRowId: product.id, mode, startedAt: now, status: 'running' })
@@ -338,6 +429,8 @@ async function collectForProduct(
     const line = { ...summary, product: product.label, mode };
     if (status === 'ok') logger.info(line, 'Snozone collection run complete');
     else logger.error(line, 'Snozone collection run failed');
+
+    await raiseAlerts(product.label, status, priorFailures, summary);
     return summary;
   };
 

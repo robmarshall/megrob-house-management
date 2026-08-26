@@ -7,6 +7,7 @@ import { Input } from '@/components/atoms/Input'
 import { Button } from '@/components/atoms/Button'
 import { ErrorMessage } from '@/components/atoms/ErrorMessage'
 import { NutritionProfileSection } from '@/components/organisms/NutritionProfileSection'
+import { TelegramNotificationsSection } from '@/components/organisms/TelegramNotificationsSection'
 import { toast } from '@/lib/toast'
 import {
   updateProfileSchema,
@@ -210,6 +211,7 @@ export function SettingsPage() {
           <ProfileSection />
           <NutritionProfileSection />
           <ChangePasswordSection />
+          <TelegramNotificationsSection />
           <AppSettingsSection />
         </div>
       </div>

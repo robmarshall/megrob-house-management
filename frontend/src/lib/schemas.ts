@@ -231,3 +231,25 @@ export const nutritionProfileSchema = z.object({
 })
 
 export type NutritionProfileFormData = z.infer<typeof nutritionProfileSchema>
+
+/**
+ * Telegram notification settings (admin only).
+ * botToken is optional: blank means "keep the token already stored", so the
+ * secret never has to round-trip to the browser just to change the chat ID.
+ */
+export const telegramSettingsSchema = z.object({
+  botToken: z
+    .string()
+    .trim()
+    .max(200, 'That does not look like a bot token')
+    .optional(),
+  chatId: z
+    .string()
+    .trim()
+    .max(64)
+    .regex(/^-?\d*$/, 'Chat ID is numeric (a group chat ID starts with -)')
+    .optional(),
+  enabled: z.boolean(),
+})
+
+export type TelegramSettingsFormData = z.infer<typeof telegramSettingsSchema>

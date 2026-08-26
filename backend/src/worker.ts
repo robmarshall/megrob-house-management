@@ -17,6 +17,7 @@ import { processRecipeImport } from './services/recipeImport.js';
 import { enrichRecipeNutrition } from './services/nutritionEnrichmentService.js';
 import { isFoodEstimatorConfigured } from './services/foodEstimator.js';
 import { runSnozoneCollection } from './services/snozoneCollector.js';
+import { runNightlyRollup } from './services/snozoneRollup.js';
 import {
   assessWorkerHealth,
   healthHttpStatus,
@@ -145,6 +146,13 @@ async function main() {
 
   await boss.work<SnozonePollJob>(SNOZONE_POLL_QUEUE, async (jobs: Job<SnozonePollJob>[]) => {
     for (const job of jobs) {
+      // The rollup touches only our own database, so it needs no jitter and no
+      // upstream courtesy delay — it is not a poll.
+      if (job.data.mode === 'rollup') {
+        await runNightlyRollup();
+        continue;
+      }
+
       const jitter = Math.floor(Math.random() * SNOZONE_JITTER_MS);
       logger.debug({ mode: job.data.mode, jitterMs: jitter }, 'Snozone poll starting');
       await new Promise((r) => setTimeout(r, jitter));

@@ -198,3 +198,16 @@ export type UpdateMealPlanEntryInput = z.infer<typeof updateMealPlanEntrySchema>
 export type CopyMealPlanInput = z.infer<typeof copyMealPlanSchema>;
 export type MealPlanToShoppingListInput = z.infer<typeof mealPlanToShoppingListSchema>;
 export type UpsertNutritionProfileInput = z.infer<typeof upsertNutritionProfileSchema>;
+
+/**
+ * Telegram notification settings (admin only).
+ * botToken is optional on update: omitting it keeps the stored one, so the
+ * settings form never has to round-trip the secret to change the chat ID.
+ */
+export const updateTelegramSettingsSchema = z.object({
+  botToken: z.string().trim().max(200).optional(),
+  chatId: z.string().trim().max(64).optional(),
+  enabled: z.boolean().optional(),
+});
+
+export type UpdateTelegramSettingsInput = z.infer<typeof updateTelegramSettingsSchema>;

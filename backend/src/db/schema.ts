@@ -1,4 +1,4 @@
-import { pgTable, serial, bigserial, text, timestamp, integer, numeric, boolean, unique, uniqueIndex, index, primaryKey, date } from 'drizzle-orm/pg-core';
+import { pgTable, serial, bigserial, text, timestamp, integer, numeric, boolean, unique, uniqueIndex, index, primaryKey, check, date } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { user } from './auth-schema';
 
@@ -518,4 +518,33 @@ export const snozoneSlotFinals = pgTable('snozone_slot_finals', {
   computedAt: timestamp('computed_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
   primaryKey({ columns: [table.productRowId, table.sessionDate, table.slotTime] }),
+]);
+
+/**
+ * Notification Settings Table
+ *
+ * A single app-wide row holding outbound notification config, pinned to id = 1
+ * by a check constraint so a second row cannot appear and leave background jobs
+ * guessing which config to send with.
+ *
+ * The Telegram bot token is stored ENCRYPTED (see lib/secretBox.ts) and is
+ * never returned by the API — reads get a masked hint like '••••0aBc'. Access
+ * is admin-only; see middleware/adminOnly.ts.
+ */
+export const notificationSettings = pgTable('notification_settings', {
+  id: integer('id').primaryKey().default(1),
+  telegramEnabled: boolean('telegram_enabled').notNull().default(false),
+  // AES-256-GCM sealed value, not the token itself.
+  telegramBotTokenCipher: text('telegram_bot_token_cipher'),
+  telegramChatId: text('telegram_chat_id'),
+  // Denormalised from the last successful verification, so the settings page
+  // can show which bot is connected without unsealing the token.
+  telegramBotUsername: text('telegram_bot_username'),
+  lastVerifiedAt: timestamp('last_verified_at', { withTimezone: true }),
+  lastErrorAt: timestamp('last_error_at', { withTimezone: true }),
+  lastError: text('last_error'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedBy: text('updated_by').references(() => user.id, { onDelete: 'set null' }),
+}, (table) => [
+  check('notification_settings_singleton', sql`${table.id} = 1`),
 ]);

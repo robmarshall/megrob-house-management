@@ -30,6 +30,13 @@ export const SNOZONE_WINDOW_CRON = '*/30 * * * *';
  */
 export const SNOZONE_HORIZON_CRON = '5 4 * * *';
 
+/**
+ * Cron for the nightly rollup of raw observations into slot finals. Runs before
+ * the horizon sweep so the two never contend, and well after the day's last
+ * slot so every date it finalises is genuinely finished.
+ */
+export const SNOZONE_ROLLUP_CRON = '30 2 * * *';
+
 /** Timezone for both schedules — see PLAN.md §12.3 on BST. */
 export const VENUE_TZ = 'Europe/London';
 
@@ -47,8 +54,12 @@ export interface NutritionEnrichJob {
 
 /** Payload for a scheduled Snozone poll. */
 export interface SnozonePollJob {
-  /** 'window' = today..+2 at 30-min resolution; 'horizon' = +3.. once daily. */
-  mode: 'window' | 'horizon';
+  /**
+   * 'window'  = today..+2 at 30-min resolution
+   * 'horizon' = +3.. once daily
+   * 'rollup'  = recompute slot finals from raw observations (no upstream calls)
+   */
+  mode: 'window' | 'horizon' | 'rollup';
   /** Restrict to one product row; omitted means every active product. */
   productRowId?: number;
 }
@@ -139,9 +150,19 @@ export async function registerSnozoneSchedules(): Promise<void> {
     key: 'horizon',
     singletonKey: 'snozone-horizon',
   });
+  await queue.schedule(SNOZONE_POLL_QUEUE, SNOZONE_ROLLUP_CRON, { mode: 'rollup' }, {
+    ...options,
+    key: 'rollup',
+    singletonKey: 'snozone-rollup',
+  });
 
   logger.info(
-    { window: SNOZONE_WINDOW_CRON, horizon: SNOZONE_HORIZON_CRON, tz: VENUE_TZ },
+    {
+      window: SNOZONE_WINDOW_CRON,
+      horizon: SNOZONE_HORIZON_CRON,
+      rollup: SNOZONE_ROLLUP_CRON,
+      tz: VENUE_TZ,
+    },
     'Snozone poll schedules registered'
   );
 }
