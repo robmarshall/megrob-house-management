@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { MainLayout } from '@/components/templates/MainLayout'
 import { SnozoneBookTab } from '@/components/organisms/SnozoneBookTab'
+import { SnozonePatternsTab } from '@/components/organisms/SnozonePatternsTab'
 
 type TabId = 'book' | 'patterns'
 
 /**
- * Snozone: "when should I go?" (Book) and, eventually, "what is this slope
- * like?" (Patterns — work item G, shell only for now). Any signed-in user
- * can see this; it is not admin-only. Admin-only collector health lives at
- * Settings → Snozone.
+ * Snozone: "when should I go?" (Book) and "what is this slope like?"
+ * (Patterns). Any signed-in user can see this; it is not admin-only.
+ * Admin-only collector health lives at Settings → Snozone.
  */
 export function SnozonePage() {
   const [tab, setTab] = useState<TabId>('book')
@@ -45,12 +45,7 @@ export function SnozonePage() {
 
         {tab === 'book' && <SnozoneBookTab />}
 
-        {tab === 'patterns' && (
-          <p className="text-sm text-gray-500">
-            Patterns — busyness and booking-time analytics — is coming soon, as the collector
-            builds up enough history to make it meaningful.
-          </p>
-        )}
+        {tab === 'patterns' && <SnozonePatternsTab />}
       </div>
     </MainLayout>
   )

@@ -10,6 +10,12 @@ vi.mock('@/components/organisms/SnozoneBookTab', () => ({
   SnozoneBookTab: () => <div data-testid="book-tab">Book tab content</div>,
 }))
 
+// Likewise SnozonePatternsTab: it fetches four analytics of its own and is
+// tested against them separately. This file is only about the tab strip.
+vi.mock('@/components/organisms/SnozonePatternsTab', () => ({
+  SnozonePatternsTab: () => <div data-testid="patterns-tab">Patterns tab content</div>,
+}))
+
 // MainLayout renders AppHeader, which needs an authenticated user.
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({ signOut: vi.fn() }),
@@ -37,6 +43,6 @@ describe('SnozonePage', () => {
     await user.click(screen.getByRole('button', { name: 'Patterns' }))
 
     expect(screen.queryByTestId('book-tab')).not.toBeInTheDocument()
-    expect(screen.getByText(/coming soon/i)).toBeInTheDocument()
+    expect(screen.getByTestId('patterns-tab')).toBeInTheDocument()
   })
 })

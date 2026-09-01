@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { authMiddleware } from '../middleware/auth.js';
 import { adminOnly } from '../middleware/adminOnly.js';
 import { getSnozoneStatus } from '../services/snozoneStatusService.js';
@@ -14,7 +14,16 @@ import {
   DEFAULT_RECOMMEND_PARAMS,
   type RecommendParams,
 } from '../services/snozoneRecommendService.js';
-import { venueNow } from '../lib/snozoneWindow.js';
+import {
+  getCollectedDates,
+  getBusyness,
+  getBookingTimes,
+  getLeadTimes,
+  getTrend,
+  getFillCurves,
+  type DateRange,
+} from '../services/snozoneAnalyticsService.js';
+import { venueNow, addDays } from '../lib/snozoneWindow.js';
 
 /**
  * Snozone routes (docs/snozone-frontend-plan.md §4). Every handler here reads
@@ -151,6 +160,136 @@ app.get('/recommend', async (c) => {
   const result = rankPresenceWindows(slots, date, now, params);
 
   return c.json({ date, params, ...result });
+});
+
+/* ------------------------------------------------------------- analytics */
+
+/**
+ * How far back an analytic looks when the caller does not say.
+ *
+ * A year, because the questions these answer are seasonal and the finals table
+ * is sized for exactly that (~44k rows a year). Nothing here is expensive
+ * enough to need a tighter default.
+ */
+const DEFAULT_ANALYTICS_DAYS = 365;
+
+/**
+ * Resolve `from`/`to` query parameters into a range, defaulting to the last
+ * year and ending today. Returns null if either is present but malformed, so
+ * a typo produces a 400 rather than silently widening the window.
+ */
+export function parseRange(
+  from: string | undefined,
+  to: string | undefined,
+  today: string
+): DateRange | null {
+  const resolvedTo = to === undefined || to === '' ? today : to;
+  // `to` has to be validated BEFORE it is used to derive the default `from`:
+  // addDays runs it through `new Date`, which throws RangeError on junk, so
+  // validating afterwards turns a typo'd query parameter into a 500 rather
+  // than the 400 it should be.
+  if (!isValidDate(resolvedTo)) return null;
+
+  const resolvedFrom =
+    from === undefined || from === ''
+      ? addDays(resolvedTo, -DEFAULT_ANALYTICS_DAYS)
+      : from;
+
+  if (!isValidDate(resolvedFrom)) return null;
+  if (resolvedFrom > resolvedTo) return null;
+  return { from: resolvedFrom, to: resolvedTo };
+}
+
+/**
+ * Analytics change at most once a night (the rollup), and the booking-event
+ * view moves only as fast as the 30-minute poll, so a short shared cache is
+ * free. Kept modest rather than matching the rollup cadence because a stale
+ * hour on a chart that is switching itself on as data matures is confusing.
+ */
+const ANALYTICS_CACHE_CONTROL = 'private, max-age=900';
+
+/** Every analytics route resolves its range identically; this is that shape. */
+async function analytics<T>(
+  c: Context,
+  load: (range: DateRange) => Promise<T>
+) {
+  const today = venueNow(new Date()).date;
+  const range = parseRange(c.req.query('from'), c.req.query('to'), today);
+  if (!range) {
+    return c.json(
+      { error: 'from and to must be YYYY-MM-DD, with from on or before to' },
+      400
+    );
+  }
+  const result = await load(range);
+  c.header('Cache-Control', ANALYTICS_CACHE_CONTROL);
+  return c.json({ range, ...result });
+}
+
+/**
+ * Past dates that have been rolled up.
+ *
+ * Not one of the four analytics, but the Patterns page cannot do without it:
+ * `/dates` lists *bookable* dates, which are all in the future, so this is the
+ * only way the frontend can know which prior same-weekday dates exist to ghost
+ * behind a fill curve.
+ */
+app.get('/analytics/collected-dates', async (c) => {
+  c.header('Cache-Control', ANALYTICS_CACHE_CONTROL);
+  return c.json({ dates: await getCollectedDates() });
+});
+
+/** Median occupancy by weekday and time of day. */
+app.get('/analytics/busyness', (c) => analytics(c, getBusyness));
+
+/** When bookings are made, by hour of week. */
+app.get('/analytics/booking-times', (c) => analytics(c, getBookingTimes));
+
+/** How far ahead people book. */
+app.get('/analytics/lead-times', (c) => analytics(c, getLeadTimes));
+
+/** Weekly peaks and totals, normalised by opening hours. */
+app.get('/analytics/trend', (c) => analytics(c, getTrend));
+
+/** Venue-local 'HH:MM', the form slot times are stored in. */
+const SLOT_TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+/** How many prior same-weekday dates to ghost behind the target curve. */
+const DEFAULT_FILL_CURVE_COMPARE = 3;
+const MAX_FILL_CURVE_COMPARE = 8;
+
+/**
+ * One slot's fill curve, with prior same-weekday dates behind it.
+ *
+ * Takes a slot rather than a range: this chart is a single slot against lead
+ * time, which is exactly why opening hours never enter it (frontend plan §5.1).
+ */
+app.get('/analytics/fill-curve', async (c) => {
+  const date = c.req.query('date');
+  if (!date || !isValidDate(date)) {
+    return c.json({ error: 'Invalid or missing date, expected YYYY-MM-DD' }, 400);
+  }
+
+  const slotTime = c.req.query('slot');
+  if (!slotTime || !SLOT_TIME_RE.test(slotTime)) {
+    return c.json({ error: 'Invalid or missing slot, expected HH:MM' }, 400);
+  }
+
+  const rawCompare = c.req.query('compare');
+  let compare = DEFAULT_FILL_CURVE_COMPARE;
+  if (rawCompare !== undefined && rawCompare !== '') {
+    const n = Number(rawCompare);
+    if (!Number.isInteger(n) || n < 0 || n > MAX_FILL_CURVE_COMPARE) {
+      return c.json(
+        { error: `compare must be a whole number between 0 and ${MAX_FILL_CURVE_COMPARE}` },
+        400
+      );
+    }
+    compare = n;
+  }
+
+  c.header('Cache-Control', ANALYTICS_CACHE_CONTROL);
+  return c.json(await getFillCurves({ date, slotTime, compare }));
 });
 
 export default app;

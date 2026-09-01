@@ -29,6 +29,7 @@ const REQUEST_PATH_FILES = [
   'services/snozoneAvailabilityService.ts',
   'services/snozoneRecommendService.ts',
   'services/snozoneStatusService.ts',
+  'services/snozoneAnalyticsService.ts',
 ];
 
 /** The only module allowed to talk to Snozone, and its only legitimate callers. */
