@@ -30,6 +30,18 @@ import {
   type MealPlanEntryWithRecipe,
 } from '../services/mealPlanService.js';
 import { getHouseholdNutritionTargets } from '../services/nutritionProfileService.js';
+import {
+  getDefaultProduct,
+  getDaySnapshot,
+  getBookableDates,
+  getTrustworthySlots,
+} from '../services/snozoneAvailabilityService.js';
+import {
+  rankPresenceWindows,
+  DEFAULT_RECOMMEND_PARAMS,
+} from '../services/snozoneRecommendService.js';
+import { getBusyness, getCollectedDates } from '../services/snozoneAnalyticsService.js';
+import { venueNow, addDays } from '../lib/snozoneWindow.js';
 import { verifyShoppingListAccess } from '../lib/shoppingListAccess.js';
 import {
   SHOPPING_CATEGORY_SLUGS,
@@ -713,6 +725,248 @@ export function createMcpServer(userId: string): McpServer {
                 saltG: member.targets.saltG,
               }
             : null,
+        })),
+      });
+    }
+  );
+
+  // ----------------------------------------------------------------- snozone
+
+  /**
+   * Snozone tools read the collector's Postgres record and NEVER call Snozone.
+   * That is not incidental: the collector is the sole upstream caller at a
+   * fixed 7 requests per 30 minutes, and a tool a model can invoke in a loop is
+   * exactly what would turn a defensible request rate into an indefensible one
+   * (PLAN.md §1, brief.md §7).
+   *
+   * Responses are aggregated hard. A day is ~125 five-minute slots with
+   * eighteen fields each; returning that raw would spend thousands of tokens to
+   * answer "is Wednesday evening busy". So availability and busyness both come
+   * back hourly, and the ranking comes back truncated.
+   */
+
+  const snozoneDateSchema = z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD')
+    .describe('Session date, YYYY-MM-DD, venue-local');
+
+  registerLoggedTool(
+    'list_snozone_dates',
+    {
+      title: 'List bookable Snozone dates',
+      description:
+        'Dates the Snozone slope currently has bookable slots for, as last ' +
+        'observed by the collector. Use one of these with the other snozone ' +
+        'tools. Reads a stored record — never contacts Snozone.',
+      inputSchema: {},
+    },
+    async () => {
+      const product = await getDefaultProduct();
+      if (!product) return jsonResult({ dates: [], lastObservedAt: null });
+      const result = await getBookableDates(product.id);
+      return jsonResult({ dates: result.dates, lastObservedAt: result.lastRunAt });
+    }
+  );
+
+  registerLoggedTool(
+    'get_snozone_availability',
+    {
+      title: 'Get Snozone occupancy for a date',
+      description:
+        'How busy the slope is on one date, summarised by hour: peak and ' +
+        'quietest headcount, and how many slots are still bookable. Headcount ' +
+        'is everyone ON the slope, not just sessions starting that hour — most ' +
+        'riders started earlier and are still on it. IMPORTANT: for dates more ' +
+        'than about two days out this reports BOOKINGS SO FAR, not expected ' +
+        'attendance, so a near-empty future date means "few have booked yet", ' +
+        'not "it will be quiet".',
+      inputSchema: { date: snozoneDateSchema },
+    },
+    async ({ date }) => {
+      const product = await getDefaultProduct();
+      if (!product) return errorResult('No Snozone product is configured.');
+
+      const day = await getDaySnapshot(product.id, date);
+      // Expired readings are corrupt once a slot has started — a captured
+      // example shows 86 people on an 80-place slope (brief.md §10.2a).
+      const usable = day.slots.filter((s) => !s.expired);
+      if (usable.length === 0) {
+        return jsonResult({ date, hours: [], note: 'No usable readings for this date.' });
+      }
+
+      const byHour = new Map<string, typeof usable>();
+      for (const slot of usable) {
+        const hour = slot.time.slice(0, 2);
+        const bucket = byHour.get(hour);
+        if (bucket) bucket.push(slot);
+        else byHour.set(hour, [slot]);
+      }
+
+      const hours = [...byHour.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([hour, slots]) => {
+          const peak = slots.reduce((m, s) => (s.onSlope > m.onSlope ? s : m), slots[0]);
+          const quiet = slots.reduce((m, s) => (s.onSlope < m.onSlope ? s : m), slots[0]);
+          return {
+            hour: `${hour}:00`,
+            peakOnSlope: peak.onSlope,
+            peakAt: peak.time,
+            quietestOnSlope: quiet.onSlope,
+            quietestAt: quiet.time,
+            bookableSlots: slots.filter((s) => s.available).length,
+            slots: slots.length,
+          };
+        });
+
+      return jsonResult({
+        date,
+        observedAt: day.observedAt,
+        isStale: day.isStale,
+        capacity: day.summary.capacity,
+        peakOnSlope: day.summary.peakOnSlope,
+        // Reported, never assumed by a caller: opening hours vary day to day,
+        // and Friday runs an hour later than midweek (frontend plan §5.1).
+        openFrom: usable[0].time,
+        openTo: usable[usable.length - 1].time,
+        hours,
+      });
+    }
+  );
+
+  registerLoggedTool(
+    'recommend_snozone_slot',
+    {
+      title: 'Recommend the quietest Snozone slot',
+      description:
+        'The quietest slot to book on a date, ranked across the whole time you ' +
+        'would be present — arriving early, the session itself, and lingering ' +
+        'after — rather than just the booked hour. Those give genuinely ' +
+        'different answers. Returns the pick plus the next best few, and a ' +
+        'confidence: "thin" or "none" means the date has too few bookings so ' +
+        'far to judge, which is normal for dates more than about two days out. ' +
+        'Say so rather than presenting a confident pick.',
+      inputSchema: {
+        date: snozoneDateSchema,
+        after: z
+          .number()
+          .min(0)
+          .max(23)
+          .optional()
+          .describe(
+            `Earliest hour to consider, e.g. 16 for 4pm (default ${DEFAULT_RECOMMEND_PARAMS.after})`
+          ),
+        session: z
+          .number()
+          .int()
+          .min(15)
+          .max(480)
+          .optional()
+          .describe(`Session length in minutes (default ${DEFAULT_RECOMMEND_PARAMS.session})`),
+        early: z
+          .number()
+          .int()
+          .min(0)
+          .max(120)
+          .optional()
+          .describe(
+            `Minutes on the slope before the session starts (default ${DEFAULT_RECOMMEND_PARAMS.early})`
+          ),
+        stay: z
+          .number()
+          .int()
+          .min(0)
+          .max(120)
+          .optional()
+          .describe(
+            `Minutes lingering after it ends (default ${DEFAULT_RECOMMEND_PARAMS.stay})`
+          ),
+      },
+    },
+    async ({ date, after, session, early, stay }) => {
+      const product = await getDefaultProduct();
+      if (!product) return errorResult('No Snozone product is configured.');
+
+      const params = {
+        after: after ?? DEFAULT_RECOMMEND_PARAMS.after,
+        session: session ?? DEFAULT_RECOMMEND_PARAMS.session,
+        early: early ?? DEFAULT_RECOMMEND_PARAMS.early,
+        stay: stay ?? DEFAULT_RECOMMEND_PARAMS.stay,
+      };
+
+      const slots = await getTrustworthySlots(product.id, date);
+      const result = rankPresenceWindows(slots, date, venueNow(new Date()), params);
+
+      return jsonResult({
+        date,
+        params,
+        pick: result.pick,
+        // Truncated: the full ranking is one entry per five-minute slot, and
+        // nobody needs the ninetieth best time to board.
+        alternatives: result.ranked.slice(1, 5),
+        confidence: result.confidence,
+        note: result.note,
+      });
+    }
+  );
+
+  registerLoggedTool(
+    'get_snozone_busyness',
+    {
+      title: 'Get typical Snozone busyness by weekday and hour',
+      description:
+        'Typical (median) headcount on the slope for each weekday and hour ' +
+        'across all collected history — the answer to "when is it usually ' +
+        'quiet". Returns a maturity verdict: when ready is false the sample is ' +
+        'too small to draw conclusions from, and you must say so rather than ' +
+        'reporting the numbers as a pattern. An hour missing from a weekday ' +
+        'means the slope was CLOSED then, not that it was empty — opening ' +
+        'hours vary by day.',
+      inputSchema: {
+        from: snozoneDateSchema.optional().describe('Start of range (default: a year back)'),
+        to: snozoneDateSchema.optional().describe('End of range (default: today)'),
+      },
+    },
+    async ({ from, to }) => {
+      const today = venueNow(new Date()).date;
+      const resolvedTo = to ?? today;
+      const resolvedFrom = from ?? addDays(resolvedTo, -365);
+      if (resolvedFrom > resolvedTo) return errorResult('from must be on or before to');
+
+      const busyness = await getBusyness({ from: resolvedFrom, to: resolvedTo });
+      const collected = await getCollectedDates();
+
+      // Hourly, like get_snozone_availability: the per-slot grid runs to ~900
+      // cells, and nobody needs five-minute resolution for "when is it quiet".
+      const peakByCell = new Map<string, number>();
+      for (const cell of busyness.cells) {
+        const key = `${cell.dow}:${cell.slotTime.slice(0, 2)}`;
+        peakByCell.set(key, Math.max(peakByCell.get(key) ?? 0, cell.medianOnSlope));
+      }
+
+      const dayNames = [
+        'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
+      ];
+      const byDay = new Map<number, { hour: string; typicalOnSlope: number }[]>();
+      for (const [key, value] of peakByCell) {
+        const [dow, hour] = key.split(':').map(Number);
+        const list = byDay.get(dow) ?? [];
+        list.push({
+          hour: `${String(hour).padStart(2, '0')}:00`,
+          typicalOnSlope: Math.round(value),
+        });
+        byDay.set(dow, list);
+      }
+
+      const datesPerDow = new Map(busyness.datesPerDow.map((d) => [d.dow, d.dates]));
+
+      return jsonResult({
+        range: { from: resolvedFrom, to: resolvedTo },
+        datesCollected: collected.length,
+        maturity: busyness.maturity,
+        weekdays: [1, 2, 3, 4, 5, 6, 0].map((dow) => ({
+          day: dayNames[dow],
+          datesSampled: datesPerDow.get(dow) ?? 0,
+          hours: (byDay.get(dow) ?? []).sort((a, b) => a.hour.localeCompare(b.hour)),
         })),
       });
     }

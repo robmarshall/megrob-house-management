@@ -23,12 +23,21 @@ import { fileURLToPath } from 'node:url';
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** Everything reachable from an HTTP request the frontend can make. */
+/**
+ * Everything reachable from a request a user can cause.
+ *
+ * `mcp/server.ts` belongs here for a sharper reason than the rest: its tools
+ * are invoked by a model, in a loop, at whatever rate a conversation demands.
+ * A `fetch` added there would not merely leak upstream traffic — it would scale
+ * it with how chatty the assistant happens to be.
+ */
 const REQUEST_PATH_FILES = [
   'routes/snozone.ts',
   'services/snozoneAvailabilityService.ts',
   'services/snozoneRecommendService.ts',
   'services/snozoneStatusService.ts',
+  'services/snozoneAnalyticsService.ts',
+  'mcp/server.ts',
 ];
 
 /** The only module allowed to talk to Snozone, and its only legitimate callers. */

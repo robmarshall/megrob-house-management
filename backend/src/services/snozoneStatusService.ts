@@ -7,6 +7,8 @@ import {
   type RunHistoryEntry,
   type RunOutcome,
 } from '../lib/snozoneHealth.js';
+import { WINDOW_DAYS } from '../lib/snozoneWindow.js';
+import { toIso } from '../lib/pgTime.js';
 
 /**
  * Operational view of the Snozone collector, for the admin settings tab.
@@ -69,21 +71,6 @@ export interface SnozoneStatus {
   finals: FinalsStats;
   coverage: DateCoverage[];
   generatedAt: Date;
-}
-
-/**
- * Coerce a timestamp from a raw SQL row and render it ISO.
- *
- * `db.execute()` with raw SQL passes the driver's value through, and
- * postgres-js yields a string like '2026-08-26 08:32:05.948+00' for
- * timestamptz. That is not a format `new Date()` parses reliably — Safari
- * rejects it outright — so normalising here keeps the iPhone from rendering
- * "Invalid Date". The typed query builder returns real Dates, hence both.
- */
-function toIso(value: unknown): string | null {
-  if (value == null) return null;
-  const d = value instanceof Date ? value : new Date(String(value).replace(' ', 'T'));
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
 const RUNS_SHOWN = 12;
@@ -154,6 +141,14 @@ export async function getSnozoneStatus(): Promise<SnozoneStatus> {
 
   // Per-date coverage for the dates currently in play. peak_on_slope excludes
   // post-start readings, which report nonsense (brief.md §10.2a).
+  //
+  // Capped to the high-resolution window's own horizon (today + WINDOW_DAYS-1)
+  // rather than to the newest dates outright. Ordering by date alone made this
+  // table useless the moment the daily horizon sweep started reaching a month
+  // ahead: the ten "most recent" dates were then all future ones, each showing
+  // the same uninformative single daily touch, and the past dates the table
+  // exists to vouch for fell off the bottom. Anything beyond the window is
+  // polled once a day, so its row can only ever read `observations = slots`.
   const coverage = await db.execute<{
     session_date: string; observations: number; slots: number;
     last_observed_at: Date; peak_on_slope: number | null;
@@ -166,6 +161,11 @@ export async function getSnozoneStatus(): Promise<SnozoneStatus> {
              WHERE observed_at < ((session_date + slot_time::time) AT TIME ZONE 'Europe/London')
            )::int                                 AS peak_on_slope
     FROM snozone_slot_observations
+    -- The ::int cast is required, not decorative: a bare bind parameter leaves
+    -- "date + $1" ambiguous between the date+integer and date+interval
+    -- operators, and Postgres rejects it outright rather than guessing.
+    WHERE session_date <=
+          (now() AT TIME ZONE 'Europe/London')::date + ${WINDOW_DAYS - 1}::int
     GROUP BY session_date
     ORDER BY session_date DESC
     LIMIT 10

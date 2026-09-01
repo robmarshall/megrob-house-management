@@ -14,6 +14,7 @@ import {
   oauthAccessToken,
 } from '../db/schema.js';
 import mcpRoutes from './mcp.js';
+import { venueNow, addDays } from '../lib/snozoneWindow.js';
 
 /**
  * DB-backed integration test for the MCP endpoint: bearer-token auth
@@ -186,6 +187,156 @@ beforeAll(async () => {
 afterAll(async () => {
   await cleanup();
 });
+
+/* --------------------------------------------------------------- snozone */
+
+const SNOZONE_LABEL = `${RUN} slope`;
+/**
+ * Two days out, not a fixed date.
+ *
+ * These tools answer "when should I go", and a slot in the past is expired by
+ * definition — Snozone zeroes qtyavailable and stops decrementing carry-over
+ * once a slot starts, so those readings are excluded everywhere as corrupt
+ * (brief.md §10.2a). A hardcoded past date therefore makes every assertion see
+ * an empty slope, which is correct behaviour and a useless fixture. Two days
+ * out also matches the collector's own high-resolution window.
+ */
+const SNO_DATE = addDays(venueNow(new Date()).date, 2);
+let snozoneProductId: number;
+
+async function seedSnozone() {
+  const [product] = await db.execute<{ id: number }>(sql`
+    INSERT INTO snozone_products (label, location_id, category_id, product_id, qty, prime_body)
+    VALUES (${SNOZONE_LABEL}, 901, 902, 903, 1, 'x=1')
+    RETURNING id
+  `);
+  snozoneProductId = product.id;
+
+  const [run] = await db.execute<{ id: number }>(sql`
+    INSERT INTO snozone_poll_runs (product_row_id, mode, status, dates_polled, finished_at)
+    VALUES (${snozoneProductId}, 'window', 'ok', ARRAY[${SNO_DATE}], now())
+    RETURNING id
+  `);
+
+  // Two hours of five-minute slots, quiet at 17:00 and busy at 18:00, all read
+  // before their own start so none are expired.
+  for (let minute = 0; minute < 120; minute += 5) {
+    const total = 17 * 60 + minute;
+    const slot = `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+    const onSlope = total < 18 * 60 ? 10 : 60;
+    await db.execute(sql`
+      INSERT INTO snozone_slot_observations
+        (run_id, product_row_id, session_date, slot_time, observed_at, prev_seen_at,
+         starting, from_prior, on_slope, qty_available, total_qty,
+         available, sold_out, blocked, low_availability, call_to_book, slot_type)
+      VALUES (
+        ${run.id}, ${snozoneProductId}, ${SNO_DATE}::date, ${slot},
+        now() - interval '20 minutes',
+        now() - interval '50 minutes',
+        ${Math.round(onSlope / 10)}, ${onSlope - Math.round(onSlope / 10)}, ${onSlope},
+        ${80 - onSlope}, 80, true, false, false, false, false, 'Off Peak'
+      )
+    `);
+  }
+}
+
+async function cleanupSnozone() {
+  if (!snozoneProductId) return;
+  await db.execute(sql`DELETE FROM snozone_slot_observations WHERE product_row_id = ${snozoneProductId}`);
+  await db.execute(sql`DELETE FROM snozone_slot_finals WHERE product_row_id = ${snozoneProductId}`);
+  await db.execute(sql`DELETE FROM snozone_poll_runs WHERE product_row_id = ${snozoneProductId}`);
+  await db.execute(sql`DELETE FROM snozone_products WHERE id = ${snozoneProductId}`);
+}
+
+describe('snozone tools', () => {
+  beforeAll(async () => {
+    await db.execute(sql`DELETE FROM snozone_products WHERE label = ${SNOZONE_LABEL}`);
+    // The tools resolve their product through getDefaultProduct(), which takes
+    // the lowest-id ACTIVE row -- and migration 0017 seeds the real Yorkshire
+    // product at id 1. Without standing that down, the fixture below would sit
+    // under a product nothing ever asks for and every assertion would see an
+    // empty slope. Restored in afterAll.
+    await db.execute(sql`UPDATE snozone_products SET active = false WHERE label <> ${SNOZONE_LABEL}`);
+    await seedSnozone();
+  });
+
+  afterAll(async () => {
+    await cleanupSnozone();
+    await db.execute(sql`UPDATE snozone_products SET active = true WHERE label <> ${SNOZONE_LABEL}`);
+  });
+
+  it('advertises every snozone tool', async () => {
+    const res = await mcpRequest(
+      { jsonrpc: '2.0', id: 900, method: 'tools/list', params: {} },
+      VALID_TOKEN
+    );
+    const rpc = await readJsonRpc(res);
+    const names = rpc.result.tools.map((t: { name: string }) => t.name);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'list_snozone_dates',
+        'get_snozone_availability',
+        'recommend_snozone_slot',
+        'get_snozone_busyness',
+      ])
+    );
+  });
+
+  it('get_snozone_availability summarises by hour rather than per slot', async () => {
+    const payload = parsePayload(await callTool('get_snozone_availability', { date: SNO_DATE }));
+
+    // Twenty-four five-minute slots collapse to two hourly rows. Returning the
+    // raw slots would cost thousands of tokens to say the same thing.
+    expect(payload.hours).toHaveLength(2);
+    expect(payload.hours.map((h: { hour: string }) => h.hour)).toEqual(['17:00', '18:00']);
+
+    const [quiet, busy] = payload.hours;
+    expect(quiet.peakOnSlope).toBe(10);
+    expect(busy.peakOnSlope).toBe(60);
+  });
+
+  it('get_snozone_availability reports opening hours instead of assuming them', async () => {
+    const payload = parsePayload(await callTool('get_snozone_availability', { date: SNO_DATE }));
+    // Opening hours vary day to day, so a caller must never infer them.
+    expect(payload.openFrom).toBe('17:00');
+    expect(payload.openTo).toBe('18:55');
+    expect(payload.capacity).toBe(80);
+  });
+
+  it('recommend_snozone_slot picks the quiet hour and truncates the ranking', async () => {
+    const payload = parsePayload(
+      await callTool('recommend_snozone_slot', { date: SNO_DATE, after: 17 })
+    );
+    expect(payload.pick?.time.startsWith('17:')).toBe(true);
+    // The full ranking is one entry per five-minute slot; nobody needs the
+    // ninetieth best time to board.
+    expect(payload.alternatives.length).toBeLessThanOrEqual(4);
+    expect(payload.confidence).toBeDefined();
+  });
+
+  it('get_snozone_busyness carries a maturity verdict, not bare numbers', async () => {
+    const payload = parsePayload(await callTool('get_snozone_busyness', {}));
+    // One Wednesday is nowhere near enough to call a pattern, and the tool has
+    // to say so rather than let the model report a median as a finding.
+    expect(payload.maturity.ready).toBe(false);
+    expect(payload.maturity.needs).toBeGreaterThan(payload.maturity.have);
+    expect(payload.weekdays).toHaveLength(7);
+  });
+
+  it('get_snozone_busyness rejects a backwards range', async () => {
+    const result = await callTool('get_snozone_busyness', {
+      from: '2026-09-01',
+      to: '2026-08-01',
+    });
+    expect(result.isError).toBe(true);
+  });
+
+  it('list_snozone_dates returns what the collector last saw', async () => {
+    const payload = parsePayload(await callTool('list_snozone_dates', {}));
+    expect(payload.dates).toContain(SNO_DATE);
+  });
+});
+
 
 describe('MCP endpoint auth', () => {
   it('rejects requests without a bearer token with a 401 challenge', async () => {

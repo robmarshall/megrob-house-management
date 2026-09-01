@@ -5,7 +5,16 @@ This covers what megrob shows, now that the data is ours.
 
 Status of what it builds on: the collector has been running in production since
 2026-08-26 and is writing observations every 30 minutes. The admin Snozone tab
-(collector health) is already built. Everything below is still to do.
+(collector health), the Book page (work item F) and the Patterns page (work
+item G) are built.
+
+Measured in production on 2026-09-01, six days in: 19,190 observations over 36
+session dates, 750 finals rows over 6 completed dates — exactly one sample per
+weekday. Only three of those six have a full pre-booking lifecycle; 08-26 to
+08-28 entered observation partway through, their earliest reading being the
+moment collection started rather than anything about the slope. So the fill
+curve is the only §3.2 chart whose data is mature, which is what §5 predicted
+and why every other one renders an honest empty state instead.
 
 ---
 
@@ -112,11 +121,17 @@ All under `/api/snozone`, all behind `authMiddleware`, all reading Postgres.
 | `GET /days/:date` | Latest observation per slot + summary | observations |
 | `GET /days/:date/history` | Every observation for a date | observations |
 | `GET /recommend?date&after&session&early&stay` | Ranked slots + the pick | observations |
-| `GET /analytics/busyness?from&to` | dow × time-of-day occupancy | finals |
-| `GET /analytics/booking-times?from&to` | Hour-of-week booking counts | booking events |
-| `GET /analytics/lead-times?from&to` | Lead-time buckets | booking events |
-| `GET /analytics/trend?from&to` | Weekly/monthly peaks and totals | finals |
+| `GET /analytics/collected-dates` | Past dates rolled up, with weekday | finals (built) |
+| `GET /analytics/busyness?from&to` | dow × time-of-day occupancy | finals (built) |
+| `GET /analytics/booking-times?from&to` | Hour-of-week booking counts | booking events (built) |
+| `GET /analytics/lead-times?from&to` | Lead-time buckets | booking events (built) |
+| `GET /analytics/trend?from&to` | Weekly/monthly peaks and totals | finals (built) |
 | `GET /health` | Collector status (**admin only**) | runs (built) |
+
+`/analytics/collected-dates` was not in the original four and turned out to be
+required: `/dates` lists *bookable* dates, which are all in the future, so
+nothing else tells the Patterns page which prior same-weekday dates exist to
+ghost behind a fill curve, or how many samples a weekday actually has.
 
 Two design points:
 
@@ -251,13 +266,60 @@ Data changes at most every 30 minutes, so:
 4. Port `OccupancyChart` to React. Presentational, no data fetching.
 5. `SnozonePage` → Book tab: pick, date strip, chart, slot table, honesty band.
 
-**G. Analytics API + Patterns page** *(shell now, charts as data matures)*
-6. `snozone_booking_events` view + migration.
-7. `services/snozoneAnalyticsService.ts` — busyness, booking-times, lead-times,
-   trend. All bucketed with `AT TIME ZONE 'Europe/London'` (PLAN.md §12.3).
-8. `<InsufficientData>` and the per-analytic minimums from §5.
-9. Heatmap and fill-curve components.
-10. Patterns tab assembling them.
+**G. Analytics API + Patterns page** *(built; charts light up as data matures)*
+6. ~~`snozone_booking_events` view + migration.~~ Migration 0020. Carries three
+   columns the analytics must respect: `delta_starting` (signed, so
+   cancellations survive), `booked_at` (the bracket's midpoint, not the
+   observation time, which is biased late), and `bracket_minutes`.
+7. ~~`services/snozoneAnalyticsService.ts`~~ — busyness, booking-times,
+   lead-times, trend, collected-dates.
+8. ~~`<InsufficientData>` and the per-analytic minimums from §5.~~ Thresholds
+   live in one `THRESHOLDS` constant; every analytic returns its own
+   `maturity: { needs, have, unit, ready }` and the page gates on it.
+9. ~~Heatmap component.~~ `molecules/Heatmap.tsx`, a CSS grid with the
+   three-state cell §5.1 requires. The fill curve is still to do — see below.
+10. ~~Patterns tab assembling them.~~
+
+**G.1 The bracket-width trap** *(learned building this)*
+
+`bracket_minutes` is not bookkeeping. Observations are change-only and
+`prev_seen_at` records the last poll that saw no change, so a booking is known
+only to have happened somewhere in that window — ~30 minutes inside the
+high-resolution window, but ~24 HOURS on the daily horizon sweep. A 24-hour
+bracket says nothing whatsoever about time of day, so:
+
+- **Hour-of-week analytics must filter on it** (`<= TIGHT_BRACKET_MINUTES`), and
+  report how many events they dropped. If that count ever dwarfs the kept one,
+  the chart is describing the poll schedule rather than human behaviour.
+- **Lead-time analytics must NOT filter on it.** A day of imprecision is
+  immaterial against a lead time in days, and dropping those rows would bias the
+  distribution towards exactly the short leads the window poll sees best.
+
+**G.2 Fill curves** *(built)*
+
+`GET /analytics/fill-curve?date&slot&compare`. Computed server-side, not
+assembled in the browser: `/days/:date/history` returns every slot for a date —
+some three thousand points to use fifty of — so four ghosted dates would have
+shipped twelve thousand points over a phone connection to draw a handful.
+
+Two rules it must not break, both of which would look perfectly normal on
+screen:
+
+- **A curve is never extended back to zero.** It starts at the first real
+  observation, and `firstSeenHoursBefore` / `firstSeenOnSlope` let the page say
+  where knowledge begins. Drawing from (72h, 0) up to (48h, 60) would assert
+  that sixty people booked in that window when in truth that is simply when the
+  slot entered our horizon.
+- **The x-axis counts down.** It is lead time, so the slot starts at the
+  right-hand edge.
+
+**G.3 Still to do**
+
+- **A range control.** Every analytic accepts `from`/`to` and the page currently
+  sends neither, taking the one-year default.
+- **Product scoping.** None of the analytics filter by `product_row_id`. Exact
+  today, since only one product is seeded and the API carries no product
+  selector, but a second would make every figure a silent sum across both.
 
 **H. Forecast** *(needs ~6–8 weeks of data)*
 11. Median fill-curve baseline per (weekday, slot, season); predicted final
@@ -265,8 +327,28 @@ Data changes at most every 30 minutes, so:
 12. Feed it into the Book page pick so future dates stop tying at zero, and
     retire the §3.1 honesty band.
 
-**I. Optional**
-13. MCP tool `get_snozone_busyness`, reusing the recommend service.
+**I. MCP tools** *(built)*
+13. ~~MCP tool `get_snozone_busyness`, reusing the recommend service.~~ Four
+    tools in `mcp/server.ts`: `list_snozone_dates`,
+    `get_snozone_availability`, `recommend_snozone_slot` and
+    `get_snozone_busyness`. `recommend_snozone_slot` calls the same
+    `rankPresenceWindows` the Book page does, per §4 — the presence-window
+    ranking is the subtlest logic in the project and exists once.
+
+    Two constraints shape these more than the HTTP routes:
+
+    - **Responses are aggregated hard.** A day is ~125 slots of eighteen fields,
+      and the busyness grid runs to ~900 cells. Both come back hourly, and the
+      ranking is truncated to the pick plus four alternatives. The raw shapes
+      would spend thousands of tokens answering "is Wednesday evening busy".
+    - **`mcp/server.ts` is in the read-only guard's file list.** Its tools are
+      invoked by a model, in a loop, at whatever rate a conversation demands, so
+      a stray `fetch` there would not merely leak upstream traffic — it would
+      scale it with how chatty the assistant happens to be.
+
+    Every tool that reports a pattern carries its `maturity` or `confidence`
+    verbatim, so a thin sample reaches the model as a thin sample rather than as
+    a finding.
 14. Revisit brief §5.5's booking scheduler — by then the data will have said
     whether the slot is ever actually contested.
 

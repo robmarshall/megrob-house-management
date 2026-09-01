@@ -19,6 +19,14 @@ import { logger } from '../lib/logger.js';
  * keeps this correct even for rows written before that flag existed, and lets a
  * fix be applied retroactively by simply re-running.
  *
+ * Every occupancy figure here is stored SPLIT: alongside `on_slope` sits the
+ * `from_prior` half of the same reading, so `starting` is always recoverable by
+ * subtraction. That matters because carry-over is the overwhelming majority of
+ * slope headcount — 96% across the collected observations, with `starting`
+ * averaging 1 — so a peak with no split cannot distinguish "this slot is
+ * heavily booked" from "the previous hour spills into it", and only the former
+ * is worth moving a booking to avoid.
+ *
  * Idempotent: re-running over any range recomputes and upserts.
  */
 
@@ -45,11 +53,26 @@ export async function rollupFinals(from: string, to: string): Promise<RollupResu
     ),
     agg AS (
       SELECT product_row_id, session_date, slot_time,
-             max(on_slope) AS peak_on_slope,
              count(*)::int AS observation_count,
              min(observed_at) AS first_seen_at
       FROM usable
       GROUP BY 1, 2, 3
+    ),
+    -- The peak READING, not per-column maxima. peak_on_slope and
+    -- peak_from_prior have to come from the same observation, or their
+    -- difference is not a real peak_starting and the stored triple stops
+    -- adding up. on_slope DESC alone still yields max(on_slope); the
+    -- observed_at ASC tiebreak makes the carry-over half deterministic, so
+    -- re-running the rollup over a range cannot silently change it — this
+    -- table is idempotent by contract and the nightly job recomputes a whole
+    -- week every night.
+    peak AS (
+      SELECT DISTINCT ON (product_row_id, session_date, slot_time)
+             product_row_id, session_date, slot_time,
+             on_slope AS peak_on_slope,
+             from_prior AS peak_from_prior
+      FROM usable
+      ORDER BY product_row_id, session_date, slot_time, on_slope DESC, observed_at ASC
     ),
     latest AS (
       SELECT DISTINCT ON (product_row_id, session_date, slot_time)
@@ -61,35 +84,41 @@ export async function rollupFinals(from: string, to: string): Promise<RollupResu
     earliest AS (
       SELECT DISTINCT ON (product_row_id, session_date, slot_time)
              product_row_id, session_date, slot_time,
-             on_slope AS first_on_slope
+             on_slope AS first_on_slope,
+             from_prior AS first_from_prior
       FROM usable
       ORDER BY product_row_id, session_date, slot_time, observed_at ASC
     ),
     upserted AS (
       INSERT INTO snozone_slot_finals (
         product_row_id, session_date, slot_time,
-        final_on_slope, final_starting, total_qty, peak_on_slope,
-        first_seen_on_slope, first_seen_at, slot_type, price,
-        observation_count, computed_at
+        final_on_slope, final_starting, total_qty,
+        peak_on_slope, peak_from_prior,
+        first_seen_on_slope, first_seen_from_prior, first_seen_at,
+        slot_type, price, observation_count, computed_at
       )
       SELECT l.product_row_id, l.session_date, l.slot_time,
-             l.on_slope, l.starting, l.total_qty, a.peak_on_slope,
-             e.first_on_slope, a.first_seen_at, l.slot_type, l.price,
-             a.observation_count, now()
+             l.on_slope, l.starting, l.total_qty,
+             p.peak_on_slope, p.peak_from_prior,
+             e.first_on_slope, e.first_from_prior, a.first_seen_at,
+             l.slot_type, l.price, a.observation_count, now()
       FROM latest l
       JOIN agg a USING (product_row_id, session_date, slot_time)
+      JOIN peak p USING (product_row_id, session_date, slot_time)
       JOIN earliest e USING (product_row_id, session_date, slot_time)
       ON CONFLICT (product_row_id, session_date, slot_time) DO UPDATE SET
-        final_on_slope      = EXCLUDED.final_on_slope,
-        final_starting      = EXCLUDED.final_starting,
-        total_qty           = EXCLUDED.total_qty,
-        peak_on_slope       = EXCLUDED.peak_on_slope,
-        first_seen_on_slope = EXCLUDED.first_seen_on_slope,
-        first_seen_at       = EXCLUDED.first_seen_at,
-        slot_type           = EXCLUDED.slot_type,
-        price               = EXCLUDED.price,
-        observation_count   = EXCLUDED.observation_count,
-        computed_at         = now()
+        final_on_slope        = EXCLUDED.final_on_slope,
+        final_starting        = EXCLUDED.final_starting,
+        total_qty             = EXCLUDED.total_qty,
+        peak_on_slope         = EXCLUDED.peak_on_slope,
+        peak_from_prior       = EXCLUDED.peak_from_prior,
+        first_seen_on_slope   = EXCLUDED.first_seen_on_slope,
+        first_seen_from_prior = EXCLUDED.first_seen_from_prior,
+        first_seen_at         = EXCLUDED.first_seen_at,
+        slot_type             = EXCLUDED.slot_type,
+        price                 = EXCLUDED.price,
+        observation_count     = EXCLUDED.observation_count,
+        computed_at           = now()
       RETURNING 1
     )
     SELECT count(*)::text AS count FROM upserted

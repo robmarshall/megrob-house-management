@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isValidDate, parseAfter } from './snozone.js';
+import { isValidDate, parseAfter, parseRange } from './snozone.js';
 
 /**
  * The pure request-parsing helpers. `parseAfter` in particular guards a real
@@ -57,5 +57,53 @@ describe('parseAfter', () => {
     for (const bad of ['24:00', '16:60', '25', '-1', 'evening', '16:0', '::']) {
       expect(parseAfter(bad, 16), bad).toBeNull();
     }
+  });
+});
+
+describe('parseRange', () => {
+  const TODAY = '2026-09-01';
+
+  it('defaults to the last year ending today', () => {
+    expect(parseRange(undefined, undefined, TODAY)).toEqual({
+      from: '2025-09-01',
+      to: TODAY,
+    });
+  });
+
+  it('accepts an explicit range', () => {
+    expect(parseRange('2026-08-01', '2026-08-31', TODAY)).toEqual({
+      from: '2026-08-01',
+      to: '2026-08-31',
+    });
+  });
+
+  it('defaults only the end that is missing', () => {
+    expect(parseRange('2026-08-01', undefined, TODAY)).toEqual({
+      from: '2026-08-01',
+      to: TODAY,
+    });
+    expect(parseRange(undefined, '2026-08-31', TODAY)).toEqual({
+      from: '2025-08-31',
+      to: '2026-08-31',
+    });
+  });
+
+  it('rejects a malformed date rather than silently widening the window', () => {
+    // A typo that fell back to the default would quietly answer a different
+    // question than the one asked, which is worse than a 400.
+    expect(parseRange('2026-8-1', undefined, TODAY)).toBeNull();
+    expect(parseRange(undefined, 'yesterday', TODAY)).toBeNull();
+    expect(parseRange('2026-02-30', undefined, TODAY)).toBeNull();
+  });
+
+  it('rejects a backwards range', () => {
+    expect(parseRange('2026-08-31', '2026-08-01', TODAY)).toBeNull();
+  });
+
+  it('allows a single-day range', () => {
+    expect(parseRange('2026-08-15', '2026-08-15', TODAY)).toEqual({
+      from: '2026-08-15',
+      to: '2026-08-15',
+    });
   });
 });

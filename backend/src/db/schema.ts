@@ -507,10 +507,20 @@ export const snozoneSlotFinals = pgTable('snozone_slot_finals', {
   finalStarting: integer('final_starting').notNull(),
   totalQty: integer('total_qty').notNull(),
   peakOnSlope: integer('peak_on_slope').notNull(),
+  // The carry-over HALF of peak_on_slope, taken from the same observation, so
+  // peak_starting is peak_on_slope - peak_from_prior. Stored rather than left
+  // derivable because carry-over is ~96% of slope headcount in practice: a
+  // peak decomposes into "lots of people booked this slot" or "the previous
+  // hour spills into it", and only the first is worth moving your booking to
+  // avoid. max(from_prior) would break the sum, so this is the peak ROW's
+  // value, not an independent maximum.
+  peakFromPrior: integer('peak_from_prior').notNull().default(0),
   // Occupancy already present the first time this date was ever observed, i.e.
   // bookings made before it entered our polling horizon. Makes the truncation
   // measurable instead of invisible.
   firstSeenOnSlope: integer('first_seen_on_slope').notNull(),
+  // Same split for the first reading, from that same earliest observation.
+  firstSeenFromPrior: integer('first_seen_from_prior').notNull().default(0),
   firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).notNull(),
   slotType: text('slot_type'),
   price: numeric('price', { precision: 8, scale: 2 }),

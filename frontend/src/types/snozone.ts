@@ -174,3 +174,145 @@ export interface SnozoneRecommendResponse {
   confidence: SnozoneConfidence
   note: string | null
 }
+
+/**
+ * Patterns analytics (work item G).
+ *
+ * Mirrors `services/snozoneAnalyticsService.ts`. Every analytic carries its own
+ * `maturity`, because most of these charts are not worth drawing yet and a
+ * chart built from two days of data is worse than no chart — it invites
+ * conclusions the data cannot support (frontend plan §5).
+ */
+
+export interface SnozoneMaturity {
+  needs: number
+  have: number
+  unit: string
+  ready: boolean
+}
+
+export interface SnozoneAnalyticsRange {
+  from: string
+  to: string
+}
+
+/** A past date that has been rolled up into finals. */
+export interface SnozoneCollectedDate {
+  sessionDate: string
+  /** 0 = Sunday, matching JavaScript's getDay(). */
+  dow: number
+  /** Slots the timetable offered — never assume 121 (frontend plan §5.1). */
+  slots: number
+  peakOnSlope: number
+  totalStarting: number
+  firstSeenAt: string | null
+  /** Occupancy already booked before the date entered our horizon. */
+  firstSeenOnSlope: number
+}
+
+export interface SnozoneCollectedDatesResponse {
+  dates: SnozoneCollectedDate[]
+}
+
+export interface SnozoneBusynessCell {
+  dow: number
+  slotTime: string
+  samples: number
+  medianOnSlope: number
+  medianFill: number
+}
+
+export interface SnozoneBusynessResponse {
+  range: SnozoneAnalyticsRange
+  cells: SnozoneBusynessCell[]
+  /**
+   * How many dates each weekday has. Load-bearing for rendering: a cell with
+   * no entry in `cells` means CLOSED if its weekday has dates, and "not
+   * collected yet" if it has none. Drawing both as one blank cell invites
+   * opposite conclusions (frontend plan §5.1).
+   */
+  datesPerDow: { dow: number; dates: number }[]
+  maturity: SnozoneMaturity
+}
+
+export interface SnozoneBookingTimeCell {
+  dow: number
+  hour: number
+  bookings: number
+  events: number
+}
+
+export interface SnozoneBookingTimesResponse {
+  range: SnozoneAnalyticsRange
+  cells: SnozoneBookingTimeCell[]
+  totalBookings: number
+  /** Events dropped for a bracket too wide to place in an hour. */
+  excludedWideBracket: number
+  days: number
+  maturity: SnozoneMaturity
+}
+
+export interface SnozoneLeadTimeBucket {
+  fromMinutes: number
+  toMinutes: number | null
+  label: string
+  bookings: number
+  events: number
+}
+
+export interface SnozoneLeadTimesResponse {
+  range: SnozoneAnalyticsRange
+  buckets: SnozoneLeadTimeBucket[]
+  totalBookings: number
+  /** The ceiling this distribution is structurally truncated at. */
+  observableLeadDays: number
+  maturity: SnozoneMaturity
+}
+
+export interface SnozoneTrendWeek {
+  weekStart: string
+  dates: number
+  openSlots: number
+  totalStarting: number
+  /** Bookings per open slot — the only comparable figure across weeks. */
+  startingPerOpenSlot: number
+  peakOnSlope: number
+  meanFill: number
+}
+
+export interface SnozoneTrendResponse {
+  range: SnozoneAnalyticsRange
+  weeks: SnozoneTrendWeek[]
+  slotTypes: { slotType: string; slots: number; meanOnSlope: number }[]
+  maturity: SnozoneMaturity
+}
+
+export interface SnozoneFillCurvePoint {
+  /** Hours before the slot started. Counts DOWN toward 0 as the slot nears. */
+  hoursBefore: number
+  observedAt: string
+  onSlope: number
+  starting: number
+}
+
+export interface SnozoneFillCurveSeries {
+  sessionDate: string
+  /** The date asked for, versus a same-weekday date ghosted behind it. */
+  isTarget: boolean
+  totalQty: number
+  /**
+   * How early this slot was first observed. The curve starts here and is never
+   * drawn back to zero — a curve opening at 60 means that is when we first
+   * looked, not that 60 people arrived at once.
+   */
+  firstSeenHoursBefore: number
+  firstSeenOnSlope: number
+  points: SnozoneFillCurvePoint[]
+}
+
+export interface SnozoneFillCurveResponse {
+  date: string
+  slotTime: string
+  series: SnozoneFillCurveSeries[]
+  maturity: SnozoneMaturity
+}
