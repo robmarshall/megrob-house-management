@@ -33,9 +33,20 @@ const recipeIngredientSchema = z.object({
   notes: z.string().max(500).optional(),
 });
 
-// Recipe Category schema (for nested validation)
+// Recipe Category schema (for nested validation).
+// `type` is a closed set: the frontend edit form validates against the same
+// three values, so accepting anything else here (as an earlier version did)
+// produced recipes the form could never re-save.
+export const RECIPE_CATEGORY_TYPES = ['meal_type', 'dietary', 'allergen'] as const;
+
 const recipeCategorySchema = z.object({
-  type: z.string().min(1).max(50),
+  type: z
+    .enum(RECIPE_CATEGORY_TYPES)
+    .describe(
+      'One of: meal_type (breakfast, lunch, dinner, starter, main, side, dessert, snack), ' +
+        'dietary (vegetarian, vegan, pescatarian, gluten_free, dairy_free, keto, paleo), ' +
+        'allergen (nuts, eggs, dairy, gluten, shellfish, soy, fish)'
+    ),
   value: z.string().min(1).max(100),
 });
 

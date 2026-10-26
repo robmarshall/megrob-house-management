@@ -53,6 +53,17 @@ describe('recipeCategorySchema', () => {
 })
 
 describe('createRecipeSchema', () => {
+  it('accepts a File as imageFile, and no imageFile at all', () => {
+    const file = new File(['x'], 'photo.jpg', { type: 'image/jpeg' })
+    expect(createRecipeSchema.safeParse(makeValidRecipe({ imageFile: file })).success).toBe(true)
+    expect(createRecipeSchema.safeParse(makeValidRecipe()).success).toBe(true)
+  })
+
+  it('rejects a non-File imageFile', () => {
+    const result = createRecipeSchema.safeParse({ ...makeValidRecipe(), imageFile: 'photo.jpg' })
+    expect(result.success).toBe(false)
+  })
+
   it('rejects servings over 100', () => {
     const result = createRecipeSchema.safeParse(makeValidRecipe({ servings: 101 }))
     expect(result.success).toBe(false)

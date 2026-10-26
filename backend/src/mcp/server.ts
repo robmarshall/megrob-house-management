@@ -17,6 +17,14 @@ import {
   updateRecipe,
 } from '../services/recipeService.js';
 import {
+  storeRecipeImage,
+  fetchImageFromUrl,
+} from '../services/recipeImageService.js';
+import {
+  decodeBase64Image,
+  ImageValidationError,
+} from '../lib/recipeImages.js';
+import {
   resolveItemCategories,
   rememberItemCategory,
 } from '../services/categoryService.js';
@@ -438,6 +446,7 @@ export function createMcpServer(userId: string): McpServer {
         rating: recipe.rating,
         isFavorite: recipe.isFavorite,
         sourceUrl: recipe.sourceUrl,
+        imageUrl: recipe.imageUrl,
         ingredients: recipe.ingredients.map((ing) => ({
           id: ing.id,
           name: ing.name,
@@ -461,7 +470,9 @@ export function createMcpServer(userId: string): McpServer {
       title: 'Create a recipe',
       description:
         'Create a new recipe with ingredients, instructions (array of steps), ' +
-        "and optional category tags. It is shared with the user's household.",
+        "and optional category tags. It is shared with the user's household. " +
+        'To attach a photo, call set_recipe_image afterwards with the new id ' +
+        '(imageUrl here only hotlinks an external image without storing it).',
       inputSchema: { ...createRecipeSchema.shape },
     },
     async (input) => {
@@ -495,6 +506,54 @@ export function createMcpServer(userId: string): McpServer {
         name: recipe.name,
         message: 'Recipe updated',
       });
+    }
+  );
+
+  registerLoggedTool(
+    'set_recipe_image',
+    {
+      title: 'Set a recipe photo',
+      description:
+        "Attach a photo to a recipe. The server downloads the image and keeps its " +
+        'own copy, so the photo keeps working even if the source disappears. ' +
+        'Give EITHER imageUrl (a public http(s) URL to a JPEG, PNG, WebP or GIF, ' +
+        'max 5MB) OR imageBase64 (the raw image bytes as base64, optionally as a ' +
+        'data: URL). Replaces any existing photo on the recipe.',
+      inputSchema: {
+        recipeId: idSchema.describe('Recipe id (from search_recipes or create_recipe)'),
+        imageUrl: z
+          .string()
+          .url()
+          .max(2000)
+          .optional()
+          .describe('Public http(s) URL of the image to download and store'),
+        imageBase64: z
+          .string()
+          .optional()
+          .describe('Base64-encoded image bytes (bare or as a data: URL)'),
+      },
+    },
+    async ({ recipeId, imageUrl, imageBase64 }) => {
+      if (!imageUrl === !imageBase64) {
+        return errorResult('Provide exactly one of imageUrl or imageBase64');
+      }
+      try {
+        const bytes = imageUrl
+          ? await fetchImageFromUrl(imageUrl)
+          : decodeBase64Image(imageBase64!);
+        const stored = await storeRecipeImage(userId, recipeId, bytes);
+        if (!stored) return errorResult('Recipe not found');
+        return jsonResult({
+          id: recipeId,
+          imageUrl: stored.imageUrl,
+          contentType: stored.contentType,
+          sizeBytes: stored.sizeBytes,
+          message: 'Recipe photo updated',
+        });
+      } catch (error) {
+        if (error instanceof ImageValidationError) return errorResult(error.message);
+        throw error;
+      }
     }
   );
 

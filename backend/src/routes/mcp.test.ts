@@ -552,6 +552,75 @@ describe('recipe tools', () => {
     // Ingredients untouched because they were not provided
     expect(detail.ingredients).toHaveLength(2);
   });
+
+  it('create_recipe rejects category types outside meal_type/dietary/allergen', async () => {
+    const res = await mcpRequest(
+      {
+        jsonrpc: '2.0',
+        id: ++rpcId,
+        method: 'tools/call',
+        params: {
+          name: 'create_recipe',
+          arguments: {
+            name: `${RUN} muffins`,
+            instructions: ['Bake'],
+            categories: [{ type: 'dish', value: 'muffins' }],
+          },
+        },
+      },
+      VALID_TOKEN
+    );
+    const rpc = await readJsonRpc(res);
+    // The SDK reports input-schema failures either as a JSON-RPC error or as
+    // an isError tool result depending on version; both mean "rejected".
+    const rejected = rpc.error !== undefined || rpc.result?.isError === true;
+    expect(rejected).toBe(true);
+  });
+
+  it('set_recipe_image stores a base64 photo and exposes it via get_recipe', async () => {
+    const PNG_1X1 =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+    const payload = parsePayload(
+      await callTool('set_recipe_image', {
+        recipeId: ownerRecipeId,
+        imageBase64: `data:image/png;base64,${PNG_1X1}`,
+      })
+    );
+    expect(payload.contentType).toBe('image/png');
+    expect(payload.imageUrl).toContain('/api/recipe-images/');
+
+    const detail = parsePayload(
+      await callTool('get_recipe', { recipeId: ownerRecipeId })
+    );
+    expect(detail.imageUrl).toBe(payload.imageUrl);
+  });
+
+  it('set_recipe_image refuses ambiguous input, bad bytes, and other users\' recipes', async () => {
+    const neither = await callTool('set_recipe_image', { recipeId: ownerRecipeId });
+    expect(neither.isError).toBe(true);
+
+    const notImage = await callTool('set_recipe_image', {
+      recipeId: ownerRecipeId,
+      imageBase64: Buffer.from('just some text, not an image').toString('base64'),
+    });
+    expect(notImage.isError).toBe(true);
+    expect(notImage.content[0].text).toMatch(/Unsupported image type/);
+
+    const foreign = await callTool('set_recipe_image', {
+      recipeId: otherRecipeId,
+      imageBase64: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0]).toString('base64'),
+    });
+    expect(foreign.isError).toBe(true);
+  });
+
+  it('set_recipe_image blocks private-network image URLs (SSRF)', async () => {
+    const result = await callTool('set_recipe_image', {
+      recipeId: ownerRecipeId,
+      imageUrl: 'http://127.0.0.1:9/photo.jpg',
+    });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toMatch(/private|not allowed/i);
+  });
 });
 
 describe('meal plan tools', () => {

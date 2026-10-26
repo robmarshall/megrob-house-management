@@ -8,9 +8,10 @@ import type { RecipeFormSubmitData } from "@/lib/schemas";
 
 export function AddRecipePage() {
   const navigate = useNavigate();
-  const { create } = useRecipeData();
+  const { create, uploadImage } = useRecipeData();
 
   const handleSubmit = async (data: RecipeFormSubmitData) => {
+    let newRecipeId: number | undefined;
     try {
       // Convert form data to API format
       const recipeData = {
@@ -37,9 +38,20 @@ export function AddRecipePage() {
       };
 
       const newRecipe = await create(recipeData as Partial<Recipe>);
+      newRecipeId = newRecipe.id;
+
+      // The photo needs a recipe id, so it goes up after the recipe exists.
+      if (data.imageFile) {
+        await uploadImage(newRecipe.id, data.imageFile);
+      }
+
       navigate(`/recipes/${newRecipe.id}`);
     } catch {
-      // Error toast handled by useData hook
+      // Error toasts are handled by the hooks. If the recipe was created but
+      // its photo failed, still land on the recipe so the work isn't lost.
+      if (newRecipeId !== undefined) {
+        navigate(`/recipes/${newRecipeId}`);
+      }
     }
   };
 

@@ -12,9 +12,10 @@ export function EditRecipePage() {
   const recipeId = parseInt(id || "0", 10);
 
   const { data: recipe, isLoading } = useRecipe(recipeId);
-  const { edit } = useRecipeData();
+  const { edit, uploadImage } = useRecipeData();
 
   const handleSubmit = async (data: RecipeFormSubmitData) => {
+    let saved = false;
     try {
       // Convert form data to API format
       const recipeData = {
@@ -27,8 +28,10 @@ export function EditRecipePage() {
         difficulty: data.difficulty,
         cuisine: data.cuisine,
         notes: data.notes,
-        // null (not undefined) so clearing the field removes the image
-        imageUrl: data.imageUrl || null,
+        // A pending photo upload replaces the image after this save, so leave
+        // imageUrl alone (undefined) in that case. Otherwise send null (not
+        // undefined) so clearing the field removes the image.
+        imageUrl: data.imageFile ? undefined : data.imageUrl || null,
         ingredients: data.ingredients.map((ing) => ({
           name: ing.name,
           quantity: typeof ing.quantity === "number" ? ing.quantity : undefined,
@@ -42,9 +45,19 @@ export function EditRecipePage() {
       };
 
       await edit(recipeId, recipeData as Partial<Recipe>);
+      saved = true;
+
+      if (data.imageFile) {
+        await uploadImage(recipeId, data.imageFile);
+      }
+
       navigate(`/recipes/${recipeId}`);
     } catch {
-      // Error toast handled by useData hook
+      // Error toasts are handled by the hooks. A failed photo upload after a
+      // successful save still lands on the recipe; a failed save stays here.
+      if (saved) {
+        navigate(`/recipes/${recipeId}`);
+      }
     }
   };
 

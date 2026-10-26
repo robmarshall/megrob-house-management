@@ -6,11 +6,17 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useData } from '../useData';
 import { usePaginatedData } from '../usePaginatedData';
-import { apiGet, apiPost } from '@/lib/api/client';
+import { apiGet, apiPost, apiUpload } from '@/lib/api/client';
 import { collectionPredicate } from '@/lib/api/queryKeys';
 import { toast } from '@/lib/toast';
 import type { PaginationOptions } from '@/types/api';
-import type { Recipe, ImportRecipeInput, RecipeStatus, ShareRecipeResult } from '@/types/recipe';
+import type {
+  Recipe,
+  ImportRecipeInput,
+  RecipeStatus,
+  ShareRecipeResult,
+  RecipeImageUploadResult,
+} from '@/types/recipe';
 
 /**
  * Extended pagination options for recipes
@@ -225,8 +231,36 @@ export function useRecipeData() {
     },
   });
 
+  // Upload a photo for an existing recipe (multipart). The server stores the
+  // bytes and repoints the recipe's imageUrl at them; success is silent
+  // because the surrounding save already toasts.
+  const uploadImageMutation = useMutation({
+    mutationFn: async (params: { recipeId: number; file: File }) => {
+      const formData = new FormData();
+      formData.append('image', params.file, params.file.name);
+      return apiUpload<RecipeImageUploadResult>(
+        `/api/recipes/${params.recipeId}/image`,
+        formData
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && key[0] === 'recipes';
+        },
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to upload image');
+    },
+  });
+
   return {
     ...baseData,
+    uploadImage: (recipeId: number, file: File) =>
+      uploadImageMutation.mutateAsync({ recipeId, file }),
+    isUploadingImage: uploadImageMutation.isPending,
     importFromUrl: (url: string) => importMutation.mutateAsync({ url }),
     isImporting: importMutation.isPending,
     importError: importMutation.error,

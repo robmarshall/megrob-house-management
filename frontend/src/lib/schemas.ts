@@ -134,6 +134,13 @@ export const createRecipeSchema = z.object({
   cuisine: z.string().max(50).optional(),
   notes: z.string().max(2000, 'Notes must be less than 2000 characters').optional(),
   imageUrl: z.string().url('Must be a valid URL (e.g. https://example.com/photo.jpg)').max(2000, 'Image URL must be less than 2000 characters').optional().or(z.literal('')),
+  // A photo picked from the device; uploaded by the page after the recipe is
+  // saved (see RecipeImageField). Never sent in the JSON body.
+  imageFile: z
+    .custom<File>((value) => typeof File !== 'undefined' && value instanceof File, {
+      message: 'Invalid image file',
+    })
+    .optional(),
   ingredients: z.array(recipeIngredientSchema).min(1, 'At least one ingredient is required'),
   instructions: z.array(recipeInstructionSchema).min(1, 'At least one instruction step is required'),
   categories: z.array(recipeCategorySchema).optional(),
