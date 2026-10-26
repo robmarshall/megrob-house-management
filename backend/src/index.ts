@@ -16,6 +16,7 @@ import shoppingListsRoutes from "./routes/shoppingLists.js";
 import shoppingListItemsRoutes from "./routes/shoppingListItems.js";
 import recipesRoutes from "./routes/recipes.js";
 import publicRecipesRoutes from "./routes/publicRecipes.js";
+import recipeImagesRoutes from "./routes/recipeImages.js";
 import householdsRoutes from "./routes/households.js";
 import mealPlansRoutes from "./routes/mealPlans.js";
 import nutritionRoutes from "./routes/nutrition.js";
@@ -129,6 +130,10 @@ app.route("/api/recipes", recipesRoutes);
 // Public share links (unauthenticated by design; rate limited)
 app.use("/api/public/recipes/*", rateLimiter(30, 60_000));
 app.route("/api/public/recipes", publicRecipesRoutes);
+// Stored recipe photos (public by unguessable id; a recipe page loads many at
+// once, so the limit is per-image-request generous)
+app.use("/api/recipe-images/*", rateLimiter(300, 60_000));
+app.route("/api/recipe-images", recipeImagesRoutes);
 app.route("/api/meal-plans", mealPlansRoutes);
 app.route("/api/nutrition", nutritionRoutes);
 // App-wide settings; admin-gated inside the route module

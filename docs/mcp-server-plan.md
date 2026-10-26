@@ -103,7 +103,8 @@ low upside, highest regret if the model misfires.
 | `search_recipes` | Summary shape only (id, name, categories) |
 | `get_recipe` | The only "full detail" call |
 | `create_recipe` | Full ingredient/category nesting via existing schemas |
-| `update_recipe` | |
+| `update_recipe` | Category `type` is a closed enum (`meal_type`/`dietary`/`allergen`); earlier builds accepted any string, which produced recipes the web edit form could not re-save |
+| `set_recipe_image` | Attach a photo: `imageUrl` (server downloads it, SSRF-checked, 5MB cap) or `imageBase64`. Bytes live in `recipe_images` and are served publicly at `/api/recipe-images/:uuid`, which `recipes.image_url` then points at. Replaces the previous upload |
 
 ### Meal plans + composite (Phase 4)
 | Tool | Notes |

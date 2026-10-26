@@ -157,6 +157,16 @@ export interface ImportRecipeInput {
 }
 
 /**
+ * Response from POST /api/recipes/:id/image
+ */
+export interface RecipeImageUploadResult {
+  id: string;
+  imageUrl: string;
+  contentType: string;
+  sizeBytes: number;
+}
+
+/**
  * Response from the share toggle endpoint
  */
 export interface ShareRecipeResult {

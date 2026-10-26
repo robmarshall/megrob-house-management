@@ -32,6 +32,8 @@ import {
   updateRecipe,
   setRecipeSharing,
 } from '../services/recipeService.js';
+import { storeRecipeImage } from '../services/recipeImageService.js';
+import { MAX_IMAGE_BYTES, ImageValidationError } from '../lib/recipeImages.js';
 
 const app = new Hono();
 
@@ -306,6 +308,65 @@ app.patch('/:id', validateBody(updateRecipeSchema), async (c) => {
   } catch (error) {
     logger.error({ err: error }, "Error updating recipe");
     return c.json({ error: 'Failed to update recipe' }, 500);
+  }
+});
+
+/**
+ * POST /api/recipes/:id/image
+ * Upload a photo for a recipe (multipart/form-data, field "image").
+ *
+ * The bytes are stored in the database and the recipe's imageUrl is pointed
+ * at the public /api/recipe-images/:imageId URL; any previous upload for the
+ * recipe is replaced. Follows the shared-edit policy like PATCH.
+ *
+ * Returns { id, imageUrl, contentType, sizeBytes }.
+ */
+app.post('/:id/image', async (c) => {
+  const userId = getUserId(c);
+  const id = parseInt(c.req.param('id'));
+
+  if (isNaN(id)) {
+    return c.json({ error: 'Invalid recipe ID' }, 400);
+  }
+
+  // Cheap pre-check so an oversized body is refused before it is buffered.
+  // The exact byte check happens in the service once the file is parsed.
+  const declaredLength = Number(c.req.header('content-length') || 0);
+  if (declaredLength > MAX_IMAGE_BYTES + 64 * 1024) {
+    return c.json(
+      { error: `Image is too large (max ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)}MB)` },
+      413
+    );
+  }
+
+  const contentType = c.req.header('content-type') || '';
+  if (!contentType.startsWith('multipart/form-data')) {
+    return c.json({ error: 'Expected multipart/form-data with an "image" field' }, 400);
+  }
+
+  try {
+    const body = await c.req.parseBody();
+    const file = body['image'];
+
+    // parseBody yields a File for file parts and a string for text parts.
+    if (!file || typeof file === 'string' || typeof (file as Blob).arrayBuffer !== 'function') {
+      return c.json({ error: 'No image file provided (field "image")' }, 400);
+    }
+
+    const bytes = new Uint8Array(await (file as Blob).arrayBuffer());
+    const result = await storeRecipeImage(userId, id, bytes);
+
+    if (!result) {
+      return c.json({ error: 'Recipe not found' }, 404);
+    }
+
+    return c.json(result);
+  } catch (error) {
+    if (error instanceof ImageValidationError) {
+      return c.json({ error: error.message }, 400);
+    }
+    logger.error({ err: error, recipeId: id }, "Error uploading recipe image");
+    return c.json({ error: 'Failed to upload image' }, 500);
   }
 });
 

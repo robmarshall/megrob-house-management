@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import {
   useForm,
   FormProvider,
@@ -15,13 +15,15 @@ import { Button } from "@/components/atoms/Button";
 import { Card } from "@/components/atoms/Card";
 import { IngredientInput } from "@/components/molecules/IngredientInput";
 import { CategoryPicker } from "@/components/molecules/CategoryPicker";
+import { RecipeImageField } from "@/components/molecules/RecipeImageField";
 import {
   createRecipeSchema,
   type CreateRecipeFormData,
   type RecipeFormSubmitData,
   type RecipeIngredientFormData,
 } from "@/lib/schemas";
-import type { Recipe, RecipeCategoryType } from "@/types/recipe";
+import type { Recipe } from "@/types/recipe";
+import { normalizeCategories } from "@/lib/recipeCategories";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 
@@ -56,6 +58,23 @@ const CUISINE_OPTIONS = [
   "Other",
 ];
 
+/** Human names for top-level form fields, used when a save is blocked. */
+const FIELD_LABELS: Record<string, string> = {
+  name: "Recipe name",
+  description: "Description",
+  servings: "Servings",
+  prepTimeMinutes: "Prep time",
+  cookTimeMinutes: "Cook time",
+  difficulty: "Difficulty",
+  cuisine: "Cuisine",
+  notes: "Notes",
+  imageUrl: "Image URL",
+  imageFile: "Photo",
+  ingredients: "Ingredients",
+  instructions: "Instructions",
+  categories: "Categories",
+};
+
 export function RecipeForm({
   initialData,
   onSubmit,
@@ -77,15 +96,14 @@ export function RecipeForm({
     }
   };
 
-  const parseCategories = (
-    categories?: Array<{ categoryType: string; categoryValue: string }>
-  ): Array<{ type: RecipeCategoryType; value: string }> => {
-    if (!categories) return [];
-    return categories.map((c) => ({
-      type: c.categoryType as RecipeCategoryType,
-      value: c.categoryValue,
-    }));
-  };
+  // Recipes created via the API/MCP before category types were locked down
+  // can carry tags the form can't validate (e.g. "meal", "dish"). Coerce the
+  // recognisable aliases and surface the rest so the save isn't silently
+  // blocked by a field with no visible input.
+  const { categories: initialCategories, dropped: droppedCategories } = useMemo(
+    () => normalizeCategories(initialData?.categories),
+    [initialData?.categories]
+  );
 
   const methods = useForm<CreateRecipeFormData>({
     resolver: zodResolver(createRecipeSchema),
@@ -99,6 +117,7 @@ export function RecipeForm({
       cuisine: initialData?.cuisine || "",
       notes: initialData?.notes || "",
       imageUrl: initialData?.imageUrl || "",
+      imageFile: undefined,
       ingredients: initialData?.ingredients?.map((ing) => ({
         name: ing.name,
         quantity: ing.quantity ? parseFloat(ing.quantity) : undefined,
@@ -106,7 +125,7 @@ export function RecipeForm({
         notes: ing.notes || undefined,
       })) || [{ name: "", quantity: undefined, unit: undefined, notes: undefined }],
       instructions: parseInstructions(initialData?.instructions),
-      categories: parseCategories(initialData?.categories),
+      categories: initialCategories,
     },
   });
 
@@ -152,16 +171,18 @@ export function RecipeForm({
   // Validation errors can live on fields with no visible input (e.g. an
   // ingredient's notes from an imported recipe) — always give audible feedback
   // so a failed save is never silent.
-  const handleInvalidSubmit = () => {
-    toast.error("Some fields have errors. Please fix the highlighted fields and try again.");
+  const handleInvalidSubmit = (errors: FieldErrors<CreateRecipeFormData>) => {
+    const sections = Object.keys(errors)
+      .map((key) => FIELD_LABELS[key] ?? key)
+      .filter((label, index, all) => all.indexOf(label) === index);
+    toast.error(
+      sections.length > 0
+        ? `Please fix: ${sections.join(", ")}.`
+        : "Some fields have errors. Please fix the highlighted fields and try again."
+    );
   };
 
   const isSubmitting = methods.formState.isSubmitting || isLoading;
-  const imageUrlValue = methods.watch("imageUrl");
-  const [imagePreviewFailed, setImagePreviewFailed] = useState(false);
-  useEffect(() => {
-    setImagePreviewFailed(false);
-  }, [imageUrlValue]);
 
   return (
     <FormProvider {...methods}>
@@ -299,24 +320,7 @@ export function RecipeForm({
               ))}
             </Select>
 
-            <Input
-              name="imageUrl"
-              label="Image URL"
-              type="url"
-              placeholder="https://example.com/photo.jpg"
-              disabled={isSubmitting}
-            />
-            {imageUrlValue && !imagePreviewFailed && (
-              <div className="rounded-lg overflow-hidden border border-gray-200">
-                <img
-                  key={imageUrlValue}
-                  src={imageUrlValue}
-                  alt="Recipe preview"
-                  className="w-full h-48 object-cover"
-                  onError={() => setImagePreviewFailed(true)}
-                />
-              </div>
-            )}
+            <RecipeImageField disabled={isSubmitting} />
           </div>
         </Card>
 
@@ -461,6 +465,24 @@ export function RecipeForm({
                 />
               )}
             />
+
+            {methods.formState.errors.categories && (
+              <p className="text-sm text-red-600" role="alert">
+                {methods.formState.errors.categories.message ??
+                  "One or more category tags are invalid. Deselect and reselect your tags to fix them."}
+              </p>
+            )}
+
+            {droppedCategories.length > 0 && (
+              <p className="text-sm text-amber-700" role="status">
+                Some tags on this recipe use types the app doesn't support and
+                will be removed when you save:{" "}
+                {droppedCategories
+                  .map((c) => `${c.type}: ${c.value}`)
+                  .join(", ")}
+                . Pick replacements above if you want to keep them.
+              </p>
+            )}
           </div>
         </Card>
 

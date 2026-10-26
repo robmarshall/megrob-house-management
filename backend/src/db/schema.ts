@@ -1,4 +1,4 @@
-import { pgTable, serial, bigserial, text, timestamp, integer, numeric, boolean, unique, uniqueIndex, index, primaryKey, check, date } from 'drizzle-orm/pg-core';
+import { pgTable, serial, bigserial, text, timestamp, integer, numeric, boolean, unique, uniqueIndex, index, primaryKey, check, date, customType } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { user } from './auth-schema';
 
@@ -170,6 +170,36 @@ export const recipeCategories = pgTable('recipe_categories', {
 }, (table) => [
   // Prevent duplicate category entries per recipe (migration 0004).
   unique('unique_recipe_category').on(table.recipeId, table.categoryType, table.categoryValue),
+]);
+
+/** Postgres bytea column; postgres-js hands the driver a Buffer both ways. */
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return 'bytea';
+  },
+});
+
+/**
+ * Recipe Images Table
+ * Uploaded recipe photos, stored in the database so the deploy needs no
+ * file volume or object store. One row per recipe at most (the service
+ * replaces on upload); served publicly by unguessable id at
+ * /api/recipe-images/:id, which is what recipes.image_url points at.
+ */
+export const recipeImages = pgTable('recipe_images', {
+  id: text('id').primaryKey(), // random UUID; doubles as the unguessable URL token
+  recipeId: integer('recipe_id')
+    .notNull()
+    .references(() => recipes.id, { onDelete: 'cascade' }),
+  contentType: text('content_type').notNull(), // sniffed from the bytes, never the upload header
+  sizeBytes: integer('size_bytes').notNull(),
+  data: bytea('data').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  createdBy: text('created_by')
+    .notNull()
+    .references(() => user.id),
+}, (table) => [
+  index('recipe_images_recipe_id_idx').on(table.recipeId),
 ]);
 
 /**

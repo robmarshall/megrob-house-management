@@ -2,7 +2,14 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RecipeForm } from "./RecipeForm";
-import type { Recipe } from "@/types/recipe";
+import type { Recipe, RecipeCategoryType } from "@/types/recipe";
+
+// jsdom has no image decoder or canvas, so the real resizer would wait for
+// an onload that never comes. It has its own unit tests; here we only care
+// that the picked file flows through the form.
+vi.mock("@/lib/imageResize", () => ({
+  downscaleImage: async (file: File) => file,
+}));
 
 /**
  * RecipeForm seeds its own useForm from `initialData`. These fixtures are valid
@@ -30,6 +37,98 @@ function makeInitialData(ingredientName: string): Partial<Recipe> {
     ],
   };
 }
+
+describe("RecipeForm legacy category tags", () => {
+  it("coerces alias types, warns about unmappable ones, and still submits", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    // Shapes an MCP-created recipe used to have: "meal" instead of
+    // "meal_type", plus a type the app has no concept of.
+    const initialData: Partial<Recipe> = {
+      ...makeInitialData("Flour"),
+      categories: [
+        {
+          id: 1,
+          recipeId: 1,
+          categoryType: "meal" as unknown as RecipeCategoryType,
+          categoryValue: "dinner",
+        },
+        {
+          id: 2,
+          recipeId: 1,
+          categoryType: "dish" as unknown as RecipeCategoryType,
+          categoryValue: "muffins",
+        },
+      ],
+    };
+
+    render(
+      <RecipeForm initialData={initialData} onSubmit={onSubmit} onCancel={vi.fn()} />
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("dish: muffins");
+
+    await user.click(screen.getByRole("button", { name: "Create Recipe" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0][0].categories).toEqual([
+      { type: "meal_type", value: "dinner" },
+    ]);
+  });
+});
+
+describe("RecipeForm photo field", () => {
+  it("passes a chosen photo through to onSubmit as imageFile", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <RecipeForm
+        initialData={makeInitialData("Flour")}
+        onSubmit={onSubmit}
+        onCancel={vi.fn()}
+      />
+    );
+
+    const file = new File([new Uint8Array([0xff, 0xd8, 0xff])], "photo.jpg", {
+      type: "image/jpeg",
+    });
+    await user.upload(screen.getByLabelText("Choose a recipe photo"), file);
+
+    expect(await screen.findByText(/photo\.jpg/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove image" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Create Recipe" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    // jsdom can't resize, so the original File is what reaches the page.
+    expect(onSubmit.mock.calls[0][0].imageFile).toBe(file);
+  });
+
+  it("clears both the photo and the URL when the image is removed", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <RecipeForm
+        initialData={{
+          ...makeInitialData("Flour"),
+          imageUrl: "https://example.com/photo.jpg",
+        }}
+        onSubmit={onSubmit}
+        onCancel={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: "Remove image" }));
+    await user.click(screen.getByRole("button", { name: "Create Recipe" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0][0].imageUrl).toBeUndefined();
+    expect(onSubmit.mock.calls[0][0].imageFile).toBeUndefined();
+  });
+});
 
 describe("RecipeForm ingredient validation", () => {
   it("surfaces the nested ingredient-name error and blocks submit when a name is empty", async () => {

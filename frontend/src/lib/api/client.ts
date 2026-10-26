@@ -99,6 +99,26 @@ export async function apiPost<T>(endpoint: string, data: unknown): Promise<T> {
 }
 
 /**
+ * Perform a multipart POST (file upload)
+ * No Content-Type header is set on purpose: the browser adds
+ * multipart/form-data with the correct boundary itself.
+ */
+export async function apiUpload<T>(
+  endpoint: string,
+  formData: FormData
+): Promise<T> {
+  const url = buildUrl(endpoint);
+
+  const response = await fetch(url, {
+    method: "POST",
+    credentials: "include", // Send session cookies
+    body: formData,
+  });
+
+  return handleResponse<T>(response);
+}
+
+/**
  * Perform a PATCH request
  * Authentication is handled automatically via session cookies
  */

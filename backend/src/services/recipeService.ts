@@ -1,5 +1,6 @@
 import {
   eq,
+  ne,
   desc,
   asc,
   or,
@@ -18,9 +19,11 @@ import {
   recipeIngredients,
   recipeCategories,
   recipeNutrition,
+  recipeImages,
   userFavorites,
 } from '../db/schema.js';
 import { getUserHouseholdId } from '../lib/household.js';
+import { storedImageIdFromUrl } from '../lib/recipeImages.js';
 import { enqueueNutritionEnrichSafe } from '../lib/queue.js';
 import { replaceRecipeRelations } from './recipeRelations.js';
 import type {
@@ -503,6 +506,20 @@ export async function updateRecipe(
       .returning();
 
     await replaceRecipeRelations(tx, recipeId, { ingredients, categories });
+
+    // Pointing imageUrl anywhere other than the recipe's stored upload
+    // (including clearing it) orphans that upload, so drop it here rather
+    // than leaving dead bytes behind.
+    if (imageUrl !== undefined && imageUrl !== existingRecipe.imageUrl) {
+      const keepId = storedImageIdFromUrl(imageUrl);
+      await tx
+        .delete(recipeImages)
+        .where(
+          keepId
+            ? and(eq(recipeImages.recipeId, recipeId), ne(recipeImages.id, keepId))
+            : eq(recipeImages.recipeId, recipeId)
+        );
+    }
 
     return row;
   });
