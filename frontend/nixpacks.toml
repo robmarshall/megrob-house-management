@@ -1,0 +1,7 @@
+# Coolify builds this directory in isolation with Nixpacks and no lockfile, so
+# every deploy re-resolves dependency ranges against the live registry. Node 22's
+# bundled npm 10 crashes resolving vitest 4.1's peer set
+# ("Cannot read properties of null (reading 'edgesOut')"); npm 11 resolves the
+# same tree fine, so install with that instead of the bundled npm.
+[phases.install]
+cmds = ["npx -y npm@11 install --include=dev"]
