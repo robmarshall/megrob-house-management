@@ -260,3 +260,17 @@ export const telegramSettingsSchema = z.object({
 })
 
 export type TelegramSettingsFormData = z.infer<typeof telegramSettingsSchema>
+
+// Admin: set another user's password
+
+export const adminSetPasswordSchema = z
+  .object({
+    newPassword: z.string().min(6, 'Password must be at least 6 characters'),
+    confirmPassword: z.string().min(1, 'Please confirm the password'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  })
+
+export type AdminSetPasswordFormData = z.infer<typeof adminSetPasswordSchema>

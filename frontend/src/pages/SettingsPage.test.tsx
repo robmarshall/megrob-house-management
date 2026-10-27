@@ -41,6 +41,18 @@ vi.mock('@/hooks/notifications/useNotificationSettings', () => ({
   useSendTestNotification: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }))
 
+vi.mock('@/hooks/admin/useAdminUsers', () => ({
+  useAdminUsers: () => ({
+    data: [
+      { id: 'user-1', name: 'Robert', email: 'hello@robertmarshall.dev', createdAt: '2026-01-01T00:00:00.000Z', isAdmin: true },
+      { id: 'user-2', name: 'Meg', email: 'meg@example.com', createdAt: '2026-01-02T00:00:00.000Z', isAdmin: false },
+    ],
+    isLoading: false,
+    isError: false,
+  }),
+  useSetUserPassword: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}))
+
 vi.mock('@/hooks/snozone/useSnozoneStatus', () => ({
   useSnozoneStatus: () => ({ data: null, isLoading: false, isError: false }),
 }))
@@ -115,7 +127,7 @@ describe('SettingsPage - admin tabs', () => {
     expect(screen.queryByRole('button', { name: 'Snozone' })).toBeNull()
   })
 
-  it('shows Notifications and Snozone tabs for an admin', () => {
+  it('shows Users, Notifications and Snozone tabs for an admin', () => {
     mockNotificationSettings.current = { telegramEnabled: false, encryptionConfigured: true }
     render(
       <MemoryRouter>
@@ -124,8 +136,25 @@ describe('SettingsPage - admin tabs', () => {
     )
     expect(screen.getByRole('navigation', { name: /settings sections/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Account' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Users' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Notifications' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Snozone' })).toBeInTheDocument()
+  })
+
+  it('switches to the Users tab and lists accounts', async () => {
+    mockNotificationSettings.current = { telegramEnabled: false, encryptionConfigured: true }
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Users' }))
+    expect(screen.getByRole('heading', { name: 'Users' })).toBeInTheDocument()
+    expect(screen.getByText('meg@example.com')).toBeInTheDocument()
+    // The admin can reset others but not themselves through this route.
+    expect(screen.getByRole('button', { name: 'Reset password for Meg' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reset password for Robert' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'App Settings' })).toBeNull()
   })
 
   it('switches to the Snozone tab when clicked', async () => {

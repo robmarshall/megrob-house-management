@@ -9,6 +9,7 @@ import { ErrorMessage } from '@/components/atoms/ErrorMessage'
 import { NutritionProfileSection } from '@/components/organisms/NutritionProfileSection'
 import { TelegramNotificationsSection } from '@/components/organisms/TelegramNotificationsSection'
 import { SnozoneCollectorSection } from '@/components/organisms/SnozoneCollectorSection'
+import { AdminUsersSection } from '@/components/organisms/AdminUsersSection'
 import { useNotificationSettings } from '@/hooks/notifications/useNotificationSettings'
 import { toast } from '@/lib/toast'
 import {
@@ -204,7 +205,7 @@ function AppSettingsSection() {
   )
 }
 
-type TabId = 'account' | 'notifications' | 'snozone'
+type TabId = 'account' | 'users' | 'notifications' | 'snozone'
 
 /**
  * Settings, tabbed.
@@ -223,6 +224,7 @@ export function SettingsPage() {
     { id: 'account', label: 'Account' },
     ...(isAdmin
       ? ([
+          { id: 'users', label: 'Users' },
           { id: 'notifications', label: 'Notifications' },
           { id: 'snozone', label: 'Snozone' },
         ] as { id: TabId; label: string }[])
@@ -268,6 +270,8 @@ export function SettingsPage() {
             <AppSettingsSection />
           </div>
         )}
+
+        {active === 'users' && <AdminUsersSection />}
 
         {active === 'notifications' && <TelegramNotificationsSection />}
 
