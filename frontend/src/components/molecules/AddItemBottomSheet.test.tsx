@@ -74,3 +74,23 @@ describe("AddItemBottomSheet quantity input", () => {
     expect(onAdd).toHaveBeenCalledWith("Eggs", undefined, 1, undefined);
   });
 });
+
+describe("AddItemBottomSheet rapid entry", () => {
+  it("clears and refocuses the item name input after an item is added", async () => {
+    const user = userEvent.setup();
+    const onAdd = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <AddItemBottomSheet isOpen={true} onClose={vi.fn()} onAdd={onAdd} />
+    );
+
+    const nameInput = screen.getByPlaceholderText("Enter item name...");
+    await user.type(nameInput, "Milk");
+    await user.click(screen.getByRole("button", { name: "Add Item" }));
+
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(nameInput).toHaveValue("");
+    // Focus returns to the name field so the next item can be typed straight away.
+    expect(nameInput).toHaveFocus();
+  });
+});

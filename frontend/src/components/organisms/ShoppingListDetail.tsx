@@ -23,6 +23,8 @@ interface ShoppingListDetailProps {
   onDeleteItem: (itemId: number) => Promise<void>;
   onEditList?: (data: UpdateShoppingListFormData) => Promise<void>;
   onDeleteList?: () => Promise<void>;
+  /** Open the add-item sheet as soon as the list renders (e.g. right after creating it). */
+  initialAddItemOpen?: boolean;
 }
 
 export function ShoppingListDetail({
@@ -33,9 +35,10 @@ export function ShoppingListDetail({
   onDeleteItem,
   onEditList,
   onDeleteList,
+  initialAddItemOpen = false,
 }: ShoppingListDetailProps) {
   const items = list.items || [];
-  const [isAddSheetOpen, setIsAddSheetOpen] = useState(false);
+  const [isAddSheetOpen, setIsAddSheetOpen] = useState(initialAddItemOpen);
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);

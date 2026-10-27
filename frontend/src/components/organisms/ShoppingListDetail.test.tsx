@@ -74,3 +74,32 @@ describe("ShoppingListDetail category grouping", () => {
     expect(uncategorized).toHaveLength(1);
   });
 });
+
+describe("ShoppingListDetail initialAddItemOpen", () => {
+  it("opens the add-item sheet on first render when asked to", () => {
+    render(
+      <ShoppingListDetail
+        list={{ ...list, items: [] }}
+        onAddItem={vi.fn()}
+        onToggleItem={vi.fn()}
+        onDeleteItem={vi.fn()}
+        initialAddItemOpen
+      />
+    );
+
+    expect(screen.getByPlaceholderText("Enter item name...")).toBeInTheDocument();
+  });
+
+  it("keeps the add-item sheet closed by default", () => {
+    render(
+      <ShoppingListDetail
+        list={{ ...list, items: [] }}
+        onAddItem={vi.fn()}
+        onToggleItem={vi.fn()}
+        onDeleteItem={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByPlaceholderText("Enter item name...")).not.toBeInTheDocument();
+  });
+});

@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { FormProvider, useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { quickAddItemSchema, type QuickAddItemFormData, type UnitType } from "@/lib/schemas";
@@ -56,6 +57,8 @@ export default function AddItemBottomSheet({
     },
   });
 
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
   const onSubmit = async (data: QuickAddItemFormData) => {
     const category = data.category ? data.category : undefined;
     const unit = data.unit ? data.unit : undefined;
@@ -63,6 +66,9 @@ export default function AddItemBottomSheet({
     const quantity = typeof data.quantity === "number" ? data.quantity : 1;
     await onAdd(data.name.trim(), category as BadgeVariant | undefined, quantity, unit as UnitType | undefined);
     methods.reset();
+    // Put the cursor (and on mobile, the keyboard) straight back on the name
+    // field so the next item can be typed without tapping into the form again.
+    nameInputRef.current?.focus();
   };
 
   const isSubmitting = methods.formState.isSubmitting;
@@ -83,10 +89,16 @@ export default function AddItemBottomSheet({
             >
               Item Name
             </label>
+            {/*
+              Deliberately not disabled while submitting: disabling an input
+              blurs it, which dismisses the mobile keyboard and makes the
+              refocus after submit unreliable. The submit button is disabled
+              instead, which already prevents a double add.
+            */}
             <Input
+              ref={nameInputRef}
               name="name"
               placeholder="Enter item name..."
-              disabled={isSubmitting}
               hideLabel
             />
           </div>

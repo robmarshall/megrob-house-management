@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useLocation } from "react-router";
 import { MainLayout } from "@/components/templates/MainLayout";
 import { ShoppingListDetail } from "@/components/organisms/ShoppingListDetail";
 import { ConfirmDeleteBottomSheet } from "@/components/molecules/ConfirmDeleteBottomSheet";
@@ -18,7 +18,13 @@ import type { UpdateShoppingListFormData, UnitType } from "@/lib/schemas";
 export function ShoppingListDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const listId = parseInt(id || "0", 10);
+  // Set by the lists page right after creating a list, so the user can start
+  // adding items without another tap.
+  const openAddItemOnLoad = Boolean(
+    (location.state as { addItem?: boolean } | null)?.addItem
+  );
 
   const { data: list, isLoading: listLoading } = useShoppingList(listId);
   const {
@@ -48,13 +54,18 @@ export function ShoppingListDetailPage() {
   const isLoading = listLoading || itemsLoading;
 
   const handleAddItem = async (name: string, category?: BadgeVariant, quantity?: number, unit?: UnitType) => {
-    await createItem({
-      name,
-      category,
-      quantity: quantity ?? 1,
-      unit,
-      checked: false,
-    });
+    // Silent: the item appearing in the list is feedback enough, and a toast
+    // gets in the way when adding several items in a row.
+    await createItem(
+      {
+        name,
+        category,
+        quantity: quantity ?? 1,
+        unit,
+        checked: false,
+      },
+      { silent: true }
+    );
   };
 
   const handleToggleItem = async (itemId: number) => {
@@ -202,6 +213,7 @@ export function ShoppingListDetailPage() {
         onDeleteItem={handleDeleteItem}
         onEditList={handleEditList}
         onDeleteList={handleDeleteList}
+        initialAddItemOpen={openAddItemOnLoad}
       />
 
       <div className="mt-8">

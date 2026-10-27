@@ -3,7 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement, type ReactNode } from 'react';
 import { collectionLabel, useData } from './useData';
-import { apiPatch } from '@/lib/api/client';
+import { apiPatch, apiPost } from '@/lib/api/client';
 import { toast } from '@/lib/toast';
 
 // Mock the API client so no real network requests are made.
@@ -98,6 +98,39 @@ describe('useData edit silent option', () => {
     await result.current.edit(1, { checked: true });
 
     await waitFor(() => expect(mockedApiPatch).toHaveBeenCalled());
+    await waitFor(() => expect(mockedToastSuccess).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe('useData create silent option', () => {
+  const mockedApiPost = vi.mocked(apiPost);
+
+  beforeEach(() => {
+    mockedApiPost.mockReset();
+    mockedApiPost.mockResolvedValue({ id: 1, checked: false });
+    mockedToastSuccess.mockReset();
+  });
+
+  it('does not toast on success when called with { silent: true }', async () => {
+    const { result } = renderHook(() => useData<Item>('shopping-lists/1/items'), {
+      wrapper: createWrapper(),
+    });
+
+    await result.current.create({ checked: false }, { silent: true });
+
+    await waitFor(() => expect(mockedApiPost).toHaveBeenCalled());
+    // The options object must not leak into the request body.
+    expect(mockedApiPost).toHaveBeenCalledWith('/api/shopping-lists/1/items', { checked: false });
+    expect(mockedToastSuccess).not.toHaveBeenCalled();
+  });
+
+  it('toasts on success when called without options', async () => {
+    const { result } = renderHook(() => useData<Item>('shopping-lists/1/items'), {
+      wrapper: createWrapper(),
+    });
+
+    await result.current.create({ checked: false });
+
     await waitFor(() => expect(mockedToastSuccess).toHaveBeenCalledTimes(1));
   });
 });

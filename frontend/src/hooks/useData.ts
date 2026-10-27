@@ -34,7 +34,7 @@ export function collectionLabel(collection: string): string {
 }
 
 interface UseDataReturn<T> {
-  create: (data: Partial<T>) => Promise<T>;
+  create: (data: Partial<T>, options?: { silent?: boolean }) => Promise<T>;
   edit: (
     id: string | number,
     data: Partial<T>,
@@ -83,17 +83,19 @@ export function useData<T>(
 
   // Create mutation
   const createMutation = useMutation({
-    mutationFn: async (data: Partial<T>) => {
+    mutationFn: async ({ data }: { data: Partial<T>; silent?: boolean }) => {
       return apiPost<T>(`/api/${collection}`, data);
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey;
           return Array.isArray(key) && key[0] === collection;
         },
       });
-      toast.success(`${label} created`);
+      if (!variables.silent) {
+        toast.success(`${label} created`);
+      }
     },
     onError: (error: Error) => {
       toast.error(error.message || `Failed to create ${label}`);
@@ -149,7 +151,8 @@ export function useData<T>(
 
   // Base return object with mutation functions
   const baseReturn = {
-    create: (data: Partial<T>) => createMutation.mutateAsync(data),
+    create: (data: Partial<T>, options?: { silent?: boolean }) =>
+      createMutation.mutateAsync({ data, silent: options?.silent }),
     edit: (
       id: string | number,
       data: Partial<T>,

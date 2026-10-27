@@ -1,54 +1,44 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { useForm, FormProvider } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { MainLayout } from "@/components/templates/MainLayout";
 import { ShoppingListCard } from "@/components/organisms/ShoppingListCard";
 import { EmptyState } from "@/components/molecules/EmptyState";
 import { Pagination } from "@/components/molecules/Pagination";
 import { Button } from "@/components/atoms/Button";
-import { Input } from "@/components/atoms/Input";
-import { Textarea } from "@/components/atoms/Textarea";
-import BottomSheet from "@/components/atoms/BottomSheet";
 import {
   useShoppingLists,
   useShoppingListData,
 } from "@/hooks/shoppingList/useShoppingLists";
-import {
-  createShoppingListSchema,
-  type CreateShoppingListFormData,
-} from "@/lib/schemas";
+import { uniqueListName } from "@/lib/listNames";
+
+/** Base name for a freshly created list ("Shopping", "Shopping 2", …); the user can rename it from the list page. */
+const DEFAULT_LIST_NAME = "Shopping";
 
 export function ShoppingListsPage() {
   const navigate = useNavigate();
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   const { data: lists, isLoading, error, page, totalPages, goToPage } = useShoppingLists();
   const { create, delete: deleteList } = useShoppingListData();
 
-  const methods = useForm<CreateShoppingListFormData>({
-    resolver: zodResolver(createShoppingListSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-    },
-  });
-
-  const handleCreateList = async (data: CreateShoppingListFormData) => {
+  // Creating a list is a single tap: no name/description form up front. The
+  // list gets a default name and the user lands on it with the add-item sheet
+  // already open, since adding items is the whole point.
+  const handleNewList = async () => {
+    if (isCreating) return;
+    setIsCreating(true);
     try {
-      const newList = await create(data);
-      methods.reset();
-      setIsCreateModalOpen(false);
-      navigate(`/shopping-lists/${newList.id}`);
+      // Dedupes against the lists currently loaded (the page being viewed), which
+      // covers the common case of a handful of lists per household.
+      const name = uniqueListName(DEFAULT_LIST_NAME, lists.map((list) => list.name));
+      const newList = await create({ name }, { silent: true });
+      navigate(`/shopping-lists/${newList.id}`, { state: { addItem: true } });
     } catch {
       // Error toast handled by useData hook
+    } finally {
+      setIsCreating(false);
     }
-  };
-
-  const handleCloseModal = () => {
-    methods.reset();
-    setIsCreateModalOpen(false);
   };
 
   const handleDeleteList = async (listId: number) => {
@@ -150,8 +140,8 @@ export function ShoppingListsPage() {
             title="No shopping lists yet"
             description="Create your first shopping list to get started organizing your shopping"
             action={{
-              label: "Create Your First List",
-              onClick: () => setIsCreateModalOpen(true),
+              label: "New list",
+              onClick: handleNewList,
             }}
           />
         ) : (
@@ -180,50 +170,15 @@ export function ShoppingListsPage() {
         {/* Floating Action Button */}
         <div className="fixed bottom-6 right-6 z-40">
           <Button
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={handleNewList}
             variant="primary"
+            isLoading={isCreating}
             className="rounded-full w-14 h-14 flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow"
-            aria-label="Create new shopping list"
+            aria-label="New list"
           >
             <PlusIcon className="h-6 w-6" />
           </Button>
         </div>
-
-        <BottomSheet
-          isOpen={isCreateModalOpen}
-          onClose={handleCloseModal}
-          title="Create New Shopping List"
-        >
-          <FormProvider {...methods}>
-            <form
-              onSubmit={methods.handleSubmit(handleCreateList)}
-              className="flex flex-col gap-4"
-            >
-              <Input
-                name="name"
-                label="List Name"
-                placeholder="e.g., Weekly Groceries"
-                required
-              />
-
-              <Textarea
-                name="description"
-                label="Description"
-                placeholder="Add notes about this list..."
-                rows={3}
-              />
-
-              <Button
-                type="submit"
-                variant="primary"
-                isLoading={methods.formState.isSubmitting}
-                className="w-full"
-              >
-                Create List
-              </Button>
-            </form>
-          </FormProvider>
-        </BottomSheet>
     </MainLayout>
   );
 }
