@@ -222,3 +222,13 @@ export const updateTelegramSettingsSchema = z.object({
 });
 
 export type UpdateTelegramSettingsInput = z.infer<typeof updateTelegramSettingsSchema>;
+
+// Admin user management
+export const adminSetPasswordSchema = z.object({
+  newPassword: z
+    .string()
+    .min(6, 'Password must be at least 6 characters')
+    .max(128, 'Password must be 128 characters or less'),
+});
+
+export type AdminSetPasswordInput = z.infer<typeof adminSetPasswordSchema>;

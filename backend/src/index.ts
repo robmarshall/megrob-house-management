@@ -23,6 +23,7 @@ import nutritionRoutes from "./routes/nutrition.js";
 import mcpRoutes from "./routes/mcp.js";
 import notificationSettingsRoutes from "./routes/notificationSettings.js";
 import snozoneRoutes from "./routes/snozone.js";
+import adminUsersRoutes from "./routes/adminUsers.js";
 
 dotenv.config();
 
@@ -139,6 +140,10 @@ app.route("/api/nutrition", nutritionRoutes);
 // App-wide settings; admin-gated inside the route module
 app.route("/api/settings/notifications", notificationSettingsRoutes);
 app.route("/api/snozone", snozoneRoutes);
+// Admin password resets: a credential-setting endpoint, so limited like
+// change-password. Admin-gated inside the route module.
+app.use("/api/admin/users/:id/password", rateLimiter(5, 60_000));
+app.route("/api/admin/users", adminUsersRoutes);
 // MCP endpoint (bearer-token auth inside the route, not authMiddleware)
 app.route("/api/mcp", mcpRoutes);
 
