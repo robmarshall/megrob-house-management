@@ -16,7 +16,7 @@ export type RecipeDifficulty = 'easy' | 'medium' | 'hard';
 /**
  * Category types for recipes
  */
-export type RecipeCategoryType = 'meal_type' | 'dietary' | 'allergen';
+export type RecipeCategoryType = 'meal_type' | 'dietary' | 'allergen' | 'tag';
 
 /**
  * Recipe
@@ -87,7 +87,7 @@ export interface RecipeIngredient {
 
 /**
  * Recipe Category
- * Represents a category tag (meal type, dietary, allergen)
+ * Represents a category tag (meal type, dietary, allergen, or a free-text tag)
  */
 export interface RecipeCategory {
   id: number;
@@ -238,6 +238,18 @@ export const ALLERGENS = [
   'soy',
   'fish',
 ] as const;
+
+/**
+ * Tags offered in the recipe form before anyone has used them. Free-text tags
+ * are stored as typed, so these are display text, not slugs.
+ */
+export const SUGGESTED_TAGS = ['Batch cook', 'Freezer friendly'] as const;
+
+/** A tag in use across the user's recipes (GET /api/recipes/tags). */
+export interface RecipeTagSummary {
+  value: string;
+  count: number;
+}
 
 export type MealType = typeof MEAL_TYPES[number];
 export type DietaryOption = typeof DIETARY_OPTIONS[number];

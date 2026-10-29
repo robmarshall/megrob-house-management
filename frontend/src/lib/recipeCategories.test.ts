@@ -43,6 +43,18 @@ describe('normalizeCategories', () => {
     expect(result.dropped).toEqual([{ type: 'dish', value: 'muffins' }])
   })
 
+  it('keeps free-text tags', () => {
+    const result = normalizeCategories([
+      { categoryType: 'tag', categoryValue: 'Camping' },
+      { categoryType: 'tags', categoryValue: 'Batch cook' },
+    ])
+    expect(result.categories).toEqual([
+      { type: 'tag', value: 'Camping' },
+      { type: 'tag', value: 'Batch cook' },
+    ])
+    expect(result.dropped).toEqual([])
+  })
+
   it('handles missing input', () => {
     expect(normalizeCategories(undefined)).toEqual({ categories: [], dropped: [] })
   })

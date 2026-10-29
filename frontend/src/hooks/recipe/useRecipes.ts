@@ -3,7 +3,7 @@
  * Type-safe wrappers around base data hooks for recipes
  */
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useData } from '../useData';
 import { usePaginatedData } from '../usePaginatedData';
 import { apiGet, apiPost, apiUpload } from '@/lib/api/client';
@@ -16,6 +16,7 @@ import type {
   RecipeStatus,
   ShareRecipeResult,
   RecipeImageUploadResult,
+  RecipeTagSummary,
 } from '@/types/recipe';
 
 /**
@@ -28,6 +29,7 @@ export interface RecipePaginationOptions extends PaginationOptions {
   mealType?: string[];
   dietary?: string[];
   allergenFree?: string[];
+  tags?: string[];
   cuisine?: string;
   difficulty?: 'easy' | 'medium' | 'hard';
 }
@@ -52,6 +54,7 @@ export function useRecipes(options?: RecipePaginationOptions) {
   if (options?.mealType?.length) queryParams.mealType = options.mealType.join(',');
   if (options?.dietary?.length) queryParams.dietary = options.dietary.join(',');
   if (options?.allergenFree?.length) queryParams.allergenFree = options.allergenFree.join(',');
+  if (options?.tags?.length) queryParams.tags = options.tags.join(',');
   if (options?.cuisine) queryParams.cuisine = options.cuisine;
   if (options?.difficulty) queryParams.difficulty = options.difficulty;
 
@@ -59,6 +62,18 @@ export function useRecipes(options?: RecipePaginationOptions) {
     page: options?.page,
     pageSize: options?.pageSize,
     ...queryParams,
+  });
+}
+
+/**
+ * Hook for the free-text tags in use across the user's recipes, most used
+ * first. Keyed under 'recipes' so recipe mutations refresh it.
+ */
+export function useRecipeTags() {
+  return useQuery({
+    queryKey: ['recipes', 'tags'],
+    queryFn: async () =>
+      (await apiGet<{ tags: RecipeTagSummary[] }>('/api/recipes/tags')).tags,
   });
 }
 

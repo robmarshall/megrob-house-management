@@ -125,6 +125,8 @@ export function SharedRecipePage() {
                       ? "warning"
                       : cat.categoryType === "dietary"
                       ? "success"
+                      : cat.categoryType === "tag"
+                      ? "info"
                       : "primary"
                   }
                 >

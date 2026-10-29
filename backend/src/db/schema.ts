@@ -158,14 +158,14 @@ export const recipeIngredients = pgTable('recipe_ingredients', {
 
 /**
  * Recipe Categories Table
- * Stores category tags for recipes (meal type, dietary, allergens)
+ * Stores category tags for recipes (meal type, dietary, allergens, free-text tags)
  */
 export const recipeCategories = pgTable('recipe_categories', {
   id: serial('id').primaryKey(),
   recipeId: integer('recipe_id')
     .notNull()
     .references(() => recipes.id, { onDelete: 'cascade' }),
-  categoryType: text('category_type').notNull(), // 'meal_type' | 'dietary' | 'allergen'
+  categoryType: text('category_type').notNull(), // 'meal_type' | 'dietary' | 'allergen' | 'tag'
   categoryValue: text('category_value').notNull(), // e.g., 'vegetarian', 'contains_nuts'
 }, (table) => [
   // Prevent duplicate category entries per recipe (migration 0004).
