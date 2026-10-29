@@ -99,7 +99,7 @@ export type QuickAddItemFormData = z.infer<typeof quickAddItemSchema>
 // Recipe Schemas
 
 const difficultyEnum = ['easy', 'medium', 'hard'] as const
-const categoryTypeEnum = ['meal_type', 'dietary', 'allergen'] as const
+const categoryTypeEnum = ['meal_type', 'dietary', 'allergen', 'tag'] as const
 
 export const recipeIngredientSchema = z.object({
   name: z.string().min(1, 'Ingredient name is required').max(200, 'Ingredient name must be 200 characters or less'),

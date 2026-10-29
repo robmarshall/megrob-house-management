@@ -11,6 +11,7 @@ import {
   DIETARY_OPTIONS,
   ALLERGENS,
   categoryLabels,
+  type RecipeTagSummary,
 } from "@/types/recipe";
 import type { RecipePaginationOptions } from "@/hooks/recipe/useRecipes";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,8 @@ import { cn } from "@/lib/utils";
 interface RecipeFiltersProps {
   filters: RecipePaginationOptions;
   onFiltersChange: (filters: RecipePaginationOptions) => void;
+  /** Tags in use across the user's recipes; the Tags section hides when empty. */
+  availableTags?: RecipeTagSummary[];
 }
 
 const DIFFICULTY_OPTIONS = ["easy", "medium", "hard"] as const;
@@ -40,7 +43,11 @@ const CUISINE_OPTIONS = [
   "British",
 ] as const;
 
-export function RecipeFilters({ filters, onFiltersChange }: RecipeFiltersProps) {
+export function RecipeFilters({
+  filters,
+  onFiltersChange,
+  availableTags = [],
+}: RecipeFiltersProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchInput, setSearchInput] = useState(filters.search || "");
 
@@ -86,6 +93,14 @@ export function RecipeFilters({ filters, onFiltersChange }: RecipeFiltersProps) 
     onFiltersChange({ ...filters, allergenFree: updated.length ? updated : undefined });
   };
 
+  const toggleTag = (tag: string) => {
+    const current = filters.tags || [];
+    const updated = current.includes(tag)
+      ? current.filter((t) => t !== tag)
+      : [...current, tag];
+    onFiltersChange({ ...filters, tags: updated.length ? updated : undefined });
+  };
+
   const setDifficulty = (difficulty: string | undefined) => {
     onFiltersChange({
       ...filters,
@@ -115,6 +130,7 @@ export function RecipeFilters({ filters, onFiltersChange }: RecipeFiltersProps) 
     filters.mealType?.length ||
     filters.dietary?.length ||
     filters.allergenFree?.length ||
+    filters.tags?.length ||
     filters.cuisine ||
     filters.difficulty;
 
@@ -124,6 +140,7 @@ export function RecipeFilters({ filters, onFiltersChange }: RecipeFiltersProps) 
     filters.mealType?.length || 0,
     filters.dietary?.length || 0,
     filters.allergenFree?.length || 0,
+    filters.tags?.length || 0,
     filters.cuisine ? 1 : 0,
     filters.difficulty ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
@@ -241,6 +258,31 @@ export function RecipeFilters({ filters, onFiltersChange }: RecipeFiltersProps) 
             </div>
           </div>
 
+          {/* Tags (only those in use, so every option returns something) */}
+          {availableTags.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Tags</h4>
+              <div className="flex flex-wrap gap-2">
+                {availableTags.map(({ value, count }) => (
+                  <button
+                    key={value}
+                    onClick={() => toggleTag(value)}
+                    aria-pressed={!!filters.tags?.includes(value)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-sm transition-colors",
+                      filters.tags?.includes(value)
+                        ? "bg-blue-100 text-blue-700 border border-blue-300"
+                        : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-100"
+                    )}
+                  >
+                    {value}
+                    <span className="ml-1 text-xs text-gray-500">{count}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Allergen-Free */}
           <div>
             <h4 className="text-sm font-medium text-gray-700 mb-2">
@@ -352,6 +394,17 @@ export function RecipeFilters({ filters, onFiltersChange }: RecipeFiltersProps) 
               <button
                 onClick={() => toggleDietary(diet)}
                 className="ml-1 hover:text-green-900"
+              >
+                <XMarkIcon className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+          {filters.tags?.map((tag) => (
+            <Badge key={tag} variant="info" className="flex items-center gap-1">
+              {tag}
+              <button
+                onClick={() => toggleTag(tag)}
+                className="ml-1 hover:text-blue-900"
               >
                 <XMarkIcon className="h-3 w-3" />
               </button>

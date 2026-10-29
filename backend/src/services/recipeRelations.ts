@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { recipeIngredients, recipeCategories } from '../db/schema.js';
+import { RECIPE_MEAL_TYPES } from '../lib/validation.js';
 
 /**
  * Drizzle transaction handle type, derived from the callback argument passed to
@@ -66,9 +67,10 @@ export async function replaceRecipeRelations(
     await tx.delete(recipeCategories).where(eq(recipeCategories.recipeId, recipeId));
 
     // Insert new categories
-    if (categories.length > 0) {
+    const normalized = normalizeCategoryInputs(categories);
+    if (normalized.length > 0) {
       await tx.insert(recipeCategories).values(
-        categories.map((cat) => ({
+        normalized.map((cat) => ({
           recipeId,
           categoryType: cat.type,
           categoryValue: cat.value,
@@ -76,4 +78,37 @@ export async function replaceRecipeRelations(
       );
     }
   }
+}
+
+const MEAL_TYPE_SET = new Set<string>(RECIPE_MEAL_TYPES);
+
+/**
+ * Tidy category inputs before they're stored:
+ * - a meal_type outside the fixed list becomes a tag, since the app has no
+ *   meal-type filter for it (this is how "Camping" went missing from filters);
+ * - tag whitespace (and any commas) is collapsed;
+ * - duplicates are dropped, case-insensitively for tags ("Camping" vs
+ *   "camping"), so the unique constraint can't reject the whole save.
+ */
+export function normalizeCategoryInputs(
+  categories: RecipeCategoryInput[]
+): RecipeCategoryInput[] {
+  const seen = new Set<string>();
+  const result: RecipeCategoryInput[] = [];
+  for (const cat of categories) {
+    let { type, value } = cat;
+    value = value.trim();
+    if (type === 'meal_type' && !MEAL_TYPE_SET.has(value.toLowerCase())) {
+      type = 'tag';
+    }
+    // Commas are stripped too: the list endpoint takes tags comma-separated.
+    if (type === 'tag') value = value.replace(/[,\s]+/g, ' ').trim();
+    if (!value) continue;
+
+    const key = `${type}:${type === 'tag' ? value.toLowerCase() : value}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push({ type, value });
+  }
+  return result;
 }

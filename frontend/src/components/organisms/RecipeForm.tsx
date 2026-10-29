@@ -32,6 +32,8 @@ interface RecipeFormProps {
   onSubmit: (data: RecipeFormSubmitData) => Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
+  /** Tags used on other recipes, offered in the tag picker. */
+  availableTags?: string[];
 }
 
 const DIFFICULTY_OPTIONS = [
@@ -80,6 +82,7 @@ export function RecipeForm({
   onSubmit,
   onCancel,
   isLoading = false,
+  availableTags,
 }: RecipeFormProps) {
   // Parse existing data if editing
   const parseInstructions = (instructions?: string): { step: string }[] => {
@@ -462,6 +465,7 @@ export function RecipeForm({
                   selectedCategories={field.value || []}
                   onChange={field.onChange}
                   disabled={isSubmitting}
+                  availableTags={availableTags}
                 />
               )}
             />

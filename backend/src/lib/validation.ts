@@ -37,15 +37,31 @@ const recipeIngredientSchema = z.object({
 // `type` is a closed set: the frontend edit form validates against the same
 // three values, so accepting anything else here (as an earlier version did)
 // produced recipes the form could never re-save.
-export const RECIPE_CATEGORY_TYPES = ['meal_type', 'dietary', 'allergen'] as const;
+// `tag` is the open-ended group (e.g. "Camping", "Batch cook"): any value,
+// stored as the user typed it and matched case-insensitively.
+export const RECIPE_CATEGORY_TYPES = ['meal_type', 'dietary', 'allergen', 'tag'] as const;
+
+/** The fixed meal_type values the app offers; anything else is stored as a tag. */
+export const RECIPE_MEAL_TYPES = [
+  'breakfast',
+  'lunch',
+  'dinner',
+  'starter',
+  'main',
+  'side',
+  'dessert',
+  'snack',
+] as const;
 
 const recipeCategorySchema = z.object({
   type: z
     .enum(RECIPE_CATEGORY_TYPES)
     .describe(
-      'One of: meal_type (breakfast, lunch, dinner, starter, main, side, dessert, snack), ' +
+      `One of: meal_type (${RECIPE_MEAL_TYPES.join(', ')}), ` +
         'dietary (vegetarian, vegan, pescatarian, gluten_free, dairy_free, keto, paleo), ' +
-        'allergen (nuts, eggs, dairy, gluten, shellfish, soy, fish)'
+        'allergen (nuts, eggs, dairy, gluten, shellfish, soy, fish), ' +
+        'tag (free text for anything else, e.g. "Camping", "Batch cook", ' +
+        '"Freezer friendly" — reuse existing tags from list_recipe_tags where they fit)'
     ),
   value: z.string().min(1).max(100),
 });

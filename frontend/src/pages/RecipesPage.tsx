@@ -12,7 +12,12 @@ import { Card } from "@/components/atoms/Card";
 import { Badge } from "@/components/atoms/Badge";
 import { StarRating } from "@/components/atoms/StarRating";
 import { TimeBadge } from "@/components/atoms/TimeBadge";
-import { useRecipes, useRecipeData, type RecipePaginationOptions } from "@/hooks/recipe/useRecipes";
+import {
+  useRecipes,
+  useRecipeData,
+  useRecipeTags,
+  type RecipePaginationOptions,
+} from "@/hooks/recipe/useRecipes";
 import type { Recipe } from "@/types/recipe";
 
 const PAGE_SIZE = 12;
@@ -31,6 +36,7 @@ export function RecipesPage() {
     pageSize: PAGE_SIZE,
   });
   const { delete: deleteRecipe } = useRecipeData();
+  const { data: tags } = useRecipeTags();
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; recipe: Recipe | null; isDeleting: boolean }>({
     isOpen: false,
@@ -71,6 +77,7 @@ export function RecipesPage() {
     filters.mealType?.length ||
     filters.dietary?.length ||
     filters.allergenFree?.length ||
+    filters.tags?.length ||
     filters.cuisine ||
     filters.difficulty;
 
@@ -185,7 +192,11 @@ export function RecipesPage() {
 
       {/* Filters */}
       <div className="mb-6">
-        <RecipeFilters filters={filters} onFiltersChange={handleFiltersChange} />
+        <RecipeFilters
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
+          availableTags={tags}
+        />
       </div>
 
       {/* Results count */}

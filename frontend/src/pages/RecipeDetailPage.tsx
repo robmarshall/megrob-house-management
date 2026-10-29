@@ -316,6 +316,8 @@ export function RecipeDetailPage() {
                     ? "warning"
                     : cat.categoryType === "dietary"
                     ? "success"
+                    : cat.categoryType === "tag"
+                    ? "info"
                     : "primary"
                 }
               >

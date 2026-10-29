@@ -2,7 +2,7 @@ import { useParams, useNavigate } from "react-router";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import { MainLayout } from "@/components/templates/MainLayout";
 import { RecipeForm } from "@/components/organisms/RecipeForm";
-import { useRecipe, useRecipeData } from "@/hooks/recipe/useRecipes";
+import { useRecipe, useRecipeData, useRecipeTags } from "@/hooks/recipe/useRecipes";
 import type { Recipe } from "@/types/recipe";
 import type { RecipeFormSubmitData } from "@/lib/schemas";
 
@@ -13,6 +13,7 @@ export function EditRecipePage() {
 
   const { data: recipe, isLoading } = useRecipe(recipeId);
   const { edit, uploadImage } = useRecipeData();
+  const { data: tags } = useRecipeTags();
 
   const handleSubmit = async (data: RecipeFormSubmitData) => {
     let saved = false;
@@ -141,6 +142,7 @@ export function EditRecipePage() {
         initialData={recipe}
         onSubmit={handleSubmit}
         onCancel={handleCancel}
+        availableTags={tags?.map((t) => t.value)}
       />
     </MainLayout>
   );

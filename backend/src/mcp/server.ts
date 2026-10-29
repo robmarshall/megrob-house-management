@@ -12,6 +12,7 @@ import {
 } from '../services/shoppingListItemService.js';
 import {
   searchRecipes,
+  listRecipeTags,
   getRecipeDetail,
   createRecipe,
   updateRecipe,
@@ -361,7 +362,7 @@ export function createMcpServer(userId: string): McpServer {
       title: 'Search recipes',
       description:
         "Search the user's recipes by text (name, description, or ingredient), " +
-        'cuisine, difficulty, meal type, or dietary tags. Returns summaries — ' +
+        'cuisine, difficulty, meal type, dietary, or free-text tags. Returns summaries — ' +
         'use get_recipe with an id for ingredients and instructions.',
       inputSchema: {
         search: z
@@ -378,18 +379,26 @@ export function createMcpServer(userId: string): McpServer {
           .array(z.string())
           .optional()
           .describe('e.g. ["vegetarian"] — recipe must have ALL given tags'),
+        tags: z
+          .array(z.string())
+          .optional()
+          .describe(
+            'Free-text tags, e.g. ["Camping"] — recipe must have ALL given ' +
+              'tags (case-insensitive). See list_recipe_tags.'
+          ),
         favorite: z.boolean().optional().describe('Only favorited recipes'),
         page: pageSchema,
         pageSize: pageSizeSchema,
       },
     },
-    async ({ search, cuisine, difficulty, mealTypes, dietary, favorite, page, pageSize }) => {
+    async ({ search, cuisine, difficulty, mealTypes, dietary, tags, favorite, page, pageSize }) => {
       const result = await searchRecipes(userId, {
         search,
         cuisine,
         difficulty,
         mealTypes,
         dietary,
+        tags,
         favorite,
         page,
         pageSize,
@@ -417,6 +426,20 @@ export function createMcpServer(userId: string): McpServer {
         totalPages: result.totalPages,
       });
     }
+  );
+
+  registerLoggedTool(
+    'list_recipe_tags',
+    {
+      title: 'List recipe tags',
+      description:
+        'List the free-text tags (category type "tag") already used on the ' +
+        "user's recipes, with how many recipes have each. Check this before " +
+        'tagging a recipe so you reuse an existing spelling instead of ' +
+        'creating a near-duplicate.',
+      inputSchema: {},
+    },
+    async () => jsonResult({ tags: await listRecipeTags(userId) })
   );
 
   registerLoggedTool(

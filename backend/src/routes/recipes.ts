@@ -27,6 +27,7 @@ import { resolveItemCategories } from '../services/categoryService.js';
 import {
   verifyRecipeAccess,
   searchRecipes,
+  listRecipeTags,
   getRecipeDetail,
   createRecipe,
   updateRecipe,
@@ -72,6 +73,7 @@ async function verifyRecipeOwnership(recipeId: number, userId: string) {
  * - mealType: Filter by meal type (comma-separated for multiple)
  * - dietary: Filter by dietary (comma-separated for multiple)
  * - allergenFree: Exclude recipes with specific allergens (comma-separated)
+ * - tags: Filter by tag, recipe must have all (comma-separated)
  * - cuisine: Filter by cuisine
  * - difficulty: Filter by difficulty (easy/medium/hard)
  */
@@ -96,6 +98,7 @@ app.get('/', async (c) => {
   const mealType = c.req.query('mealType');
   const dietary = c.req.query('dietary');
   const allergenFree = c.req.query('allergenFree');
+  const tags = c.req.query('tags');
   const cuisine = c.req.query('cuisine');
   const difficulty = c.req.query('difficulty');
 
@@ -109,6 +112,7 @@ app.get('/', async (c) => {
       mealTypes: mealType ? mealType.split(',') : undefined,
       dietary: dietary ? dietary.split(',') : undefined,
       allergenFree: allergenFree ? allergenFree.split(',') : undefined,
+      tags: tags ? tags.split(',') : undefined,
       cuisine,
       difficulty,
     });
@@ -117,6 +121,21 @@ app.get('/', async (c) => {
   } catch (error) {
     logger.error({ err: error }, "Error fetching recipes");
     return c.json({ error: 'Failed to fetch recipes' }, 500);
+  }
+});
+
+/**
+ * GET /api/recipes/tags
+ * Tags in use across the user's recipes, with how many recipes have each.
+ * Registered before /:id so "tags" isn't read as a recipe id.
+ */
+app.get('/tags', async (c) => {
+  const userId = getUserId(c);
+  try {
+    return c.json({ tags: await listRecipeTags(userId) });
+  } catch (error) {
+    logger.error({ err: error }, "Error fetching recipe tags");
+    return c.json({ error: 'Failed to fetch recipe tags' }, 500);
   }
 });
 

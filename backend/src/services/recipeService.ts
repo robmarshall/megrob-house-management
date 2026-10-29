@@ -73,8 +73,58 @@ export interface SearchRecipesOptions {
   mealTypes?: string[];
   dietary?: string[];
   allergenFree?: string[];
+  /** Free-text tags; the recipe must have ALL of them (case-insensitive). */
+  tags?: string[];
   cuisine?: string;
   difficulty?: string;
+}
+
+/**
+ * Recipes the user can see: their household's, plus personal ones (or only
+ * their own when they have no household).
+ */
+async function recipeScopeCondition(userId: string): Promise<SQL> {
+  const householdId = await getUserHouseholdId(userId);
+  if (householdId) {
+    return or(
+      eq(recipes.householdId, householdId),
+      and(eq(recipes.createdBy, userId), isNull(recipes.householdId))
+    )!;
+  }
+  return eq(recipes.createdBy, userId);
+}
+
+export interface RecipeTagSummary {
+  value: string;
+  count: number;
+}
+
+/**
+ * Distinct tags across the user's visible ready recipes, most used first.
+ * Spellings that differ only in case are grouped; the first stored spelling
+ * (alphabetically) is the one shown.
+ */
+export async function listRecipeTags(userId: string): Promise<RecipeTagSummary[]> {
+  const rows = await db
+    .select({
+      value: sql<string>`MIN(${recipeCategories.categoryValue})`,
+      count: sql<number>`COUNT(DISTINCT ${recipeCategories.recipeId})::int`,
+    })
+    .from(recipeCategories)
+    .innerJoin(recipes, eq(recipes.id, recipeCategories.recipeId))
+    .where(
+      and(
+        await recipeScopeCondition(userId),
+        eq(recipes.status, 'ready'),
+        eq(recipeCategories.categoryType, 'tag')
+      )
+    )
+    .groupBy(sql`LOWER(${recipeCategories.categoryValue})`)
+    .orderBy(
+      desc(sql`COUNT(DISTINCT ${recipeCategories.recipeId})`),
+      asc(sql`MIN(${recipeCategories.categoryValue})`)
+    );
+  return rows;
 }
 
 export interface SearchRecipesResult {
@@ -102,26 +152,13 @@ export async function searchRecipes(
     mealTypes,
     dietary,
     allergenFree,
+    tags,
     cuisine,
     difficulty,
   } = options;
   const offset = (page - 1) * pageSize;
 
-  const householdId = await getUserHouseholdId(userId);
-
-  const conditions: SQL[] = [];
-
-  // Scope to household (or personal recipes if no household)
-  if (householdId) {
-    conditions.push(
-      or(
-        eq(recipes.householdId, householdId),
-        and(eq(recipes.createdBy, userId), isNull(recipes.householdId))
-      )!
-    );
-  } else {
-    conditions.push(eq(recipes.createdBy, userId));
-  }
+  const conditions: SQL[] = [await recipeScopeCondition(userId)];
 
   // Status filter (default to 'ready' if not specified)
   if (!status) {
@@ -204,6 +241,23 @@ export async function searchRecipes(
           )
         );
       conditions.push(exists(dietarySubquery));
+    }
+  }
+
+  // Tag filter (must have ALL specified tags)
+  if (tags && tags.length > 0) {
+    for (const tag of tags.map((t) => t.trim().toLowerCase()).filter(Boolean)) {
+      const tagSubquery = db
+        .select({ recipeId: recipeCategories.recipeId })
+        .from(recipeCategories)
+        .where(
+          and(
+            eq(recipeCategories.recipeId, recipes.id),
+            eq(recipeCategories.categoryType, 'tag'),
+            sql`LOWER(${recipeCategories.categoryValue}) = ${tag}`
+          )
+        );
+      conditions.push(exists(tagSubquery));
     }
   }
 

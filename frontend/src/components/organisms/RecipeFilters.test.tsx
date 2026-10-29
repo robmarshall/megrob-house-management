@@ -101,4 +101,31 @@ describe("RecipeFilters", () => {
 
     expect(searchInput).toHaveValue("soup");
   });
+
+  it("shows tags in use and toggles them as a filter", async () => {
+    const user = userEvent.setup();
+    const handleFiltersChange = vi.fn();
+
+    render(
+      <RecipeFilters
+        filters={{}}
+        onFiltersChange={handleFiltersChange}
+        availableTags={[{ value: "Camping", count: 2 }]}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /Filters/ }));
+    await user.click(screen.getByRole("button", { name: /Camping/ }));
+
+    expect(handleFiltersChange).toHaveBeenCalledWith({ tags: ["Camping"] });
+  });
+
+  it("hides the Tags section when no recipe has a tag", async () => {
+    const user = userEvent.setup();
+    render(<RecipeFilters filters={{}} onFiltersChange={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: /Filters/ }));
+
+    expect(screen.queryByRole("heading", { name: "Tags" })).not.toBeInTheDocument();
+  });
 });

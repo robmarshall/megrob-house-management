@@ -4,6 +4,7 @@ export const CATEGORY_TYPES: readonly RecipeCategoryType[] = [
   "meal_type",
   "dietary",
   "allergen",
+  "tag",
 ];
 
 /** Lower-cased spellings seen in the wild, mapped to the canonical type. */
@@ -18,6 +19,8 @@ const CATEGORY_TYPE_ALIASES: Record<string, RecipeCategoryType> = {
   allergen: "allergen",
   allergens: "allergen",
   allergy: "allergen",
+  tag: "tag",
+  tags: "tag",
 };
 
 export interface NormalizedCategories {
@@ -28,7 +31,7 @@ export interface NormalizedCategories {
 
 /**
  * Map stored category rows to the recipe form's { type, value } shape,
- * coercing legacy/alias type names to the three the schema accepts.
+ * coercing legacy/alias type names to the types the schema accepts.
  *
  * Recipes created via the API/MCP before category types were locked down can
  * carry tags like "meal" or "dish". The form schema rejects those, and since
